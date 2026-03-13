@@ -392,7 +392,7 @@ export default function Home() {
             <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-500">{editError}</p>
           )}
           <div className="mt-6 flex items-center justify-between">
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-50"
                 onClick={handleCopy}
@@ -414,7 +414,7 @@ export default function Home() {
                 削除
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 className="rounded-full px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100"
                 onClick={() => {

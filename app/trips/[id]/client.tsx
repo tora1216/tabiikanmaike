@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useTrips } from "@/components/trip-context";
-import { TripActivity, PackingItem } from "@/lib/trips";
+import { TripActivity, PackingItem, NoteEntry } from "@/lib/trips";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
@@ -163,7 +163,7 @@ function ActivityCard({
 
         {/* Action buttons */}
         {!overlay && (onEdit || onDelete) && (
-          <div className="flex flex-shrink-0 flex-col gap-1">
+          <div className="flex flex-shrink-0 items-center gap-1">
             {onEdit && (
               <button
                 type="button"
@@ -453,6 +453,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   // Packing list state
   const [packingInput, setPackingInput] = useState("");
 
+  // Notes chat state
+  const [noteInput, setNoteInput] = useState("");
+
   // Form validation
   const [formError, setFormError] = useState("");
 
@@ -518,6 +521,17 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const allDayNumbers = Array.from({ length: tripDayCount }, (_, i) => i + 1);
   const grad = hashGradient(tripData.id);
   const totalCost = tripData.days.reduce((s, a) => s + (a.cost || 0), 0);
+
+  // Countdown
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tripStart = new Date(tripData.startDate); tripStart.setHours(0, 0, 0, 0);
+  const tripEnd = new Date(tripData.endDate); tripEnd.setHours(0, 0, 0, 0);
+  const daysUntil = Math.ceil((tripStart.getTime() - today.getTime()) / 86400000);
+  const countdownLabel =
+    daysUntil > 0 ? `✈️ 旅まであと ${daysUntil} 日` :
+    daysUntil === 0 ? `🎉 今日から旅行！` :
+    today <= tripEnd ? `🌏 旅行中！` :
+    `📸 ${Math.abs(daysUntil)} 日前の旅行`;
   const unassigned = tripData.days.filter((d) => d.day === 0);
   const draggedActivity = dragActiveId
     ? tripData.days.find((d) => activityId(d) === dragActiveId)
@@ -720,7 +734,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             {tripData.description && (
               <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/80">{tripData.description}</p>
             )}
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3">
+              <span className="text-sm font-bold text-white/90">{countdownLabel}</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                 {tripDayCount}日間
               </span>
@@ -992,12 +1009,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {activeTab === "expenses" && (
           <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
             <div className="space-y-4">
-              {/* Total */}
+              {/* Budget + Total */}
               <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60">
-                <p className="text-xs font-semibold text-slate-500">旅の合計費用</p>
-                <p className="mt-1 text-3xl font-black text-slate-900">
-                  ¥{totalCost.toLocaleString()}
-                </p>
+                  <p className="text-xs font-semibold text-slate-500">旅の合計費用</p>
+                <p className="mt-1 text-3xl font-black text-slate-900">¥{totalCost.toLocaleString()}</p>
                 {totalCost === 0 && (
                   <p className="mt-1 text-xs text-slate-400">旅程タブで各アクティビティに費用を入力してください。</p>
                 )}
@@ -1074,22 +1089,72 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
         {/* ── Notes tab ── */}
         {activeTab === "notes" && (
-          <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
-            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60">
-              <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3">
-                <span className="text-sm font-semibold text-slate-700">旅のメモ</span>
-                <p className="mt-0.5 text-xs text-slate-400">予約番号・連絡先・なんでも自由に</p>
+          <main className="mx-auto max-w-3xl px-4 pb-32 pt-6 sm:px-6">
+            {/* Message list */}
+            <div className="space-y-3">
+              {(tripData.noteEntries ?? []).length === 0 && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-14 text-center">
+                  <span className="text-4xl">📝</span>
+                  <p className="mt-3 text-sm font-semibold text-slate-500">メモはまだありません</p>
+                  <p className="mt-1 text-xs text-slate-400">予約番号・連絡先・気になることを残しておこう</p>
+                </div>
+              )}
+              {(tripData.noteEntries ?? []).map((entry) => (
+                <div key={entry.id} className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#3EA8FF] text-sm text-white">
+                    ✈
+                  </div>
+                  <div className="flex-1 rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200/60">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{entry.text}</p>
+                    <p className="mt-1.5 text-[10px] text-slate-400">{new Date(entry.createdAt).toLocaleString("ja-JP", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateTrip(tripData.id, (c) => ({
+                        ...c,
+                        noteEntries: (c.noteEntries ?? []).filter((n) => n.id !== entry.id),
+                      }))
+                    }
+                    className="mt-1 shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Input bar */}
+            <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
+              <div className="mx-auto flex max-w-3xl gap-2">
+                <textarea
+                  className={`${inputCls} resize-none`}
+                  rows={1}
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="メモを追加…"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && noteInput.trim()) {
+                      e.preventDefault();
+                      const entry: NoteEntry = { id: `note-${Date.now()}`, text: noteInput.trim(), createdAt: new Date().toISOString() };
+                      updateTrip(tripData.id, (c) => ({ ...c, noteEntries: [...(c.noteEntries ?? []), entry] }));
+                      setNoteInput("");
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#3EA8FF] px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 active:scale-95"
+                  onClick={() => {
+                    if (!noteInput.trim()) return;
+                    const entry: NoteEntry = { id: `note-${Date.now()}`, text: noteInput.trim(), createdAt: new Date().toISOString() };
+                    updateTrip(tripData.id, (c) => ({ ...c, noteEntries: [...(c.noteEntries ?? []), entry] }));
+                    setNoteInput("");
+                  }}
+                >
+                  送信
+                </button>
               </div>
-              <textarea
-                className="w-full resize-none px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none placeholder:text-slate-300 focus:bg-slate-50/50"
-                rows={20}
-                placeholder={"例）&#10;宿泊先：〇〇ホテル　TEL: 03-XXXX-XXXX&#10;予約番号：ABC123&#10;&#10;緊急連絡先：XXX&#10;&#10;持っていくもの・メモなど…"}
-                value={tripData.notes ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  updateTrip(tripData.id, (c) => ({ ...c, notes: val }));
-                }}
-              />
             </div>
           </main>
         )}
