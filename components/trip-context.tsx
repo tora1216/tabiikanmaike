@@ -13,17 +13,40 @@ type TripContextValue = {
 const TripContext = createContext<TripContextValue | undefined>(undefined);
 
 export function TripProvider({ children }: { children: React.ReactNode }) {
-  const [trips, setTrips] = useState<Trip[]>(() => {
-    return initialTrips;
-  });
+  const [trips, setTrips] = useState<Trip[]>(initialTrips);
+  const [hydrated, setHydrated] = useState(false);
 
-  // useEffect(() => {
-  //   try {
-  //     window.localStorage.setItem("trips", JSON.stringify(trips));
-  //   } catch {
-  //     // ignore write errors
-  //   }
-  // }, [trips]);
+  // Load from localStorage after mount to avoid SSR mismatch
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("trips");
+      if (stored) {
+        const parsed = JSON.parse(stored) as Trip[];
+        // Normalize icon field: replace old text-based icons with a default emoji
+        const normalized = parsed.map((trip) => ({
+          ...trip,
+          days: trip.days.map((d) => ({
+            ...d,
+            icon: d.icon && d.icon.length <= 4 ? d.icon : "📍",
+          })),
+        }));
+        setTrips(normalized);
+      }
+    } catch {
+      // ignore read errors
+    }
+    setHydrated(true);
+  }, []);
+
+  // Persist to localStorage whenever trips change (after hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem("trips", JSON.stringify(trips));
+    } catch {
+      // ignore write errors
+    }
+  }, [trips, hydrated]);
 
   const value = useMemo<TripContextValue>(
     () => ({
@@ -39,11 +62,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       },
       updateTrip: (id, updater) => {
         setTrips((prev) =>
-          prev.map((trip) => (trip.id === id ? updater(trip) : trip)),
+          prev.map((trip) => (trip.id === id ? updater(trip) : trip))
         );
       },
     }),
-    [trips],
+    [trips]
   );
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>;
@@ -56,4 +79,3 @@ export function useTrips() {
   }
   return ctx;
 }
-

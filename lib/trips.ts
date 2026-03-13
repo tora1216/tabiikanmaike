@@ -2,9 +2,18 @@ export type TripActivity = {
   day: number;
   time: string;
   icon: string;
+  type?: "place" | "transport";
   destination: string;
+  from?: string; // transport: departure
+  to?: string;   // transport: arrival
   memo?: string;
   cost?: number;
+};
+
+export type PackingItem = {
+  id: string;
+  label: string;
+  checked: boolean;
 };
 
 export type Trip = {
@@ -14,6 +23,8 @@ export type Trip = {
   endDate: string;
   description: string;
   days: TripActivity[];
+  packingList?: PackingItem[];
+  notes?: string;
 };
 
 export const initialTrips: Trip[] = [
@@ -118,25 +129,25 @@ export const initialTrips: Trip[] = [
       {
         day: 2,
         time: "10:00 - 12:00",
-        icon: "観光スポット",
+        icon: "🌿",
         destination: "嵐山竹林の小径",
       },
       {
         day: 2,
         time: "12:00 - 14:00",
-        icon: "観光スポット",
+        icon: "🌿",
         destination: "渡月橋",
       },
       {
         day: 3,
         time: "10:00 - 12:00",
-        icon: "ご飯",
+        icon: "☕",
         destination: "レトロ喫茶",
       },
       {
         day: 3,
         time: "12:00 - 14:00",
-        icon: "ご飯",
+        icon: "🍵",
         destination: "抹茶スイーツの有名店",
       },
     ],
