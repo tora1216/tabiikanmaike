@@ -447,8 +447,12 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   // Tab state
   const [activeTab, setActiveTab] = useState<"itinerary" | "packing" | "expenses" | "notes">("itinerary");
 
-  // Share toast
-  const [shareToast, setShareToast] = useState(false);
+  // Share modal
+  const [shareModal, setShareModal] = useState(false);
+  const [shareText, setShareText] = useState("");
+  const [shareLink, setShareLink] = useState("");
+  const [copiedText, setCopiedText] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Packing list state
   const [packingInput, setPackingInput] = useState("");
@@ -675,7 +679,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="ml-4 flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                title="旅程をテキストでコピー"
                 onClick={() => {
                   const lines: string[] = [
                     `✈️ ${tripData.title}`,
@@ -697,10 +700,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     lines.push("");
                   });
                   if (tripData.notes) { lines.push(`📓 メモ`); lines.push(tripData.notes); }
-                  navigator.clipboard.writeText(lines.join("\n")).then(() => {
-                    setShareToast(true);
-                    setTimeout(() => setShareToast(false), 2000);
-                  });
+                  const text = lines.join("\n");
+                  const encoded = encodeURIComponent(JSON.stringify(tripData));
+                  const link = `${window.location.origin}/trips/import?data=${encoded}`;
+                  setShareText(text);
+                  setShareLink(link);
+                  setCopiedText(false);
+                  setCopiedLink(false);
+                  setShareModal(true);
                 }}
                 className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
               >
@@ -714,14 +721,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               </Link>
             </div>
           </div>
-          {/* Share toast */}
-          {shareToast && (
-            <div className="absolute inset-x-0 top-full flex justify-center pt-2 z-50">
-              <span className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-semibold text-white shadow-lg">
-                クリップボードにコピーしました
-              </span>
-            </div>
-          )}
         </header>
 
         {/* Banner */}
@@ -1256,6 +1255,57 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             >
               キャンセル
             </button>
+          </div>
+        </Modal>
+      )}
+      {/* Share Modal */}
+      {shareModal && (
+        <Modal title="旅を共有" onClose={() => setShareModal(false)}>
+          <div className="space-y-4">
+            {/* Share link */}
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-slate-500">共有リンク</p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={shareLink}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareLink);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 2000);
+                  }}
+                  className="shrink-0 rounded-lg bg-blue-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-600"
+                >
+                  {copiedLink ? "コピー済" : "コピー"}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400">このリンクを開くと旅程をインポートできます</p>
+            </div>
+            {/* Text output */}
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-slate-500">テキスト出力</p>
+              <textarea
+                readOnly
+                value={shareText}
+                rows={8}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(shareText);
+                  setCopiedText(true);
+                  setTimeout(() => setCopiedText(false), 2000);
+                }}
+                className="mt-2 w-full rounded-lg border border-slate-200 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                {copiedText ? "コピー済み ✓" : "テキストをコピー"}
+              </button>
+            </div>
           </div>
         </Modal>
       )}
