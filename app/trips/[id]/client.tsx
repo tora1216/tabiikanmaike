@@ -364,7 +364,7 @@ function ActivityForm({
       {activityType === "transport" && (
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">出発地 → 目的地 *</label>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <input
                 className={inputCls}
@@ -379,7 +379,8 @@ function ActivityForm({
                 </span>
               )}
             </div>
-            <span className="shrink-0 text-sm text-slate-400">→</span>
+            <span className="hidden shrink-0 text-sm text-slate-400 sm:block">→</span>
+            <span className="block text-xs font-semibold text-slate-400 sm:hidden">↓ 目的地</span>
             <div className="relative flex-1">
               <input
                 className={inputCls}
@@ -399,7 +400,7 @@ function ActivityForm({
       )}
 
       {/* Common: time */}
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <div className="flex-1">
           <label className="mb-1 block text-xs font-semibold text-slate-600">開始時間</label>
           <input type="time" className={inputCls} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
