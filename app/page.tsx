@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTrips } from "@/components/trip-context";
-import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon } from "@heroicons/react/24/outline";
 
 const GRADIENTS = [
   "from-sky-400 to-blue-500",
@@ -158,11 +158,14 @@ export default function Home() {
     <div className="min-h-screen bg-[#F0F5FA]">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">✈️</span>
             <span className="text-base font-extrabold tracking-tight text-slate-900">旅いかんまいけ</span>
           </div>
+          <Link href="/profile" className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">
+            <UserCircleIcon className="h-7 w-7" />
+          </Link>
         </div>
       </header>
 
