@@ -288,7 +288,7 @@ export default function Home() {
                 placeholder="例）夏の北海道ドライブ旅"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <div className="flex-1">
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
@@ -361,7 +361,7 @@ export default function Home() {
                 onChange={(e) => setEditTitle(e.target.value)}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <div className="flex-1">
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
