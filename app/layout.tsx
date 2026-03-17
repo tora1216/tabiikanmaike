@@ -9,7 +9,7 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "旅いかんまいけ",
+  title: "旅のしおり",
   description: "旅行プランを日別に管理できるアプリ",
 };
 

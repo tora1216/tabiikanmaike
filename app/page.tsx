@@ -172,7 +172,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">✈️</span>
-            <span className="text-base font-extrabold tracking-tight text-slate-900">旅いかんまいけ</span>
+            <span className="text-base font-extrabold tracking-tight text-slate-900">旅のしおり</span>
           </div>
           <Link href="/profile" className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">
             <UserCircleIcon className="h-7 w-7" />
@@ -186,7 +186,7 @@ export default function Home() {
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-sky-200">
             Travel Planner
           </p>
-          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">旅いかんまいけ</h1>
+          <h1 className="text-3xl font-black tracking-tight sm:text-4xl">旅のしおり</h1>
           <p className="mt-3 max-w-md text-sm leading-relaxed text-sky-100 sm:text-base">
             行きたい旅・行った旅のプランを管理。日別スケジュールをまとめて、思い出の旅をカタチにしましょう。
           </p>
