@@ -52,7 +52,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     () => ({
       trips,
       addTrip: (tripWithoutId) => {
-        const id = `trip-${Date.now()}`;
+        const date = (tripWithoutId.startDate ?? "").replace(/-/g, "") || Date.now().toString();
+        const rand = Math.random().toString(36).slice(2, 6);
+        const id = `trip-${date}-${rand}`;
         const newTrip: Trip = { ...tripWithoutId, id };
         setTrips((prev) => [...prev, newTrip]);
         return newTrip;

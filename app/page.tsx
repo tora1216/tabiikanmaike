@@ -130,7 +130,7 @@ export default function Home() {
     });
     setEditOpen(false);
     setEditId(null);
-    router.push(`/trips/${copied.id}`);
+    router.push(`/trips?id=${copied.id}`);
   };
 
   const handleUpdate = () => {
@@ -237,7 +237,7 @@ export default function Home() {
                   </div>
 
                   {/* Card body */}
-                  <Link href={`/trips/${trip.id}`} className="block p-4">
+                  <Link href={`/trips?id=${trip.id}`} className="block p-4">
                     <h3 className="line-clamp-1 font-bold text-slate-900 transition-colors group-hover:text-[#3EA8FF]">
                       {trip.title}
                     </h3>

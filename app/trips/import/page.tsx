@@ -47,7 +47,7 @@ function ImportContent() {
         noteEntries: trip!.noteEntries,
       });
       setImported(true);
-      setTimeout(() => router.push(`/trips/${newTrip.id}`), 800);
+      setTimeout(() => router.push(`/trips?id=${newTrip.id}`), 800);
     } catch {
       setError("インポートに失敗しました。");
     }
