@@ -304,7 +304,7 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
-                  className={inputCls}
+                  className={`${inputCls} appearance-none`}
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
@@ -313,7 +313,7 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"
-                  className={inputCls}
+                  className={`${inputCls} appearance-none`}
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
@@ -377,7 +377,7 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
-                  className={inputCls}
+                  className={`${inputCls} appearance-none`}
                   value={editStart}
                   onChange={(e) => setEditStart(e.target.value)}
                 />
@@ -386,7 +386,7 @@ export default function Home() {
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"
-                  className={inputCls}
+                  className={`${inputCls} appearance-none`}
                   value={editEnd}
                   onChange={(e) => setEditEnd(e.target.value)}
                 />

@@ -412,11 +412,11 @@ function ActivityForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">開始時間</label>
-          <input type="time" className={inputCls} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <input type="time" className={`${inputCls} appearance-none`} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">終了時間</label>
-          <input type="time" className={inputCls} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          <input type="time" className={`${inputCls} appearance-none`} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </div>
       </div>
 
