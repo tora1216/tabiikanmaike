@@ -299,7 +299,7 @@ export default function Home() {
                 placeholder="例）夏の北海道ドライブ旅"
               />
             </div>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
@@ -372,8 +372,8 @@ export default function Home() {
                 onChange={(e) => setEditTitle(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
@@ -382,7 +382,7 @@ export default function Home() {
                   onChange={(e) => setEditStart(e.target.value)}
                 />
               </div>
-              <div className="flex-1">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"
