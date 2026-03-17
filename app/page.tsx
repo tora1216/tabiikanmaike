@@ -300,7 +300,7 @@ export default function Home() {
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="overflow-hidden">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
@@ -309,7 +309,7 @@ export default function Home() {
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
-              <div className="overflow-hidden">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"
@@ -373,7 +373,7 @@ export default function Home() {
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="overflow-hidden">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
@@ -382,7 +382,7 @@ export default function Home() {
                   onChange={(e) => setEditStart(e.target.value)}
                 />
               </div>
-              <div className="overflow-hidden">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"
