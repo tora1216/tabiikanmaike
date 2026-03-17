@@ -306,7 +306,10 @@ export default function Home() {
                   type="date"
                   className={`${inputCls} appearance-none`}
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (endDate && e.target.value > endDate) setEndDate("");
+                  }}
                 />
               </div>
               <div>
@@ -315,6 +318,7 @@ export default function Home() {
                   type="date"
                   className={`${inputCls} appearance-none`}
                   value={endDate}
+                  min={startDate || undefined}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
               </div>
@@ -379,7 +383,10 @@ export default function Home() {
                   type="date"
                   className={`${inputCls} appearance-none`}
                   value={editStart}
-                  onChange={(e) => setEditStart(e.target.value)}
+                  onChange={(e) => {
+                    setEditStart(e.target.value);
+                    if (editEnd && e.target.value > editEnd) setEditEnd("");
+                  }}
                 />
               </div>
               <div>
@@ -388,6 +395,7 @@ export default function Home() {
                   type="date"
                   className={`${inputCls} appearance-none`}
                   value={editEnd}
+                  min={editStart || undefined}
                   onChange={(e) => setEditEnd(e.target.value)}
                 />
               </div>
