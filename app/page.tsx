@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTrips } from "@/components/trip-context";
-import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 const GRADIENTS = [
   "from-sky-400 to-blue-500",
@@ -56,8 +56,19 @@ function Modal({
         className="relative w-full max-h-[90vh] overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-bold text-slate-900">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+            {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
         {children}
       </div>
     </div>
@@ -288,8 +299,8 @@ export default function Home() {
                 placeholder="例）夏の北海道ドライブ旅"
               />
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex-1">
+            <div className="space-y-3">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
@@ -298,7 +309,7 @@ export default function Home() {
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
-              <div className="flex-1">
+              <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"

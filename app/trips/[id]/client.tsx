@@ -7,7 +7,7 @@ import { TripActivity, PackingItem, NoteEntry } from "@/lib/trips";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
-  DocumentTextIcon, ShareIcon,
+  DocumentTextIcon, ShareIcon, XMarkIcon,
 } from "@heroicons/react/24/outline";
 import {
   DndContext,
@@ -242,7 +242,16 @@ function Modal({
         className="relative max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-lg font-bold text-slate-900">{title}</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
         {children}
       </div>
     </div>
@@ -400,12 +409,12 @@ function ActivityForm({
       )}
 
       {/* Common: time */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="flex-1">
+      <div className="space-y-3">
+        <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">開始時間</label>
           <input type="time" className={inputCls} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
         </div>
-        <div className="flex-1">
+        <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600">終了時間</label>
           <input type="time" className={inputCls} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </div>
