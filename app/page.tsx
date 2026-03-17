@@ -33,7 +33,7 @@ function tripDayCount(start: string, end: string) {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none ring-[#3EA8FF] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#3EA8FF] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
 
 function Modal({
   title,
@@ -53,7 +53,7 @@ function Modal({
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative w-full max-h-[90vh] overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl"
+        className="relative w-full max-h-[90vh] overflow-x-hidden overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
@@ -300,7 +300,7 @@ export default function Home() {
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div>
+              <div className="overflow-hidden">
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
@@ -309,7 +309,7 @@ export default function Home() {
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="overflow-hidden">
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"
@@ -373,7 +373,7 @@ export default function Home() {
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div>
+              <div className="overflow-hidden">
                 <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
                 <input
                   type="date"
@@ -382,7 +382,7 @@ export default function Home() {
                   onChange={(e) => setEditStart(e.target.value)}
                 />
               </div>
-              <div>
+              <div className="overflow-hidden">
                 <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
                 <input
                   type="date"

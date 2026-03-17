@@ -61,7 +61,7 @@ const TRANSPORT_CATEGORIES = [
 ];
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none ring-[#3EA8FF] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#3EA8FF] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -239,7 +239,7 @@ function Modal({
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative max-h-[90vh] w-full overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl"
+        className="relative max-h-[90vh] w-full overflow-x-hidden overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -410,11 +410,11 @@ function ActivityForm({
 
       {/* Common: time */}
       <div className="grid grid-cols-2 gap-2">
-        <div>
+        <div className="overflow-hidden">
           <label className="mb-1 block text-xs font-semibold text-slate-600">開始時間</label>
           <input type="time" className={inputCls} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
         </div>
-        <div>
+        <div className="overflow-hidden">
           <label className="mb-1 block text-xs font-semibold text-slate-600">終了時間</label>
           <input type="time" className={inputCls} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </div>
@@ -1134,7 +1134,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             </div>
 
             {/* Input bar */}
-            <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200/80 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
+            <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200/80 bg-white/95 px-4 pb-8 pt-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto flex max-w-3xl gap-2">
                 <textarea
                   className={`${inputCls} resize-none`}
