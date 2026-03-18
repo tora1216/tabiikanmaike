@@ -240,7 +240,12 @@ function SortableItem({
     >
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
-          <ActivityCard activity={activity} onEdit={onEdit} onDelete={onDelete} onMapsClick={onMapsClick} />
+          <ActivityCard
+            activity={activity}
+            onEdit={isEditMode ? undefined : onEdit}
+            onDelete={isEditMode ? undefined : onDelete}
+            onMapsClick={isEditMode ? undefined : onMapsClick}
+          />
         </div>
         {isEditMode && (
           <div
