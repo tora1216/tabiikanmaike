@@ -90,7 +90,7 @@ type CountryDef = { id: string; name: string; continent: string; flag: string };
 const CONTINENTS = [
   { id: "asia",          name: "アジア",         emoji: "🌏" },
   { id: "europe",        name: "ヨーロッパ",     emoji: "🌍" },
-  { id: "north_america", name: "北米・太平洋",   emoji: "🌎" },
+  { id: "north_america", name: "北米・オセアニア", emoji: "🌎" },
   { id: "south_america", name: "中南米",         emoji: "🌎" },
   { id: "middle_east",   name: "中東",           emoji: "🕌" },
   { id: "africa",        name: "アフリカ",       emoji: "🌍" },
@@ -140,16 +140,13 @@ const COUNTRIES: CountryDef[] = [
   { id: "denmark",      name: "デンマーク",   continent: "europe",        flag: "🇩🇰" },
   { id: "iceland",      name: "アイスランド", continent: "europe",        flag: "🇮🇸" },
   { id: "russia",       name: "ロシア",       continent: "europe",        flag: "🇷🇺" },
-  // 北米・太平洋
-  { id: "usa",          name: "アメリカ",     continent: "north_america", flag: "🇺🇸" },
-  { id: "canada",       name: "カナダ",       continent: "north_america", flag: "🇨🇦" },
-  { id: "mexico",       name: "メキシコ",     continent: "north_america", flag: "🇲🇽" },
-  { id: "hawaii",       name: "ハワイ",       continent: "north_america", flag: "🌺" },
-  { id: "guam",         name: "グアム",       continent: "north_america", flag: "🇬🇺" },
-  { id: "saipan",       name: "サイパン",     continent: "north_america", flag: "🏝️" },
+  // 北米・オセアニア
+  { id: "usa",          name: "アメリカ",       continent: "north_america", flag: "🇺🇸" },
+  { id: "canada",       name: "カナダ",         continent: "north_america", flag: "🇨🇦" },
+  { id: "mexico",       name: "メキシコ",       continent: "north_america", flag: "🇲🇽" },
   { id: "australia",    name: "オーストラリア", continent: "north_america", flag: "🇦🇺" },
-  { id: "new_zealand",  name: "NZ",          continent: "north_america", flag: "🇳🇿" },
-  { id: "fiji",         name: "フィジー",     continent: "north_america", flag: "🇫🇯" },
+  { id: "new_zealand",  name: "NZ",             continent: "north_america", flag: "🇳🇿" },
+  { id: "fiji",         name: "フィジー",       continent: "north_america", flag: "🇫🇯" },
   // 中南米
   { id: "brazil",       name: "ブラジル",     continent: "south_america", flag: "🇧🇷" },
   { id: "argentina",    name: "アルゼンチン", continent: "south_america", flag: "🇦🇷" },
@@ -175,91 +172,6 @@ const COUNTRIES: CountryDef[] = [
 ];
 
 const MAX_SCORE_WORLD = COUNTRIES.length * 5;
-
-// ─── 海外タイルマップ（地理的グリッド 24列×11行） ─────────────────────────────
-// col 0-3: 南北アメリカ  col 5-10: ヨーロッパ/地中海  col 11-13: 中東/アフリカ
-// col 14-17: 南/中央アジア  col 18-21: 東/東南アジア  col 22-23: 太平洋/オセアニア
-
-type WorldTile = { id: string; col: number; row: number };
-
-const WORLD_TILES: WorldTile[] = [
-  // ─ 南北アメリカ ─
-  { id: "canada",       col:  1, row:  1 },
-  { id: "usa",          col:  1, row:  2 },
-  { id: "hawaii",       col:  0, row:  3 },
-  { id: "mexico",       col:  1, row:  3 },
-  { id: "cuba",         col:  2, row:  3 },
-  { id: "costa_rica",   col:  2, row:  4 },
-  { id: "colombia",     col:  2, row:  5 },
-  { id: "peru",         col:  1, row:  7 },
-  { id: "brazil",       col:  3, row:  6 },
-  { id: "chile",        col:  1, row:  9 },
-  { id: "argentina",    col:  2, row:  9 },
-  // ─ ヨーロッパ ─
-  { id: "iceland",      col:  5, row:  0 },
-  { id: "norway",       col:  7, row:  0 },
-  { id: "sweden",       col:  8, row:  0 },
-  { id: "finland",      col:  9, row:  0 },
-  { id: "uk",           col:  6, row:  1 },
-  { id: "denmark",      col:  8, row:  1 },
-  { id: "poland",       col:  9, row:  1 },
-  { id: "russia",       col: 13, row:  1 },
-  { id: "france",       col:  6, row:  2 },
-  { id: "belgium",      col:  7, row:  2 },
-  { id: "netherlands",  col:  8, row:  2 },
-  { id: "germany",      col:  9, row:  2 },
-  { id: "portugal",     col:  5, row:  3 },
-  { id: "spain",        col:  6, row:  3 },
-  { id: "switzerland",  col:  7, row:  3 },
-  { id: "austria",      col:  8, row:  3 },
-  { id: "czech",        col:  9, row:  3 },
-  { id: "hungary",      col: 10, row:  3 },
-  { id: "morocco",      col:  6, row:  4 },
-  { id: "italy",        col:  7, row:  4 },
-  { id: "croatia",      col:  8, row:  4 },
-  { id: "greece",       col:  9, row:  4 },
-  { id: "turkey",       col: 10, row:  4 },
-  // ─ 中東・アフリカ ─
-  { id: "egypt",        col: 10, row:  5 },
-  { id: "israel",       col: 11, row:  5 },
-  { id: "jordan",       col: 12, row:  5 },
-  { id: "saudi",        col: 11, row:  6 },
-  { id: "qatar",        col: 12, row:  6 },
-  { id: "uae",          col: 13, row:  6 },
-  { id: "ethiopia",     col: 11, row:  7 },
-  { id: "kenya",        col: 11, row:  8 },
-  { id: "tanzania",     col: 11, row:  9 },
-  { id: "south_africa", col: 11, row: 10 },
-  // ─ 南・中央アジア ─
-  { id: "india",        col: 15, row:  5 },
-  { id: "nepal",        col: 16, row:  4 },
-  { id: "bhutan",       col: 17, row:  4 },
-  { id: "sri_lanka",    col: 16, row:  7 },
-  { id: "maldives",     col: 15, row:  8 },
-  // ─ 東アジア ─
-  { id: "mongolia",     col: 18, row:  2 },
-  { id: "china",        col: 18, row:  3 },
-  { id: "south_korea",  col: 20, row:  3 },
-  { id: "taiwan",       col: 20, row:  4 },
-  { id: "hong_kong",    col: 19, row:  5 },
-  { id: "macau",        col: 20, row:  5 },
-  // ─ 東南アジア ─
-  { id: "myanmar",      col: 17, row:  5 },
-  { id: "laos",         col: 18, row:  5 },
-  { id: "thailand",     col: 17, row:  6 },
-  { id: "vietnam",      col: 19, row:  6 },
-  { id: "cambodia",     col: 18, row:  7 },
-  { id: "malaysia",     col: 18, row:  8 },
-  { id: "singapore",    col: 19, row:  8 },
-  { id: "philippines",  col: 21, row:  6 },
-  { id: "indonesia",    col: 20, row:  9 },
-  // ─ 太平洋・オセアニア ─
-  { id: "guam",         col: 22, row:  5 },
-  { id: "saipan",       col: 22, row:  6 },
-  { id: "fiji",         col: 23, row:  8 },
-  { id: "australia",    col: 22, row:  9 },
-  { id: "new_zealand",  col: 23, row: 10 },
-];
 
 // ─── メインコンポーネント ──────────────────────────────────────────────────────
 

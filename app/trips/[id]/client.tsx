@@ -217,14 +217,17 @@ function SortableItem({
   onEdit,
   onDelete,
   onMapsClick,
+  isEditMode,
 }: {
   activity: TripActivity;
   onEdit: () => void;
   onDelete: () => void;
   onMapsClick: (url: string) => void;
+  isEditMode: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
+    disabled: !isEditMode,
   });
 
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -233,11 +236,26 @@ function SortableItem({
     <li
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing select-none touch-none ${isDragging ? "opacity-0" : ""}`}
+      className={`${isEditMode ? "cursor-grab active:cursor-grabbing select-none touch-none" : ""} ${isDragging ? "opacity-0" : ""}`}
     >
-      <ActivityCard activity={activity} onEdit={onEdit} onDelete={onDelete} onMapsClick={onMapsClick} />
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <ActivityCard activity={activity} onEdit={onEdit} onDelete={onDelete} onMapsClick={onMapsClick} />
+        </div>
+        {isEditMode && (
+          <div
+            {...attributes}
+            {...listeners}
+            className="flex h-10 w-7 shrink-0 cursor-grab touch-none select-none items-center justify-center text-slate-300 active:cursor-grabbing dark:text-slate-600"
+          >
+            <svg viewBox="0 0 20 20" className="h-5 w-5 fill-current">
+              <circle cx="7" cy="5" r="1.5"/><circle cx="13" cy="5" r="1.5"/>
+              <circle cx="7" cy="10" r="1.5"/><circle cx="13" cy="10" r="1.5"/>
+              <circle cx="7" cy="15" r="1.5"/><circle cx="13" cy="15" r="1.5"/>
+            </svg>
+          </div>
+        )}
+      </div>
     </li>
   );
 }
@@ -480,6 +498,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [mapsUrl, setMapsUrl] = useState<string | null>(null);
   const [collapsedDays, setCollapsedDays] = useState<Set<number>>(new Set());
   const toggleDay = (n: number) => setCollapsedDays(prev => { const s = new Set(prev); s.has(n) ? s.delete(n) : s.add(n); return s; });
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Share modal
   const [shareModal, setShareModal] = useState(false);
@@ -816,6 +835,23 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {/* ── Itinerary tab ── */}
         {activeTab === "itinerary" && (
           <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
+            <div className="mb-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsEditMode((v) => !v)}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                  isEditMode
+                    ? "bg-amber-400 text-white shadow-sm hover:bg-amber-300"
+                    : "border border-slate-200 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                }`}
+              >
+                {isEditMode ? (
+                  <><span>✓</span> 編集完了</>
+                ) : (
+                  <><PencilIcon className="h-3.5 w-3.5" /> 並び替え</>
+                )}
+              </button>
+            </div>
             <div className="space-y-4">
               {allDayNumbers.map((dayNum) => {
                 const dayActivities = tripData.days.filter((d) => d.day === dayNum);
@@ -865,6 +901,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                               <SortableItem
                                 key={activityId(activity)}
                                 activity={activity}
+                                isEditMode={isEditMode}
                                 onEdit={() => openEdit(activity)}
                                 onMapsClick={setMapsUrl}
                                 onDelete={() => {
@@ -906,6 +943,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                           <SortableItem
                             key={activityId(activity)}
                             activity={activity}
+                            isEditMode={isEditMode}
                             onEdit={() => openEdit(activity)}
                             onMapsClick={setMapsUrl}
                             onDelete={() => {
