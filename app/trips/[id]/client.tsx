@@ -897,7 +897,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {activeTab === "itinerary" && (
           <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
             {/* PC: top-right above itinerary */}
-            <div className="mb-3 hidden justify-end sm:flex">
+            <div className="mb-3 flex justify-end max-sm:hidden">
               <button
                 type="button"
                 onClick={() => setIsEditMode((v) => !v)}
