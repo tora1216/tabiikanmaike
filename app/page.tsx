@@ -319,7 +319,15 @@ export default function Home() {
                   className={`${inputCls} appearance-none`}
                   value={endDate}
                   min={startDate || undefined}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => {
+                    if (startDate && e.target.value < startDate) {
+                      setEndDate("");
+                      setAddError("終了日は開始日より後の日付を設定してください。");
+                    } else {
+                      setAddError("");
+                      setEndDate(e.target.value);
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -396,7 +404,15 @@ export default function Home() {
                   className={`${inputCls} appearance-none`}
                   value={editEnd}
                   min={editStart || undefined}
-                  onChange={(e) => setEditEnd(e.target.value)}
+                  onChange={(e) => {
+                    if (editStart && e.target.value < editStart) {
+                      setEditEnd("");
+                      setEditError("終了日は開始日より後の日付を設定してください。");
+                    } else {
+                      setEditError("");
+                      setEditEnd(e.target.value);
+                    }
+                  }}
                 />
               </div>
             </div>
