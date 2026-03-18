@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#000000"/>
+  <text x="256" y="370" font-size="300" text-anchor="middle"
+    font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji">🐯</text>
+  <text x="256" y="468" font-size="68" text-anchor="middle" font-weight="bold"
+    font-family="-apple-system, 'Helvetica Neue', sans-serif" fill="rgba(255,255,255,0.85)"
+    letter-spacing="-1">旅のしおり</text>
+</svg>

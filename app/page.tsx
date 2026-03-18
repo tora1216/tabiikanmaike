@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTrips } from "@/components/trip-context";
-import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon } from "@heroicons/react/24/outline";
 
 const TRIP_COLORS = [
   "#6366F1", "#3B82F6", "#F97316", "#EC4899",
@@ -92,6 +92,24 @@ export default function Home() {
     setIsDark(next);
     document.documentElement.classList.toggle('dark', next);
     localStorage.setItem('theme', next ? 'dark' : 'light');
+  };
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  useEffect(() => {
+    setIsInstalled(window.matchMedia('(display-mode: standalone)').matches);
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
   };
 
   const [addOpen, setAddOpen] = useState(false);
@@ -202,6 +220,14 @@ export default function Home() {
               aria-label="テーマ切替"
             >
               {isDark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              aria-label="設定"
+            >
+              <Cog6ToothIcon className="h-5 w-5" />
             </button>
             <Link href="/profile" className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white">
               <UserCircleIcon className="h-7 w-7" />
@@ -500,6 +526,48 @@ export default function Home() {
               >
                 保存
               </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Settings Modal */}
+      {settingsOpen && (
+        <Modal title="設定" onClose={() => setSettingsOpen(false)}>
+          <div className="mt-5 space-y-5">
+            {/* Add to Home Screen */}
+            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <div className="flex items-center gap-2 mb-3">
+                <ArrowUpOnSquareIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                <span className="text-sm font-bold text-slate-800 dark:text-white">ホーム画面に追加</span>
+              </div>
+              {isInstalled ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">すでにホーム画面に追加されています。</p>
+              ) : isIOS ? (
+                <ol className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">1</span>
+                    <span>画面下部の共有ボタン <span className="inline-flex items-baseline gap-0.5 font-semibold">(<ArrowUpOnSquareIcon className="h-3.5 w-3.5 inline" />) </span>をタップ</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">2</span>
+                    <span>「ホーム画面に追加」を選択</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">3</span>
+                    <span>「追加」をタップして完了</span>
+                  </li>
+                </ol>
+              ) : deferredPrompt ? (
+                <button
+                  onClick={handleInstall}
+                  className="w-full rounded-xl bg-[#22C55E] py-2.5 text-sm font-semibold text-white transition hover:bg-green-400"
+                >
+                  ホーム画面にインストール
+                </button>
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">お使いのブラウザでは自動インストールに対応していません。ブラウザのメニューから「ホーム画面に追加」を選択してください。</p>
+              )}
             </div>
           </div>
         </Modal>

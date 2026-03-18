@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { TripProvider } from "@/components/trip-context";
@@ -8,9 +8,23 @@ const geist = Geist({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#6366F1",
+};
+
 export const metadata: Metadata = {
   title: "旅のしおり",
   description: "旅行プランを日別に管理できるアプリ",
+  manifest: "/tabiikanmaike/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "旅のしおり",
+  },
+  icons: {
+    icon: "/tabiikanmaike/icon.svg",
+    apple: "/tabiikanmaike/icon.svg",
+  },
 };
 
 export default function RootLayout({
