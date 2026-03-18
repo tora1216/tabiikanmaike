@@ -33,7 +33,7 @@ function tripDayCount(start: string, end: string) {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#3EA8FF] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#22C55E] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
 
 function Modal({
   title,
@@ -181,7 +181,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-[#3EA8FF] via-sky-500 to-blue-600 px-4 py-12 text-white sm:px-6 sm:py-16">
+      <section className="bg-gradient-to-br from-[#22C55E] via-green-500 to-emerald-600 px-4 py-12 text-white sm:px-6 sm:py-16">
         <div className="mx-auto max-w-5xl">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-sky-200">
             Travel Planner
@@ -201,7 +201,7 @@ export default function Home() {
           </h2>
           <button
             onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1 rounded-full bg-[#3EA8FF] px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-400 active:scale-95"
+            className="flex items-center gap-1 rounded-full bg-[#22C55E] px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-400 active:scale-95"
           >
             <PlusIcon className="h-4 w-4" />
             新しい旅
@@ -215,7 +215,7 @@ export default function Home() {
             <p className="mt-1 text-sm text-slate-400">「新しい旅」から最初の旅を作りましょう。</p>
             <button
               onClick={() => setAddOpen(true)}
-              className="mt-6 flex items-center gap-1.5 rounded-full bg-[#3EA8FF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-400"
+              className="mt-6 flex items-center gap-1.5 rounded-full bg-[#22C55E] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-400"
             >
               <PlusIcon className="h-4 w-4" />
               旅を追加
@@ -249,7 +249,7 @@ export default function Home() {
 
                   {/* Card body */}
                   <Link href={`/trips?id=${trip.id}`} className="block p-4">
-                    <h3 className="line-clamp-1 font-bold text-slate-900 transition-colors group-hover:text-[#3EA8FF]">
+                    <h3 className="line-clamp-1 font-bold text-slate-900 transition-colors group-hover:text-[#22C55E]">
                       {trip.title}
                     </h3>
                     <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
@@ -356,7 +356,7 @@ export default function Home() {
               キャンセル
             </button>
             <button
-              className="rounded-full bg-[#3EA8FF] px-5 py-2 text-sm font-semibold text-white transition hover:bg-sky-400"
+              className="rounded-full bg-[#22C55E] px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-400"
               onClick={handleAdd}
             >
               追加
@@ -464,7 +464,7 @@ export default function Home() {
                 キャンセル
               </button>
               <button
-                className="rounded-full bg-[#3EA8FF] px-5 py-2 text-sm font-semibold text-white transition hover:bg-sky-400"
+                className="rounded-full bg-[#22C55E] px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-400"
                 onClick={handleUpdate}
               >
                 保存

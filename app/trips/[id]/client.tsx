@@ -7,7 +7,7 @@ import { TripActivity, PackingItem, NoteEntry } from "@/lib/trips";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
-  DocumentTextIcon, ShareIcon, XMarkIcon,
+  DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon,
 } from "@heroicons/react/24/outline";
 import {
   DndContext,
@@ -61,7 +61,7 @@ const TRANSPORT_CATEGORIES = [
 ];
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#3EA8FF] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#22C55E] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -125,7 +125,7 @@ function ActivityCard({
     <div
       className={`rounded-xl border bg-white p-3 ${
         overlay
-          ? "border-[#3EA8FF] shadow-2xl rotate-1"
+          ? "border-[#22C55E] shadow-2xl rotate-1"
           : "border-slate-200/80 shadow-sm"
       }`}
     >
@@ -149,7 +149,7 @@ function ActivityCard({
             <p className="font-semibold leading-snug text-slate-900">{activity.destination}</p>
           )}
           {activity.time && (
-            <p className="mt-0.5 text-xs font-medium text-[#3EA8FF]">⏰ {activity.time}</p>
+            <p className="mt-0.5 text-xs font-medium text-[#22C55E]">⏰ {activity.time}</p>
           )}
           {activity.memo && (
             <p className="mt-1 text-xs leading-relaxed text-slate-500">{activity.memo}</p>
@@ -164,6 +164,23 @@ function ActivityCard({
         {/* Action buttons */}
         {!overlay && (onEdit || onDelete) && (
           <div className="flex flex-shrink-0 items-center gap-1">
+            {(() => {
+              const mapsQuery = activity.type === "transport"
+                ? activity.to
+                : activity.destination;
+              return mapsQuery ? (
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MapPinIcon className="h-3.5 w-3.5" />
+                </a>
+              ) : null;
+            })()}
             {onEdit && (
               <button
                 type="button"
@@ -327,7 +344,7 @@ function ActivityForm({
               onClick={() => setDayIcon(icon)}
               className={`flex flex-col items-center gap-1 rounded-xl py-3 text-sm transition-all ${
                 dayIcon === icon
-                  ? "bg-[#EDF5FF] text-[#3EA8FF] ring-2 ring-[#3EA8FF]"
+                  ? "bg-[#F0FDF4] text-[#22C55E] ring-2 ring-[#22C55E]"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
@@ -345,7 +362,7 @@ function ActivityForm({
               onClick={() => setDayIcon(icon)}
               className={`flex flex-col items-center gap-1 rounded-xl py-3 text-sm transition-all ${
                 dayIcon === icon
-                  ? "bg-[#EDF5FF] text-[#3EA8FF] ring-2 ring-[#3EA8FF]"
+                  ? "bg-[#F0FDF4] text-[#22C55E] ring-2 ring-[#22C55E]"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               }`}
             >
@@ -517,7 +534,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           <p className="mt-4 text-lg font-bold text-slate-700">旅が見つかりませんでした</p>
           <Link
             href="/"
-            className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-[#3EA8FF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-400"
+            className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-[#22C55E] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-400"
           >
             <ArrowLeftIcon className="h-4 w-4" />旅の一覧に戻る
           </Link>
@@ -777,7 +794,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
                   activeTab === key
-                    ? "bg-[#3EA8FF] text-white shadow-sm"
+                    ? "bg-[#22C55E] text-white shadow-sm"
                     : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 }`}
               >
@@ -801,7 +818,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   <div key={dayNum} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60">
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <span className="flex items-center justify-center rounded-full bg-[#3EA8FF] px-3 py-0.5 text-xs font-bold text-white">
+                        <span className="flex items-center justify-center rounded-full bg-[#22C55E] px-3 py-0.5 text-xs font-bold text-white">
                           Day {dayNum}
                         </span>
                         <span className="text-sm font-semibold text-slate-700">
@@ -920,7 +937,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 />
                 <button
                   type="button"
-                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#3EA8FF] px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 active:scale-95"
+                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
                   onClick={() => {
                     if (!packingInput.trim()) return;
                     const newItem: PackingItem = {
@@ -961,8 +978,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                         }
                         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                           item.checked
-                            ? "border-[#3EA8FF] bg-[#3EA8FF] text-white"
-                            : "border-slate-300 hover:border-[#3EA8FF]"
+                            ? "border-[#22C55E] bg-[#22C55E] text-white"
+                            : "border-slate-300 hover:border-[#22C55E]"
                         }`}
                       >
                         {item.checked && (
@@ -1003,7 +1020,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-full rounded-full bg-[#3EA8FF] transition-all"
+                        className="h-full rounded-full bg-[#22C55E] transition-all"
                         style={{ width: `${(done / total) * 100}%` }}
                       />
                     </div>
@@ -1038,7 +1055,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   <div key={dayNum} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60">
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <span className="flex items-center justify-center rounded-full bg-[#3EA8FF] px-3 py-0.5 text-xs font-bold text-white">
+                        <span className="flex items-center justify-center rounded-full bg-[#22C55E] px-3 py-0.5 text-xs font-bold text-white">
                           Day {dayNum}
                         </span>
                         <span className="text-sm font-semibold text-slate-700">
@@ -1110,7 +1127,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               )}
               {(tripData.noteEntries ?? []).map((entry) => (
                 <div key={entry.id} className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#3EA8FF] text-sm text-white">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#22C55E] text-sm text-white">
                     ✈
                   </div>
                   <div className="flex-1 rounded-2xl rounded-tl-sm bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200/60">
@@ -1153,7 +1170,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 />
                 <button
                   type="button"
-                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#3EA8FF] px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-400 active:scale-95"
+                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
                   onClick={() => {
                     if (!noteInput.trim()) return;
                     const entry: NoteEntry = { id: `note-${Date.now()}`, text: noteInput.trim(), createdAt: new Date().toISOString() };
@@ -1172,7 +1189,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {activeTab === "itinerary" && (
           <button
             type="button"
-            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#3EA8FF] text-white shadow-xl transition-all hover:scale-110 hover:bg-sky-400 active:scale-95"
+            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#22C55E] text-white shadow-xl transition-all hover:scale-110 hover:bg-green-400 active:scale-95"
             onClick={() => { resetForm(); setIsAddOpen(true); }}
           >
             <PlusIcon className="h-6 w-6" />
@@ -1213,7 +1230,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              className="flex-1 rounded-full bg-[#3EA8FF] py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
+              className="flex-1 rounded-full bg-[#22C55E] py-2.5 text-sm font-semibold text-white transition hover:bg-green-400"
               onClick={saveEdit}
             >
               保存
@@ -1253,7 +1270,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              className="flex-1 rounded-full bg-[#3EA8FF] py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
+              className="flex-1 rounded-full bg-[#22C55E] py-2.5 text-sm font-semibold text-white transition hover:bg-green-400"
               onClick={saveAdd}
             >
               追加
