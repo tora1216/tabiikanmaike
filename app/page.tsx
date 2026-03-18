@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTrips } from "@/components/trip-context";
-import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon } from "@heroicons/react/24/outline";
 
 const TRIP_COLORS = [
-  "#22C55E", "#3B82F6", "#F97316", "#EC4899",
+  "#6366F1", "#3B82F6", "#F97316", "#EC4899",
   "#8B5CF6", "#EF4444", "#14B8A6", "#EAB308",
 ];
 
@@ -20,17 +20,17 @@ function tripDayCount(start: string, end: string) {
 }
 
 const inputCls =
-  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#22C55E] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
+  "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-indigo-500 focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-600";
 
 function ColorSwatch({ colors, value, onChange }: { colors: string[]; value: string; onChange: (c: string) => void }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex gap-1.5">
       {colors.map((c) => (
         <button
           key={c}
           type="button"
           onClick={() => onChange(c)}
-          className="h-5 w-5 rounded-full transition-transform hover:scale-110"
+          className="h-5 w-5 rounded-full transition-transform hover:scale-110 flex-shrink-0"
           style={{ backgroundColor: c, outline: value === c ? `2px solid ${c}` : "none", outlineOffset: "2px" }}
           aria-label={c}
         />
@@ -43,13 +43,11 @@ function Modal({
   title,
   subtitle,
   onClose,
-  colorPicker,
   children,
 }: {
   title: string;
   subtitle?: string;
   onClose: () => void;
-  colorPicker?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -59,24 +57,21 @@ function Modal({
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative w-full max-h-[90vh] overflow-x-hidden overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl"
+        className="relative w-full max-h-[90vh] overflow-x-hidden overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
+            {subtitle && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
           </div>
-          <div className="ml-2 flex items-center gap-2">
-            {colorPicker}
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
         </div>
         {children}
       </div>
@@ -87,6 +82,17 @@ function Modal({
 export default function Home() {
   const router = useRouter();
   const { trips, addTrip, removeTrip, updateTrip } = useTrips();
+
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    setIsDark(document.documentElement.classList.contains('dark'));
+  }, []);
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.classList.toggle('dark', next);
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+  };
 
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -180,22 +186,32 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F5FA]">
+    <div className="min-h-screen bg-[#F0F5FA] dark:bg-slate-900">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md dark:bg-slate-800/90 dark:border-slate-700">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
             <span className="text-xl">✈️</span>
-            <span className="text-base font-extrabold tracking-tight text-slate-900">旅のしおり</span>
+            <span className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">旅のしおり</span>
           </div>
-          <Link href="/profile" className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">
-            <UserCircleIcon className="h-7 w-7" />
-          </Link>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              aria-label="テーマ切替"
+            >
+              {isDark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+            </button>
+            <Link href="/profile" className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white">
+              <UserCircleIcon className="h-7 w-7" />
+            </Link>
+          </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-[#22C55E] via-green-500 to-emerald-600 px-4 py-12 text-white sm:px-6 sm:py-16">
+      <section className="bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 px-4 py-12 text-white sm:px-6 sm:py-16">
         <div className="mx-auto max-w-5xl">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-sky-200">
             Travel Planner
@@ -210,7 +226,7 @@ export default function Home() {
       {/* Trips */}
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-600">
+          <h2 className="text-sm font-bold text-slate-600 dark:text-slate-300">
             {trips.length > 0 ? `${trips.length}件の旅` : "旅の一覧"}
           </h2>
           <button
@@ -223,10 +239,10 @@ export default function Home() {
         </div>
 
         {trips.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-20 text-center">
+          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white py-20 text-center dark:border-slate-700 dark:bg-slate-800">
             <span className="text-5xl">🗺️</span>
-            <p className="mt-4 text-base font-bold text-slate-600">まだ旅がありません</p>
-            <p className="mt-1 text-sm text-slate-400">「新しい旅」から最初の旅を作りましょう。</p>
+            <p className="mt-4 text-base font-bold text-slate-600 dark:text-slate-300">まだ旅がありません</p>
+            <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">「新しい旅」から最初の旅を作りましょう。</p>
             <button
               onClick={() => setAddOpen(true)}
               className="mt-6 flex items-center gap-1.5 rounded-full bg-[#22C55E] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-400"
@@ -237,13 +253,13 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {trips.map((trip) => {
+            {[...trips].sort((a, b) => a.startDate.localeCompare(b.startDate)).map((trip) => {
               const days = tripDayCount(trip.startDate, trip.endDate);
               const bannerColor = trip.color ?? TRIP_COLORS[0];
               return (
                 <div
                   key={trip.id}
-                  className="group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                  className="group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-slate-800 dark:ring-slate-700"
                 >
                   {/* Color banner */}
                   <div className="relative h-20" style={{ backgroundColor: bannerColor }}>
@@ -263,25 +279,25 @@ export default function Home() {
 
                   {/* Card body */}
                   <Link href={`/trips?id=${trip.id}`} className="block p-4">
-                    <h3 className="line-clamp-1 font-bold text-slate-900 transition-colors group-hover:text-[#22C55E]">
+                    <h3 className="line-clamp-1 font-bold text-slate-900 transition-colors group-hover:text-indigo-500 dark:text-white">
                       {trip.title}
                     </h3>
-                    <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
+                    <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                       <CalendarIcon className="h-3.5 w-3.5" />
                       <span>
                         {fmtDate(trip.startDate)} 〜 {fmtDate(trip.endDate)}
                       </span>
                     </div>
                     {trip.description && (
-                      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500">
+                      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
                         {trip.description}
                       </p>
                     )}
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
                         {days}日間
                       </span>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
                         {trip.days.length}スポット
                       </span>
                     </div>
@@ -299,11 +315,14 @@ export default function Home() {
           title="新しい旅を追加"
           subtitle="タイトルと日程を入力してください。"
           onClose={() => { resetAdd(); setAddOpen(false); }}
-          colorPicker={<ColorSwatch colors={TRIP_COLORS} value={addColor} onChange={setAddColor} />}
         >
           <div className="mt-4 space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">タイトル *</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">カラー</label>
+              <ColorSwatch colors={TRIP_COLORS} value={addColor} onChange={setAddColor} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
               <input
                 className={inputCls}
                 value={title}
@@ -313,7 +332,7 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始日 *</label>
                 <input
                   type="date"
                   className={`${inputCls} appearance-none`}
@@ -325,7 +344,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了日 *</label>
                 <input
                   type="date"
                   className={`${inputCls} appearance-none`}
@@ -344,7 +363,7 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">旅の概要</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要</label>
               <textarea
                 className={`${inputCls} resize-none`}
                 rows={3}
@@ -359,7 +378,7 @@ export default function Home() {
           )}
           <div className="mt-4 flex justify-end gap-2">
             <button
-              className="rounded-full px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100"
+              className="rounded-full px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
               onClick={() => {
                 resetAdd();
                 setAddOpen(false);
@@ -382,11 +401,14 @@ export default function Home() {
         <Modal
           title="旅の情報を編集"
           onClose={() => { setEditError(""); setEditOpen(false); setEditId(null); }}
-          colorPicker={<ColorSwatch colors={TRIP_COLORS} value={editColor} onChange={setEditColor} />}
         >
           <div className="mt-4 space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">タイトル *</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">カラー</label>
+              <ColorSwatch colors={TRIP_COLORS} value={editColor} onChange={setEditColor} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
               <input
                 className={inputCls}
                 value={editTitle}
@@ -395,7 +417,7 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">開始日 *</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始日 *</label>
                 <input
                   type="date"
                   className={`${inputCls} appearance-none`}
@@ -407,7 +429,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">終了日 *</label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了日 *</label>
                 <input
                   type="date"
                   className={`${inputCls} appearance-none`}
@@ -426,7 +448,7 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">旅の概要</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要</label>
               <textarea
                 className={`${inputCls} resize-none`}
                 rows={3}
@@ -441,7 +463,7 @@ export default function Home() {
           <div className="mt-6 flex items-center justify-between">
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
-                className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-50"
+                className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
                 onClick={handleCopy}
               >
                 <DocumentDuplicateIcon className="h-4 w-4" />
@@ -463,7 +485,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
-                className="rounded-full px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100"
+                className="rounded-full px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
                 onClick={() => {
                   setEditError("");
                   setEditOpen(false);
