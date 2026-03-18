@@ -12,6 +12,13 @@ const TRIP_COLORS = [
   "#8B5CF6", "#EF4444", "#14B8A6", "#EAB308",
 ];
 
+const TRIP_ICONS = [
+  { icon: "✈️", label: "飛行機" },
+  { icon: "🚃", label: "電車" },
+  { icon: "🚌", label: "バス" },
+  { icon: "🚗", label: "車" },
+];
+
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("ja-JP", { month: "short", day: "numeric" });
 }
@@ -127,6 +134,8 @@ export default function Home() {
   const [endDate, setEndDate] = useState("");
   const [description, setDescription] = useState("");
   const [addColor, setAddColor] = useState(TRIP_COLORS[0]);
+  const [addIcon, setAddIcon] = useState("✈️");
+  const [addParticipants, setAddParticipants] = useState(2);
   const [addError, setAddError] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
@@ -136,6 +145,8 @@ export default function Home() {
   const [editEnd, setEditEnd] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editColor, setEditColor] = useState(TRIP_COLORS[0]);
+  const [editIcon, setEditIcon] = useState("✈️");
+  const [editParticipants, setEditParticipants] = useState(2);
   const [editError, setEditError] = useState("");
 
   const resetAdd = () => {
@@ -144,6 +155,8 @@ export default function Home() {
     setEndDate("");
     setDescription("");
     setAddColor(TRIP_COLORS[0]);
+    setAddIcon("✈️");
+    setAddParticipants(2);
     setAddError("");
   };
 
@@ -156,7 +169,7 @@ export default function Home() {
       setAddError("終了日は開始日より後の日付を設定してください。");
       return;
     }
-    addTrip({ title, startDate, endDate, description: description.trim(), days: [], color: addColor });
+    addTrip({ title, startDate, endDate, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, participants: addParticipants });
     resetAdd();
     setAddOpen(false);
   };
@@ -170,6 +183,8 @@ export default function Home() {
     setEditEnd(t.endDate);
     setEditDesc(t.description ?? "");
     setEditColor(t.color ?? TRIP_COLORS[0]);
+    setEditIcon(t.tripIcon ?? "✈️");
+    setEditParticipants(t.participants ?? 2);
     setEditOpen(true);
   };
 
@@ -183,7 +198,10 @@ export default function Home() {
       description: t.description,
       days: t.days,
       packingList: t.packingList,
+      todoList: t.todoList,
       notes: t.notes,
+      tripIcon: t.tripIcon,
+      participants: t.participants,
     });
     setEditOpen(false);
     setEditId(null);
@@ -206,6 +224,8 @@ export default function Home() {
       endDate: editEnd,
       description: editDesc.trim(),
       color: editColor,
+      tripIcon: editIcon,
+      participants: editParticipants,
     }));
     setEditError("");
     setEditOpen(false);
@@ -218,7 +238,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md dark:bg-slate-800/90 dark:border-slate-700">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2">
-            <span className="text-xl">✈️</span>
+            <span className="text-xl">🐯</span>
             <span className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">旅のしおり</span>
           </div>
           <div className="flex items-center gap-1">
@@ -301,7 +321,7 @@ export default function Home() {
                 >
                   {/* Color banner */}
                   <div className="relative h-20" style={{ backgroundColor: bannerColor }}>
-                    <div className="absolute bottom-3 left-4 text-2xl">✈️</div>
+                    <div className="absolute bottom-3 left-4 text-2xl">{trip.tripIcon ?? "✈️"}</div>
                     <button
                       type="button"
                       aria-label="編集"
@@ -336,6 +356,9 @@ export default function Home() {
                         {days}日間
                       </span>
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                        {trip.participants ?? 2}人
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
                         {trip.days.length}スポット
                       </span>
                     </div>
@@ -358,6 +381,34 @@ export default function Home() {
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">カラー</label>
               <ColorSwatch colors={TRIP_COLORS} value={addColor} onChange={setAddColor} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">移動手段</label>
+              <div className="grid grid-cols-4 gap-2">
+                {TRIP_ICONS.map(({ icon, label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setAddIcon(icon)}
+                    className={`flex flex-col items-center gap-1 rounded-xl py-2.5 text-sm transition-all ${
+                      addIcon === icon
+                        ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 ring-2 ring-indigo-500"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                    }`}
+                  >
+                    <span className="text-2xl">{icon}</span>
+                    <span className="text-[11px] font-semibold">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">参加人数 *</label>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setAddParticipants(p => Math.max(1, p - 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">−</button>
+                <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{addParticipants}</span>
+                <button type="button" onClick={() => setAddParticipants(p => Math.min(99, p + 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">＋</button>
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
@@ -444,6 +495,34 @@ export default function Home() {
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">カラー</label>
               <ColorSwatch colors={TRIP_COLORS} value={editColor} onChange={setEditColor} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">移動手段</label>
+              <div className="grid grid-cols-4 gap-2">
+                {TRIP_ICONS.map(({ icon, label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setEditIcon(icon)}
+                    className={`flex flex-col items-center gap-1 rounded-xl py-2.5 text-sm transition-all ${
+                      editIcon === icon
+                        ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 ring-2 ring-indigo-500"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                    }`}
+                  >
+                    <span className="text-2xl">{icon}</span>
+                    <span className="text-[11px] font-semibold">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">参加人数</label>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setEditParticipants(p => Math.max(1, p - 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">−</button>
+                <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{editParticipants}</span>
+                <button type="button" onClick={() => setEditParticipants(p => Math.min(99, p + 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">＋</button>
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>

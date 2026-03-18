@@ -16,6 +16,12 @@ export type PackingItem = {
   checked: boolean;
 };
 
+export type TodoTask = {
+  id: string;
+  label: string;
+  checked: boolean;
+};
+
 export type NoteEntry = {
   id: string;
   text: string;
@@ -30,9 +36,12 @@ export type Trip = {
   description: string;
   days: TripActivity[];
   packingList?: PackingItem[];
+  todoList?: TodoTask[];
   notes?: string;
   noteEntries?: NoteEntry[];
   color?: string;
+  tripIcon?: string;
+  participants?: number;
 };
 
 export const initialTrips: Trip[] = [

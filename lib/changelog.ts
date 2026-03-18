@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.3.0";
+export const APP_VERSION = "1.4.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,18 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.4.0",
+    date: "2026-03-19",
+    title: "旅の詳細強化",
+    changes: [
+      "準備タブ追加（持ち物リスト＋やることリスト）",
+      "旅のアイコン選択（飛行機・電車・バス・車）",
+      "参加人数の設定と費用の1人あたり表示",
+      "並び替えボタンをスマホでは画面左下に固定",
+      "時間入力の改善",
+    ],
+  },
   {
     version: "1.3.0",
     date: "2026-03-18",

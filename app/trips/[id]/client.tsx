@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useTrips } from "@/components/trip-context";
-import { TripActivity, PackingItem, NoteEntry } from "@/lib/trips";
+import { TripActivity, PackingItem, NoteEntry, TodoTask } from "@/lib/trips";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
@@ -456,11 +456,45 @@ function ActivityForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始時間</label>
-          <input type="time" className={`${inputCls} appearance-none`} value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <div className="relative">
+            <input
+              type="time"
+              className={`${inputCls} appearance-none ${startTime ? "pr-8" : ""}`}
+              value={startTime}
+              onFocus={() => { if (!startTime) setStartTime("00:00"); }}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
+            {startTime && (
+              <button
+                type="button"
+                onClick={() => setStartTime("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了時間</label>
-          <input type="time" className={`${inputCls} appearance-none`} value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          <div className="relative">
+            <input
+              type="time"
+              className={`${inputCls} appearance-none ${endTime ? "pr-8" : ""}`}
+              value={endTime}
+              onFocus={() => { if (!endTime) setEndTime("00:00"); }}
+              onChange={(e) => setEndTime(e.target.value)}
+            />
+            {endTime && (
+              <button
+                type="button"
+                onClick={() => setEndTime("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -514,6 +548,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // Packing list state
   const [packingInput, setPackingInput] = useState("");
+  const [todoInput, setTodoInput] = useState("");
 
   // Notes chat state
   const [noteInput, setNoteInput] = useState("");
@@ -553,9 +588,26 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   };
 
   const fmtTime = (s: string, e: string) => {
-    if (s && e) return `${s} - ${e}`;
-    return s || e || "";
+    if (s && e) return `${s} ~ ${e}`;
+    if (s) return `${s} ~`;
+    if (e) return `~ ${e}`;
+    return "";
   };
+
+  function parseTimeStr(timeStr: string): [string, string] {
+    if (!timeStr) return ["", ""];
+    if (timeStr.includes(" ~ ")) {
+      const [s, e] = timeStr.split(" ~ ");
+      return [s ?? "", e ?? ""];
+    }
+    if (timeStr.startsWith("~ ")) return ["", timeStr.slice(2)];
+    if (timeStr.endsWith(" ~")) return [timeStr.slice(0, -2), ""];
+    if (timeStr.includes(" - ")) {
+      const [s, e] = timeStr.split(" - ");
+      return [s ?? "", e ?? ""];
+    }
+    return [timeStr, ""];
+  }
 
   // ── Not found ──
   if (!trip) {
@@ -590,8 +642,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const tripStart = new Date(tripData.startDate); tripStart.setHours(0, 0, 0, 0);
   const tripEnd = new Date(tripData.endDate); tripEnd.setHours(0, 0, 0, 0);
   const daysUntil = Math.ceil((tripStart.getTime() - today.getTime()) / 86400000);
+  const tripIcon = tripData.tripIcon ?? "✈️";
   const countdownLabel =
-    daysUntil > 0 ? `✈️ 旅まであと ${daysUntil} 日` :
+    daysUntil > 0 ? `${tripIcon} 旅まであと ${daysUntil} 日` :
     daysUntil === 0 ? `🎉 今日から旅行！` :
     today <= tripEnd ? `🌏 旅行中！` :
     `📸 ${Math.abs(daysUntil)} 日前の旅行`;
@@ -652,9 +705,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setEditingActivity(activity);
     const type: ActivityType = activity.type === "transport" ? "transport" : "place";
     setActivityType(type);
-    const [s, e] = (activity.time || "").split(" - ");
-    setStartTime(s || "");
-    setEndTime(e || "");
+    const [s, e] = parseTimeStr(activity.time || "");
+    setStartTime(s);
+    setEndTime(e);
     setDayIcon(activity.icon || (type === "place" ? PLACE_CATEGORIES[0].icon : TRANSPORT_CATEGORIES[0].icon));
     setDayDestination(activity.destination || "");
     setFromPlace(activity.from || "");
@@ -800,6 +853,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 {tripDayCount}日間
               </span>
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                {tripData.participants ?? 2}人
+              </span>
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                 {tripData.days.length}スポット
               </span>
               {totalCost > 0 && (
@@ -816,7 +872,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           <div className="mx-auto flex max-w-3xl justify-center gap-1.5 px-4 py-2 sm:px-6">
             {([
               { key: "itinerary", label: "旅程",   icon: <CalendarDaysIcon  className="h-4 w-4" /> },
-              { key: "packing",   label: "持ち物", icon: <ShoppingBagIcon   className="h-4 w-4" /> },
+              { key: "packing",   label: "準備",   icon: <ShoppingBagIcon   className="h-4 w-4" /> },
               { key: "expenses",  label: "費用",   icon: <CreditCardIcon    className="h-4 w-4" /> },
               { key: "notes",     label: "メモ",   icon: <DocumentTextIcon  className="h-4 w-4" /> },
             ] as const).map(({ key, label, icon }) => (
@@ -840,14 +896,15 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {/* ── Itinerary tab ── */}
         {activeTab === "itinerary" && (
           <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
-            <div className="mb-3 flex justify-end">
+            {/* PC: top-right above itinerary */}
+            <div className="mb-3 hidden justify-end sm:flex">
               <button
                 type="button"
                 onClick={() => setIsEditMode((v) => !v)}
                 className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
                   isEditMode
                     ? "bg-amber-400 text-white shadow-sm hover:bg-amber-300"
-                    : "border border-slate-200 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                    : "bg-[#22C55E] text-white shadow-sm hover:bg-green-400"
                 }`}
               >
                 {isEditMode ? (
@@ -857,6 +914,22 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 )}
               </button>
             </div>
+            {/* Mobile: fixed bottom-left */}
+            <button
+              type="button"
+              onClick={() => setIsEditMode((v) => !v)}
+              className={`fixed bottom-6 left-6 z-50 flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg transition sm:hidden ${
+                isEditMode
+                  ? "bg-amber-400 text-white hover:bg-amber-300"
+                  : "bg-[#22C55E] text-white hover:bg-green-400"
+              }`}
+            >
+              {isEditMode ? (
+                <><span>✓</span> 編集完了</>
+              ) : (
+                <><PencilIcon className="h-3.5 w-3.5" /> 並び替え</>
+              )}
+            </button>
             <div className="space-y-4">
               {allDayNumbers.map((dayNum) => {
                 const dayActivities = tripData.days.filter((d) => d.day === dayNum);
@@ -971,6 +1044,116 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {/* ── Packing tab ── */}
         {activeTab === "packing" && (
           <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
+            <div className="space-y-4">
+            {/* ── やることリスト ── */}
+            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+              <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">やることリスト</span>
+              </div>
+
+              {/* Add item */}
+              <div className="flex gap-2 p-4">
+                <input
+                  className={inputCls}
+                  value={todoInput}
+                  onChange={(e) => setTodoInput(e.target.value)}
+                  placeholder="例）航空券の予約、レストラン予約..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && todoInput.trim()) {
+                      const newItem: TodoTask = { id: `todo-${Date.now()}`, label: todoInput.trim(), checked: false };
+                      updateTrip(tripData.id, (c) => ({ ...c, todoList: [...(c.todoList ?? []), newItem] }));
+                      setTodoInput("");
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
+                  onClick={() => {
+                    if (!todoInput.trim()) return;
+                    const newItem: TodoTask = { id: `todo-${Date.now()}`, label: todoInput.trim(), checked: false };
+                    updateTrip(tripData.id, (c) => ({ ...c, todoList: [...(c.todoList ?? []), newItem] }));
+                    setTodoInput("");
+                  }}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  追加
+                </button>
+              </div>
+
+              {/* Item list */}
+              {(tripData.todoList ?? []).length === 0 ? (
+                <p className="px-4 pb-8 text-center text-xs text-slate-400">
+                  飛行機・ホテルの予約など、やることを追加しましょう。
+                </p>
+              ) : (
+                <ul className="divide-y divide-slate-100 px-4 pb-4 dark:divide-slate-700">
+                  {(tripData.todoList ?? []).map((item) => (
+                    <li key={item.id} className="flex items-center gap-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateTrip(tripData.id, (c) => ({
+                            ...c,
+                            todoList: (c.todoList ?? []).map((t) =>
+                              t.id === item.id ? { ...t, checked: !t.checked } : t
+                            ),
+                          }))
+                        }
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                          item.checked
+                            ? "border-indigo-500 bg-[#22C55E] text-white"
+                            : "border-slate-300 hover:border-indigo-500 dark:border-slate-600"
+                        }`}
+                      >
+                        {item.checked && (
+                          <svg viewBox="0 0 12 10" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="1,5 4,8 11,1" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className={`flex-1 text-sm ${item.checked ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}`}>
+                        {item.label}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateTrip(tripData.id, (c) => ({
+                            ...c,
+                            todoList: (c.todoList ?? []).filter((t) => t.id !== item.id),
+                          }))
+                        }
+                        className="rounded-full p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Progress */}
+              {(tripData.todoList ?? []).length > 0 && (() => {
+                const total = (tripData.todoList ?? []).length;
+                const done = (tripData.todoList ?? []).filter((t) => t.checked).length;
+                return (
+                  <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
+                    <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>{done} / {total} 完了</span>
+                      <span>{Math.round((done / total) * 100)}%</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                      <div
+                        className="h-full rounded-full bg-[#22C55E] transition-all"
+                        style={{ width: `${(done / total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ── 持ち物リスト ── */}
             <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
               <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">持ち物リスト</span>
@@ -1091,6 +1274,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 );
               })()}
             </div>
+
+            </div>
           </main>
         )}
 
@@ -1102,6 +1287,12 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">旅の合計費用</p>
                 <p className="mt-1 text-3xl font-black text-slate-900 dark:text-white">¥{totalCost.toLocaleString()}</p>
+                {totalCost > 0 && (
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    1人あたり ¥{Math.ceil(totalCost / (tripData.participants ?? 2)).toLocaleString()}
+                    <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">（{tripData.participants ?? 2}人）</span>
+                  </p>
+                )}
                 {totalCost === 0 && (
                   <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">旅程タブで各アクティビティに費用を入力してください。</p>
                 )}
