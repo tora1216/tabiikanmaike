@@ -32,6 +32,7 @@ export type Trip = {
   packingList?: PackingItem[];
   notes?: string;
   noteEntries?: NoteEntry[];
+  color?: string;
 };
 
 export const initialTrips: Trip[] = [

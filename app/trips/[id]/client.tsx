@@ -14,6 +14,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -112,11 +113,13 @@ function ActivityCard({
   activity,
   onEdit,
   onDelete,
+  onMapsClick,
   overlay = false,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
   onDelete?: () => void;
+  onMapsClick?: (url: string) => void;
   overlay?: boolean;
 }) {
   const isTransport = activity.type === "transport";
@@ -169,16 +172,14 @@ function ActivityCard({
                 ? activity.to
                 : activity.destination;
               return mapsQuery ? (
-                <a
-                  href={`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
                   className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onMapsClick?.(`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`); }}
                 >
                   <MapPinIcon className="h-3.5 w-3.5" />
-                </a>
+                </button>
               ) : null;
             })()}
             {onEdit && (
@@ -214,10 +215,12 @@ function SortableItem({
   activity,
   onEdit,
   onDelete,
+  onMapsClick,
 }: {
   activity: TripActivity;
   onEdit: () => void;
   onDelete: () => void;
+  onMapsClick: (url: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
@@ -231,9 +234,9 @@ function SortableItem({
       style={style}
       {...attributes}
       {...listeners}
-      className={`cursor-grab active:cursor-grabbing ${isDragging ? "opacity-0" : ""}`}
+      className={`cursor-grab active:cursor-grabbing select-none touch-none ${isDragging ? "opacity-0" : ""}`}
     >
-      <ActivityCard activity={activity} onEdit={onEdit} onDelete={onDelete} />
+      <ActivityCard activity={activity} onEdit={onEdit} onDelete={onDelete} onMapsClick={onMapsClick} />
     </li>
   );
 }
@@ -473,6 +476,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"itinerary" | "packing" | "expenses" | "notes">("itinerary");
+  const [mapsUrl, setMapsUrl] = useState<string | null>(null);
 
   // Share modal
   const [shareModal, setShareModal] = useState(false);
@@ -509,6 +513,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -550,7 +555,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const tripDayCount =
     Math.ceil((new Date(tripData.endDate).getTime() - new Date(tripData.startDate).getTime()) / 86400000) + 1;
   const allDayNumbers = Array.from({ length: tripDayCount }, (_, i) => i + 1);
-  const grad = hashGradient(tripData.id);
+  const bannerColor = tripData.color ?? "#22C55E";
   const totalCost = tripData.days.reduce((s, a) => s + (a.cost || 0), 0);
 
   // Countdown
@@ -751,7 +756,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         </header>
 
         {/* Banner */}
-        <div className={`bg-gradient-to-br ${grad} px-4 py-10 text-white sm:px-6 sm:py-12`}>
+        <div className="px-4 py-10 text-white sm:px-6 sm:py-12" style={{ backgroundColor: bannerColor }}>
           <div className="mx-auto max-w-3xl">
             <p className="text-xs font-medium text-white/70">
               {fmtDateLong(tripData.startDate)} 〜 {fmtDateLong(tripData.endDate)}
@@ -848,6 +853,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 key={activityId(activity)}
                                 activity={activity}
                                 onEdit={() => openEdit(activity)}
+                                onMapsClick={setMapsUrl}
                                 onDelete={() => {
                                   if (confirm("削除してよろしいですか？")) {
                                     updateTrip(tripData.id, (c) => ({
@@ -888,6 +894,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             key={activityId(activity)}
                             activity={activity}
                             onEdit={() => openEdit(activity)}
+                            onMapsClick={setMapsUrl}
                             onDelete={() => {
                               updateTrip(tripData.id, (c) => ({
                                 ...c,
@@ -1285,6 +1292,33 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           </div>
         </Modal>
       )}
+      {/* Maps Confirm Dialog */}
+      {mapsUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={() => setMapsUrl(null)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 flex items-center gap-2 text-base font-bold text-slate-900">
+              <MapPinIcon className="h-5 w-5 text-[#22C55E]" />
+              Google マップへ移動
+            </div>
+            <p className="mb-5 text-sm text-slate-500">Google マップアプリ（またはブラウザ）で場所を確認しますか？</p>
+            <div className="flex gap-2">
+              <button
+                className="flex-1 rounded-full border border-slate-200 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                onClick={() => setMapsUrl(null)}
+              >キャンセル</button>
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-full bg-[#22C55E] py-2 text-center text-sm font-semibold text-white transition hover:bg-green-400"
+                onClick={() => setMapsUrl(null)}
+              >Google マップへ</a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Share Modal */}
       {shareModal && (
         <Modal title="旅を共有" onClose={() => setShareModal(false)}>

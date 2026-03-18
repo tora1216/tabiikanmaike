@@ -6,23 +6,10 @@ import { useState } from "react";
 import { useTrips } from "@/components/trip-context";
 import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
-const GRADIENTS = [
-  "from-sky-400 to-blue-500",
-  "from-violet-400 to-purple-500",
-  "from-emerald-400 to-teal-500",
-  "from-rose-400 to-pink-500",
-  "from-amber-400 to-orange-500",
-  "from-indigo-400 to-blue-600",
+const TRIP_COLORS = [
+  "#22C55E", "#3B82F6", "#F97316", "#EC4899",
+  "#8B5CF6", "#EF4444", "#14B8A6", "#EAB308",
 ];
-
-function hashGradient(id: string) {
-  let h = 0;
-  for (const c of id) {
-    h = (h << 5) - h + c.charCodeAt(0);
-    h |= 0;
-  }
-  return GRADIENTS[Math.abs(h) % GRADIENTS.length];
-}
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("ja-JP", { month: "short", day: "numeric" });
@@ -35,15 +22,34 @@ function tripDayCount(start: string, end: string) {
 const inputCls =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-[#22C55E] focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400";
 
+function ColorSwatch({ colors, value, onChange }: { colors: string[]; value: string; onChange: (c: string) => void }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {colors.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => onChange(c)}
+          className="h-5 w-5 rounded-full transition-transform hover:scale-110"
+          style={{ backgroundColor: c, outline: value === c ? `2px solid ${c}` : "none", outlineOffset: "2px" }}
+          aria-label={c}
+        />
+      ))}
+    </div>
+  );
+}
+
 function Modal({
   title,
   subtitle,
   onClose,
+  colorPicker,
   children,
 }: {
   title: string;
   subtitle?: string;
   onClose: () => void;
+  colorPicker?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -61,13 +67,16 @@ function Modal({
             <h2 className="text-lg font-bold text-slate-900">{title}</h2>
             {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
+          <div className="ml-2 flex items-center gap-2">
+            {colorPicker}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
         {children}
       </div>
@@ -84,6 +93,7 @@ export default function Home() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [description, setDescription] = useState("");
+  const [addColor, setAddColor] = useState(TRIP_COLORS[0]);
   const [addError, setAddError] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
@@ -92,6 +102,7 @@ export default function Home() {
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editColor, setEditColor] = useState(TRIP_COLORS[0]);
   const [editError, setEditError] = useState("");
 
   const resetAdd = () => {
@@ -99,6 +110,7 @@ export default function Home() {
     setStartDate("");
     setEndDate("");
     setDescription("");
+    setAddColor(TRIP_COLORS[0]);
     setAddError("");
   };
 
@@ -111,7 +123,7 @@ export default function Home() {
       setAddError("終了日は開始日より後の日付を設定してください。");
       return;
     }
-    addTrip({ title, startDate, endDate, description: description.trim(), days: [] });
+    addTrip({ title, startDate, endDate, description: description.trim(), days: [], color: addColor });
     resetAdd();
     setAddOpen(false);
   };
@@ -124,6 +136,7 @@ export default function Home() {
     setEditStart(t.startDate);
     setEditEnd(t.endDate);
     setEditDesc(t.description ?? "");
+    setEditColor(t.color ?? TRIP_COLORS[0]);
     setEditOpen(true);
   };
 
@@ -159,6 +172,7 @@ export default function Home() {
       startDate: editStart,
       endDate: editEnd,
       description: editDesc.trim(),
+      color: editColor,
     }));
     setEditError("");
     setEditOpen(false);
@@ -225,14 +239,14 @@ export default function Home() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {trips.map((trip) => {
               const days = tripDayCount(trip.startDate, trip.endDate);
-              const grad = hashGradient(trip.id);
+              const bannerColor = trip.color ?? TRIP_COLORS[0];
               return (
                 <div
                   key={trip.id}
                   className="group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 transition-all hover:-translate-y-0.5 hover:shadow-lg"
                 >
-                  {/* Gradient banner */}
-                  <div className={`relative h-20 bg-gradient-to-br ${grad}`}>
+                  {/* Color banner */}
+                  <div className="relative h-20" style={{ backgroundColor: bannerColor }}>
                     <div className="absolute bottom-3 left-4 text-2xl">✈️</div>
                     <button
                       type="button"
@@ -284,10 +298,8 @@ export default function Home() {
         <Modal
           title="新しい旅を追加"
           subtitle="タイトルと日程を入力してください。"
-          onClose={() => {
-            resetAdd();
-            setAddOpen(false);
-          }}
+          onClose={() => { resetAdd(); setAddOpen(false); }}
+          colorPicker={<ColorSwatch colors={TRIP_COLORS} value={addColor} onChange={setAddColor} />}
         >
           <div className="mt-4 space-y-3">
             <div>
@@ -369,11 +381,8 @@ export default function Home() {
       {editOpen && editId && (
         <Modal
           title="旅の情報を編集"
-          onClose={() => {
-            setEditError("");
-            setEditOpen(false);
-            setEditId(null);
-          }}
+          onClose={() => { setEditError(""); setEditOpen(false); setEditId(null); }}
+          colorPicker={<ColorSwatch colors={TRIP_COLORS} value={editColor} onChange={setEditColor} />}
         >
           <div className="mt-4 space-y-3">
             <div>
