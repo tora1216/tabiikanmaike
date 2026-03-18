@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTrips } from "@/components/trip-context";
 import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon } from "@heroicons/react/24/outline";
+import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
 
 const TRIP_COLORS = [
   "#6366F1", "#3B82F6", "#F97316", "#EC4899",
@@ -95,6 +96,7 @@ export default function Home() {
   };
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -102,8 +104,15 @@ export default function Home() {
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches);
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
+    const seen = localStorage.getItem("seen_version");
+    if (seen !== APP_VERSION) setHasUnread(true);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+  const openSettings = () => {
+    setSettingsOpen(true);
+    setHasUnread(false);
+    localStorage.setItem("seen_version", APP_VERSION);
+  };
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -223,11 +232,14 @@ export default function Home() {
             </button>
             <button
               type="button"
-              onClick={() => setSettingsOpen(true)}
-              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              onClick={openSettings}
+              className="relative rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
               aria-label="設定"
             >
               <Cog6ToothIcon className="h-5 w-5" />
+              {hasUnread && (
+                <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-red-500" />
+              )}
             </button>
             <Link href="/profile" className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white">
               <UserCircleIcon className="h-7 w-7" />
@@ -535,6 +547,35 @@ export default function Home() {
       {settingsOpen && (
         <Modal title="設定" onClose={() => setSettingsOpen(false)}>
           <div className="mt-5 space-y-5">
+            {/* バージョン・アップデート情報 */}
+            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-800 dark:text-white">アップデート情報</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">v{APP_VERSION}</span>
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                {CHANGELOG.map((entry, i) => (
+                  <div key={entry.version}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${i === 0 ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400" : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"}`}>
+                        v{entry.version}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{entry.title}</span>
+                      <span className="ml-auto text-[10px] text-slate-400">{entry.date}</span>
+                    </div>
+                    <ul className="space-y-0.5 pl-2">
+                      {entry.changes.map((c, j) => (
+                        <li key={j} className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                    {i < CHANGELOG.length - 1 && <div className="mt-3 border-b border-slate-100 dark:border-slate-700" />}
+                  </div>
+                ))}
+              </div>
+            </div>
             {/* Add to Home Screen */}
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
               <div className="flex items-center gap-2 mb-3">
