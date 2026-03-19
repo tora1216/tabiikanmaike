@@ -194,6 +194,9 @@ function ActivityCard({
           {activity.cost !== undefined && activity.cost > 0 && (
             <p className="mt-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
               ¥{activity.cost.toLocaleString()}
+              {activity.costType === "per_person" && (
+                <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
+              )}
             </p>
           )}
         </div>
@@ -349,6 +352,7 @@ type ActivityFormProps = {
   endTime: string; setEndTime: (v: string) => void;
   memo: string; setMemo: (v: string) => void;
   cost: number; setCost: (v: number) => void;
+  costType: "per_person" | "total"; setCostType: (v: "per_person" | "total") => void;
   onClearError: () => void;
 };
 
@@ -362,6 +366,7 @@ function ActivityForm({
   endTime, setEndTime,
   memo, setMemo,
   cost, setCost,
+  costType, setCostType,
   onClearError,
 }: ActivityFormProps) {
   const transport = TRANSPORT_CATEGORIES.find((t) => t.icon === dayIcon);
@@ -545,13 +550,31 @@ function ActivityForm({
 
       {/* Common: cost */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)</label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)</label>
+          <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+            {(["per_person", "total"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setCostType(t)}
+                className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+                  costType === t
+                    ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+                    : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+                }`}
+              >
+                {t === "per_person" ? "1人分" : "全員分"}
+              </button>
+            ))}
+          </div>
+        </div>
         <input
           type="number"
           className={inputCls}
           value={cost || ""}
           onChange={(e) => setCost(parseInt(e.target.value) || 0)}
-          placeholder="例）1000"
+          placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
           min={0}
         />
       </div>
@@ -600,6 +623,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [toPlace, setToPlace] = useState("");
   const [memo, setMemo] = useState("");
   const [cost, setCost] = useState(0);
+  const [costType, setCostType] = useState<"per_person" | "total">("per_person");
   const [editingActivity, setEditingActivity] = useState<TripActivity | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -618,7 +642,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setCost(0); setFormError("");
+    setMemo(""); setCost(0); setCostType("per_person"); setFormError("");
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -669,7 +693,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     Math.ceil((new Date(tripData.endDate).getTime() - new Date(tripData.startDate).getTime()) / 86400000) + 1;
   const allDayNumbers = Array.from({ length: tripDayCount }, (_, i) => i + 1);
   const bannerColor = tripData.color ?? "#6366F1";
-  const totalCost = tripData.days.reduce((s, a) => s + (a.cost || 0), 0);
+  const participants = tripData.participants ?? 2;
+  const activityTotalCost = (a: TripActivity) =>
+    (a.cost || 0) > 0
+      ? a.costType === "per_person"
+        ? (a.cost || 0) * participants
+        : (a.cost || 0)
+      : 0;
+  const totalCost = tripData.days.reduce((s, a) => s + activityTotalCost(a), 0);
 
   // Countdown
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -748,6 +779,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setToPlace(activity.to || "");
     setMemo(activity.memo || "");
     setCost(activity.cost || 0);
+    setCostType(activity.costType ?? "per_person");
     setIsEditOpen(true);
   }
 
@@ -771,6 +803,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               to: activityType === "transport" ? toPlace : undefined,
               memo: memo || undefined,
               cost: cost > 0 ? cost : undefined,
+              costType: cost > 0 ? costType : undefined,
             }
           : d
       ),
@@ -800,6 +833,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           to: activityType === "transport" ? toPlace : undefined,
           memo: memo || undefined,
           cost: cost > 0 ? cost : undefined,
+          costType: cost > 0 ? costType : undefined,
         },
       ],
     }));
@@ -967,7 +1001,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="space-y-4">
               {allDayNumbers.map((dayNum) => {
                 const dayActivities = tripData.days.filter((d) => d.day === dayNum);
-                const dayCost = dayActivities.reduce((s, a) => s + (a.cost || 0), 0);
+                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a), 0);
                 const containerId = `day-${dayNum}`;
 
                 const isCollapsed = collapsedDays.has(dayNum);
@@ -1345,7 +1379,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 const dayActivities = tripData.days.filter(
                   (d) => d.day === dayNum && d.cost !== undefined && d.cost > 0
                 );
-                const dayCost = dayActivities.reduce((s, a) => s + (a.cost || 0), 0);
+                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a), 0);
                 if (dayActivities.length === 0) return null;
                 return (
                   <div key={dayNum} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
@@ -1369,9 +1403,16 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                               ? `${a.from} → ${a.to}`
                               : a.destination}
                           </span>
-                          <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                            ¥{(a.cost ?? 0).toLocaleString()}
-                          </span>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                              ¥{activityTotalCost(a).toLocaleString()}
+                            </p>
+                            {a.costType === "per_person" && (
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                                ¥{(a.cost ?? 0).toLocaleString()} × {participants}人
+                              </p>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -1388,7 +1429,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     <div className="border-b border-amber-100 bg-amber-50/80 px-4 py-3 flex items-center justify-between dark:border-slate-700 dark:bg-slate-700/50">
                       <span className="text-sm font-semibold text-amber-700">📌 未割り当て</span>
                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                        ¥{items.reduce((s, a) => s + (a.cost || 0), 0).toLocaleString()}
+                        ¥{items.reduce((s, a) => s + activityTotalCost(a), 0).toLocaleString()}
                       </span>
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
@@ -1396,9 +1437,16 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                         <li key={activityId(a)} className="flex items-center gap-3 py-2.5">
                           <span className="text-lg">{a.icon}</span>
                           <span className="flex-1 text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
-                          <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                            ¥{(a.cost ?? 0).toLocaleString()}
-                          </span>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                              ¥{activityTotalCost(a).toLocaleString()}
+                            </p>
+                            {a.costType === "per_person" && (
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                                ¥{(a.cost ?? 0).toLocaleString()} × {participants}人
+                              </p>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -1518,6 +1566,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             endTime={endTime} setEndTime={setEndTime}
             memo={memo} setMemo={setMemo}
             cost={cost} setCost={setCost}
+            costType={costType} setCostType={setCostType}
             onClearError={() => setFormError("")}
           />
           {formError && (
@@ -1597,6 +1646,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             endTime={endTime} setEndTime={setEndTime}
             memo={memo} setMemo={setMemo}
             cost={cost} setCost={setCost}
+            costType={costType} setCostType={setCostType}
             onClearError={() => setFormError("")}
           />
           {formError && (

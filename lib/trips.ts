@@ -8,6 +8,7 @@ export type TripActivity = {
   to?: string;   // transport: arrival
   memo?: string;
   cost?: number;
+  costType?: "per_person" | "total";
 };
 
 export type PackingItem = {

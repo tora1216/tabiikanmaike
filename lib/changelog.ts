@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.4.0";
+export const APP_VERSION = "1.4.1";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,16 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.4.1",
+    date: "2026-03-19",
+    title: "費用入力の改善",
+    changes: [
+      "費用に「1人分 / 全員分」トグルを追加",
+      "合計・1人あたり金額を正確に計算",
+      "持ち物テンプレート機能を追加（6種類）",
+    ],
+  },
   {
     version: "1.4.0",
     date: "2026-03-19",
