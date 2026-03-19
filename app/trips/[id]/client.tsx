@@ -34,6 +34,39 @@ import { CSS } from "@dnd-kit/utilities";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const PACKING_TEMPLATES = [
+  {
+    label: "国内旅行",
+    icon: "🗾",
+    items: ["充電器", "モバイルバッテリー", "衣服", "下着", "歯ブラシ", "お手ふき", "化粧品", "日焼け止め", "常備薬", "メガネ・コンタクト", "折り畳み傘"],
+  },
+  {
+    label: "海外旅行",
+    icon: "✈️",
+    items: ["パスポート", "航空券", "ポケットWI-FI", "クレジットカード", "現地通貨", "変換プラグ", "ボールペン ※機内であると便利", "充電器", "モバイルバッテリー", "衣服", "下着", "歯ブラシ", "お手ふき", "化粧品", "日焼け止め", "常備薬", "メガネ・コンタクト", "折り畳み傘"],
+  },
+  {
+    label: "ビーチ・海",
+    icon: "🏖️",
+    items: ["水着", "日焼け止め", "サングラス", "ビーチサンダル", "タオル", "ラッシュガード"],
+  },
+  {
+    label: "スキー・雪山",
+    icon: "⛷️",
+    items: ["スキーウェア", "手袋", "ゴーグル", "ニット帽", "防寒インナー", "厚手の靴下"],
+  },
+  {
+    label: "BBQ",
+    icon: "🍖",
+    items: ["割り箸", "アルミホイル", "紙コップ", "紙皿", "フォーク", "軍手", "スポンジ", "お手拭き", "ゴミ袋", "キッチンペーパー"],
+  },
+  {
+    label: "キャンプ",
+    icon: "⛺",
+    items: ["テント", "シュラフ", "ランタン", "虫除けスプレー", "着替え", "レインウェア", "救急セット", "ゴミ袋"],
+  },
+];
+
 const GRADIENTS = [
   "from-sky-400 to-blue-500",
   "from-violet-400 to-purple-500",
@@ -548,6 +581,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // Packing list state
   const [packingInput, setPackingInput] = useState("");
+  const [templateOpen, setTemplateOpen] = useState(false);
   const [todoInput, setTodoInput] = useState("");
 
   // Notes chat state
@@ -1155,8 +1189,16 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
             {/* ── 持ち物リスト ── */}
             <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-              <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">持ち物リスト</span>
+                <button
+                  type="button"
+                  onClick={() => setTemplateOpen(true)}
+                  className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                >
+                  <PlusIcon className="h-3 w-3" />
+                  テンプレート
+                </button>
               </div>
 
               {/* Add item */}
@@ -1496,6 +1538,45 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             >
               キャンセル
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Template Modal */}
+      {templateOpen && (
+        <Modal title="持ち物テンプレート" onClose={() => setTemplateOpen(false)}>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            テンプレートを選ぶと持ち物リストに追加されます（重複はスキップ）
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {PACKING_TEMPLATES.map((tmpl) => (
+              <button
+                key={tmpl.label}
+                type="button"
+                onClick={() => {
+                  const existing = new Set((tripData.packingList ?? []).map((p) => p.label));
+                  const toAdd: PackingItem[] = tmpl.items
+                    .filter((item) => !existing.has(item))
+                    .map((item) => ({ id: `packing-${Date.now()}-${Math.random().toString(36).slice(2)}`, label: item, checked: false }));
+                  if (toAdd.length > 0) {
+                    updateTrip(tripData.id, (c) => ({
+                      ...c,
+                      packingList: [...(c.packingList ?? []), ...toAdd],
+                    }));
+                  }
+                  setTemplateOpen(false);
+                }}
+                className="flex flex-col items-start gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-700/50 dark:hover:border-indigo-500 dark:hover:bg-indigo-900/20"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{tmpl.icon}</span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{tmpl.label}</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2">
+                  {tmpl.items.slice(0, 4).join("・")}{tmpl.items.length > 4 ? "…" : ""}
+                </p>
+              </button>
+            ))}
           </div>
         </Modal>
       )}
