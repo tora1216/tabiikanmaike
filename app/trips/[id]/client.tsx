@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useTrips } from "@/components/trip-context";
 import { TripActivity, PackingItem, NoteEntry, TodoTask } from "@/lib/trips";
+import { PACKING_TEMPLATES } from "@/lib/packing-templates";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
@@ -33,39 +34,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const PACKING_TEMPLATES = [
-  {
-    label: "国内旅行",
-    icon: "🗾",
-    items: ["充電器", "モバイルバッテリー", "衣服", "下着", "歯ブラシ", "お手ふき", "化粧品", "日焼け止め", "常備薬", "メガネ・コンタクト", "折り畳み傘"],
-  },
-  {
-    label: "海外旅行",
-    icon: "✈️",
-    items: ["パスポート", "航空券", "ポケットWI-FI", "クレジットカード", "現地通貨", "変換プラグ", "ボールペン ※機内であると便利", "充電器", "モバイルバッテリー", "衣服", "下着", "歯ブラシ", "お手ふき", "化粧品", "日焼け止め", "常備薬", "メガネ・コンタクト", "折り畳み傘"],
-  },
-  {
-    label: "ビーチ・海",
-    icon: "🏖️",
-    items: ["水着", "日焼け止め", "サングラス", "ビーチサンダル", "タオル", "ラッシュガード"],
-  },
-  {
-    label: "スキー・雪山",
-    icon: "⛷️",
-    items: ["スキーウェア", "手袋", "ゴーグル", "ニット帽", "防寒インナー", "厚手の靴下"],
-  },
-  {
-    label: "BBQ",
-    icon: "🍖",
-    items: ["割り箸", "アルミホイル", "紙コップ", "紙皿", "フォーク", "軍手", "スポンジ", "お手拭き", "ゴミ袋", "キッチンペーパー"],
-  },
-  {
-    label: "キャンプ",
-    icon: "⛺",
-    items: ["テント", "シュラフ", "ランタン", "虫除けスプレー", "着替え", "レインウェア", "救急セット", "ゴミ袋"],
-  },
-];
 
 const GRADIENTS = [
   "from-sky-400 to-blue-500",

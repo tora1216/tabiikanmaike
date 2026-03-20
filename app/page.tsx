@@ -689,6 +689,62 @@ export default function Home() {
                 <p className="text-sm text-slate-500 dark:text-slate-400">お使いのブラウザでは自動インストールに対応していません。ブラウザのメニューから「ホーム画面に追加」を選択してください。</p>
               )}
             </div>
+
+            {/* データ管理 */}
+            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <p className="mb-3 text-sm font-bold text-slate-800 dark:text-white">データ管理</p>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const data = {
+                      version: APP_VERSION,
+                      exportedAt: new Date().toISOString(),
+                      trips: JSON.parse(localStorage.getItem("trips") || "[]"),
+                      keiken: JSON.parse(localStorage.getItem("keiken") || "{}"),
+                      keiken_world: JSON.parse(localStorage.getItem("keiken_world") || "{}"),
+                    };
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `tabiikanmaike-${new Date().toISOString().slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  エクスポート（バックアップ）
+                </button>
+                <label className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
+                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" /></svg>
+                  インポート（復元）
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        try {
+                          const data = JSON.parse(ev.target?.result as string);
+                          if (!data.trips && !data.keiken) { alert("無効なファイルです"); return; }
+                          if (!confirm("現在のデータを上書きしてインポートしますか？")) return;
+                          if (data.trips) localStorage.setItem("trips", JSON.stringify(data.trips));
+                          if (data.keiken) localStorage.setItem("keiken", JSON.stringify(data.keiken));
+                          if (data.keiken_world) localStorage.setItem("keiken_world", JSON.stringify(data.keiken_world));
+                          window.location.reload();
+                        } catch { alert("ファイルの読み込みに失敗しました"); }
+                      };
+                      reader.readAsText(file);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
         </Modal>
       )}
