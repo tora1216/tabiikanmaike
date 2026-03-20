@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeftIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import japanMap from "@svg-maps/japan";
+import worldMap from "@svg-maps/world";
 
 // ─── 経験レベル定義 ────────────────────────────────────────────────────────────
 
@@ -82,6 +84,17 @@ const PREF_ORDER = [
 ];
 
 const MAX_SCORE = PREFECTURES.length * 5;
+
+const REGIONS = [
+  { name: "北海道", ids: ["hokkaido"] },
+  { name: "東北",   ids: ["aomori","iwate","miyagi","akita","yamagata","fukushima"] },
+  { name: "関東",   ids: ["ibaraki","tochigi","gunma","saitama","chiba","tokyo","kanagawa"] },
+  { name: "中部",   ids: ["niigata","toyama","ishikawa","fukui","yamanashi","nagano","gifu","shizuoka","aichi"] },
+  { name: "近畿",   ids: ["mie","shiga","kyoto","osaka","hyogo","nara","wakayama"] },
+  { name: "中国",   ids: ["tottori","shimane","okayama","hiroshima","yamaguchi"] },
+  { name: "四国",   ids: ["tokushima","kagawa","ehime","kochi"] },
+  { name: "九州・沖縄", ids: ["fukuoka","saga","nagasaki","kumamoto","oita","miyazaki","kagoshima","okinawa"] },
+];
 
 // ─── 海外：国データ ─────────────────────────────────────────────────────────────
 
@@ -173,10 +186,37 @@ const COUNTRIES: CountryDef[] = [
 
 const MAX_SCORE_WORLD = COUNTRIES.length * 5;
 
+// 独自IDからISO 2文字コードへのマッピング
+const COUNTRY_ISO: Record<string, string> = {
+  china: "cn", south_korea: "kr", taiwan: "tw", hong_kong: "hk",
+  thailand: "th", vietnam: "vn", indonesia: "id", singapore: "sg",
+  malaysia: "my", philippines: "ph", india: "in", nepal: "np",
+  cambodia: "kh", myanmar: "mm", laos: "la", sri_lanka: "lk",
+  maldives: "mv", bhutan: "bt", mongolia: "mn", macau: "mo",
+  france: "fr", uk: "gb", germany: "de", italy: "it", spain: "es",
+  portugal: "pt", netherlands: "nl", belgium: "be", switzerland: "ch",
+  austria: "at", czech: "cz", hungary: "hu", poland: "pl", greece: "gr",
+  croatia: "hr", sweden: "se", norway: "no", finland: "fi", denmark: "dk",
+  iceland: "is", russia: "ru",
+  usa: "us", canada: "ca", mexico: "mx", australia: "au",
+  new_zealand: "nz", fiji: "fj",
+  brazil: "br", argentina: "ar", peru: "pe", chile: "cl",
+  colombia: "co", cuba: "cu", costa_rica: "cr",
+  uae: "ae", turkey: "tr", israel: "il", jordan: "jo",
+  qatar: "qa", saudi: "sa",
+  egypt: "eg", morocco: "ma", south_africa: "za",
+  kenya: "ke", tanzania: "tz", ethiopia: "et",
+};
+// ISOコード → 独自IDの逆引き
+const ISO_TO_COUNTRY: Record<string, string> = Object.fromEntries(
+  Object.entries(COUNTRY_ISO).map(([k, v]) => [v, k])
+);
+
 // ─── メインコンポーネント ──────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const [tab, setTab] = useState<"japan" | "world">("japan");
+  const [japanEditOpen, setJapanEditOpen] = useState(false);
 
   // 日本
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -314,44 +354,40 @@ export default function ProfilePage() {
             </div>
 
             <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
-              <p className="mb-3 text-xs font-semibold text-slate-400">日本地図（タップで編集）</p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(11, 1fr)", gridTemplateRows: "repeat(14, 1fr)", gap: "2px", aspectRatio: "11 / 14", width: "100%", maxWidth: "440px", margin: "0 auto" }}>
-                {PREFECTURES.map((pref) => {
-                  const level = scores[pref.id] ?? 0;
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-400">日本地図</p>
+                <button
+                  type="button"
+                  onClick={() => setJapanEditOpen(true)}
+                  className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                >
+                  <PencilSquareIcon className="h-3.5 w-3.5" />
+                  編集
+                </button>
+              </div>
+              <svg
+                viewBox="0 0 560 516"
+                className="mx-auto block w-full"
+                style={{ maxHeight: "480px" }}
+              >
+                {japanMap.locations.map((loc: { id: string; name: string; path: string }) => {
+                  const level = scores[loc.id] ?? 0;
                   const lv = LEVELS[level];
-                  const isLarge = !!(pref.colSpan && pref.rowSpan);
                   return (
-                    <button
-                      key={pref.id}
-                      type="button"
-                      title={`${pref.name}：${lv.label}`}
-                      onClick={() => openDialog(pref.id, false)}
-                      style={{
-                        gridColumn: `${pref.col + 1} / ${pref.col + (pref.colSpan ?? 1) + 1}`,
-                        gridRow: `${pref.row + 1} / ${pref.row + (pref.rowSpan ?? 1) + 1}`,
-                        backgroundColor: level === 0 ? "#F1F5F9" : lv.dot,
-                        borderRadius: isLarge ? "8px" : "4px",
-                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        fontSize: isLarge ? "clamp(10px, 2.5vw, 14px)" : "clamp(6px, 1.8vw, 9px)",
-                        fontWeight: 800,
-                        color: level === 0 ? "#94A3B8" : "#fff",
-                        userSelect: "none", cursor: "pointer",
-                        border: `1.5px solid ${level === 0 ? "#E2E8F0" : lv.border}`,
-                        lineHeight: 1.25, padding: 0, minWidth: 0, overflow: "hidden",
-                      }}
+                    <path
+                      key={loc.id}
+                      d={loc.path}
+                      fill={level === 0 ? "#E2E8F0" : lv.dot}
+                      stroke={level === 0 ? "#CBD5E1" : lv.border}
+                      strokeWidth="0.5"
+                      style={{ cursor: "pointer", transition: "fill 0.15s" }}
+                      onClick={() => openDialog(loc.id, false)}
                     >
-                      {isLarge ? (
-                        <span>{pref.name}</span>
-                      ) : (
-                        <>
-                          <span>{pref.name.slice(0, 2)}</span>
-                          {pref.name.length > 2 && <span>{pref.name.slice(2)}</span>}
-                        </>
-                      )}
-                    </button>
+                      <title>{`${loc.name}：${lv.label}`}</title>
+                    </path>
                   );
                 })}
-              </div>
+              </svg>
             </div>
           </>
         )}
@@ -382,49 +418,43 @@ export default function ProfilePage() {
               ))}
             </div>
 
-            {/* 大陸別グリッド */}
-            <div className="space-y-4">
-              {CONTINENTS.map((cont) => {
-                const countries = COUNTRIES.filter((c) => c.continent === cont.id);
-                const visitedInCont = countries.filter((c) => (worldScores[c.id] ?? 0) > 0).length;
-                return (
-                  <div key={cont.id} className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
-                    <div className="mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{cont.emoji}</span>
-                        <span className="text-sm font-bold text-slate-800 dark:text-white">{cont.name}</span>
-                      </div>
-                      <span className="text-xs text-slate-400">{visitedInCont}/{countries.length}</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-                      {countries.map((country) => {
-                        const level = worldScores[country.id] ?? 0;
-                        const lv = LEVELS[level];
-                        return (
-                          <button
-                            key={country.id}
-                            type="button"
-                            onClick={() => openDialog(country.id, true)}
-                            className="flex flex-col items-center gap-1 rounded-xl border py-3 transition hover:brightness-95 active:scale-95"
-                            style={{
-                              backgroundColor: level === 0 ? "#F8FAFC" : lv.bg,
-                              borderColor: level === 0 ? "#E5E7EB" : lv.border,
-                            }}
-                          >
-                            <span className="text-3xl leading-none">{country.flag}</span>
-                            <span className="text-[10px] font-semibold leading-tight text-slate-600 dark:text-slate-300">{country.name}</span>
-                            {level > 0 && (
-                              <span className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-black text-white" style={{ backgroundColor: lv.dot }}>
-                                {level}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+            {/* 世界地図 */}
+            <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-400">世界地図</p>
+                <button
+                  type="button"
+                  onClick={() => setWorldEditOpen(true)}
+                  className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                >
+                  <PencilSquareIcon className="h-3.5 w-3.5" />
+                  編集
+                </button>
+              </div>
+              <svg
+                viewBox={worldMap.viewBox}
+                className="mx-auto block w-full"
+              >
+                {worldMap.locations.map((loc: { id: string; name: string; path: string }) => {
+                  const countryId = ISO_TO_COUNTRY[loc.id];
+                  const level = countryId ? (worldScores[countryId] ?? 0) : 0;
+                  const lv = LEVELS[level];
+                  const isTracked = !!countryId;
+                  return (
+                    <path
+                      key={loc.id}
+                      d={loc.path}
+                      fill={level > 0 ? lv.dot : isTracked ? "#CBD5E1" : "#E8EDF2"}
+                      stroke="#fff"
+                      strokeWidth="0.3"
+                      style={{ cursor: isTracked ? "pointer" : "default", transition: "fill 0.15s" }}
+                      onClick={() => { if (countryId) openDialog(countryId, true); }}
+                    >
+                      <title>{loc.name}{countryId ? `：${LEVELS[level].label}` : ""}</title>
+                    </path>
+                  );
+                })}
+              </svg>
             </div>
           </>
         )}
@@ -521,6 +551,54 @@ export default function ProfilePage() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 日本 編集ダイアログ ─────────────────────────────────────────────── */}
+      {japanEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={() => setJapanEditOpen(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative z-10 w-full max-w-md rounded-t-3xl bg-white p-5 shadow-2xl dark:bg-slate-800 sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-800 dark:text-white">都道府県を編集</h3>
+              <button type="button" onClick={() => setJapanEditOpen(false)} className="rounded-full p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-1">
+              {REGIONS.map((region) => (
+                <div key={region.name}>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-slate-400">{region.name}</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {region.ids.map((id) => {
+                      const pref = PREFECTURES.find((p) => p.id === id)!;
+                      const level = scores[id] ?? 0;
+                      const lv = LEVELS[level];
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => { setJapanEditOpen(false); openDialog(id, false); }}
+                          className="flex items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-semibold transition hover:brightness-95"
+                          style={{ backgroundColor: level === 0 ? "#F8FAFC" : lv.bg, borderColor: level === 0 ? "#E5E7EB" : lv.border, color: level === 0 ? "#64748B" : lv.text }}
+                        >
+                          <span>{pref.name}</span>
+                          {level > 0 && (
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white" style={{ backgroundColor: lv.dot }}>
+                              {level}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

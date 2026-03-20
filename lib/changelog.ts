@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.4.1";
+export const APP_VERSION = "1.4.2";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,15 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.4.2",
+    date: "2026-03-20",
+    title: "地図表示の改善",
+    changes: [
+      "日本地図を地形マップで表示（都道府県ごとに塗り分け）",
+      "世界地図を地形マップで表示（訪問国を色付き表示）",
+    ],
+  },
   {
     version: "1.4.1",
     date: "2026-03-19",
