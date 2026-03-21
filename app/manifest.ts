@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 
+export const dynamic = "force-static";
+
 export default function manifest(): MetadataRoute.Manifest {
   const base =
     process.env.VERCEL ? "" : process.env.NODE_ENV === "production" ? "/tabiikanmaike" : "";
