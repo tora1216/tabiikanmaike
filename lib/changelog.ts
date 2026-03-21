@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.4.3";
+export const APP_VERSION = "1.5.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,17 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.5.0",
+    date: "2026-03-22",
+    title: "旅程の共有機能",
+    changes: [
+      "旅程を閲覧専用で共有できるように（Firebase Firestore）",
+      "リンクを知っている人のみアクセス可能",
+      "共有ページから自分のリストへのインポートも可能",
+      "ホスティングを Vercel に移行",
+    ],
+  },
   {
     version: "1.4.3",
     date: "2026-03-20",

@@ -1,45 +1,72 @@
-# 旅のしおり
+# 旅のしおり 🐯
 
-旅行の計画を簡単に管理できるWebアプリケーションです。旅行の追加・編集、日別プランの作成、アクティビティのドラッグ＆ドロップでの移動などが可能です。
+旅行の計画・管理ができる PWA 対応の Web アプリです。
 
 ## 機能
 
-- **旅行の管理**: 旅行のタイトル、日程、概要を登録・編集・削除
-- **日別プラン**: 各旅行の日ごとにアクティビティを追加
-- **アクティビティの詳細**: 時間、アイコン、行き先、メモ、費用の設定
-- **ドラッグ＆ドロップ**: アクティビティを日付間で移動可能
-- **レスポンシブデザイン**: スマートフォンでも快適に使用可能
+### 旅の管理
+- 旅の作成・編集・削除（タイトル・日程・概要・アイコン・カラー・参加人数）
+- 旅の一覧を開始日順に表示
+- データのエクスポート / インポート（JSON バックアップ）
+
+### 日程・アクティビティ
+- 日別スケジュール管理（観光・グルメ・移動などのカテゴリ）
+- ドラッグ＆ドロップでアクティビティを並び替え（編集モード切替式）
+- 時間・メモ・Google マップ連携・費用（1人分 / 全員分）の設定
+- 日別・合計・1人あたりの費用集計
+
+### 準備タブ
+- やることリスト（飛行機予約・レストラン予約などのタスク管理）
+- 持ち物リスト（テンプレートから追加：国内・海外・ビーチ・スキー・出張・キャンプ）
+
+### 共有機能
+- 旅程を短いリンクで共有（閲覧専用）
+- リンクを知っている人のみアクセス可能（Firebase Firestore で管理）
+- 共有ページから自分のリストへのインポートも可能
+
+### マイページ（経県値）
+- 日本47都道府県の経験値マップ（SVG地図表示）
+- 海外64カ国の経験値マップ（大陸別・国旗絵文字）
+- レベル0〜5で経験値を管理
+
+### その他
+- ダークモード対応
+- PWA 対応（ホーム画面に追加可能）
+- アプリ内バージョン管理・更新履歴
 
 ## 技術スタック
 
-- **Framework**: Next.js 16
+- **Framework**: Next.js (App Router)
 - **言語**: TypeScript
-- **スタイリング**: Tailwind CSS
+- **スタイリング**: Tailwind CSS v4
 - **ドラッグ＆ドロップ**: @dnd-kit
-- **アイコン**: Heroicons, Emoji
-- **デプロイ**: Vercel (推奨)
+- **アイコン**: Heroicons
+- **データ保存**: localStorage（ローカル）+ Firebase Firestore（共有）
+- **デプロイ**: Vercel
 
-## インストールと実行
+## セットアップ
 
-### ローカル開発環境
+### 必要な環境変数
 
-1. リポジトリをクローン:
-   ```bash
-   git clone https://github.com/your-username/tabiikanmaike.git
-   cd tabiikanmaike
-   ```
+`.env.local` を作成して Firebase の設定値を入力：
 
-2. 依存関係をインストール:
-   ```bash
-   npm install
-   ```
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
 
-3. 開発サーバーを起動:
-   ```bash
-   npm run dev
-   ```
+### ローカル開発
 
-4. ブラウザで [http://localhost:3000](http://localhost:3000) を開く
+```bash
+npm install
+npm run dev
+```
+
+ブラウザで [http://localhost:3000](http://localhost:3000) を開く
 
 ### ビルド
 
@@ -48,54 +75,41 @@ npm run build
 npm start
 ```
 
-## デプロイ
+## デプロイ（Vercel）
 
-### Vercel (推奨)
+1. [Vercel](https://vercel.com) で GitHub リポジトリを接続
+2. Environment Variables に上記の Firebase 設定値を追加
+3. push するたびに自動デプロイ
 
-1. [Vercel](https://vercel.com) にアカウントを作成
-2. GitHub リポジトリを接続
-3. 自動デプロイが実行され、URL が割り当てられます (例: `https://tabiikanmaike.vercel.app`)
-
-### GitHub Pages
-
-1. リポジトリの **Settings > Pages** に移動
-2. **Source** を **GitHub Actions** に設定
-3. `next.config.ts` の `basePath` をリポジトリ名に合わせて変更 (例: `basePath: '/tabiikanmaike'`)
-4. `main` ブランチに push すると自動デプロイ
-5. URL: `https://your-username.github.io/tabiikanmaike`
-
-### その他のプラットフォーム
-
-- **Netlify**: GitHub 連携でデプロイ可能
-- **GitHub Pages**: 静的サイトとしてデプロイ (Next.js の静的エクスポートが必要)
-
-## 開発者向け
-
-### プロジェクト構造
+## プロジェクト構造
 
 ```
 app/
-├── page.tsx          # トップページ (旅行一覧)
-├── trips/[id]/
-│   └── page.tsx      # 旅行詳細ページ
-├── globals.css       # グローバルスタイル
+├── page.tsx              # トップページ（旅一覧）
+├── trips/[id]/           # 旅の詳細ページ
+├── view/[id]/            # 共有旅程の閲覧ページ
+├── trips/import/         # 旅のインポートページ
+├── profile/              # マイページ（経県値）
+├── manifest.ts           # PWA マニフェスト
+└── globals.css           # グローバルスタイル
 components/
-├── trip-context.tsx  # 旅行データのコンテキスト
+└── trip-context.tsx      # 旅データのコンテキスト（localStorage）
 lib/
-└── trips.ts          # 型定義と初期データ
+├── trips.ts              # 型定義・初期データ
+├── firebase.ts           # Firebase 初期化
+├── keiken.ts             # 経県値の定数
+├── packing-templates.ts  # 持ち物テンプレート
+└── changelog.ts          # バージョン管理・更新履歴
 ```
 
-### スクリプト
+## スクリプト
 
-- `npm run dev`: 開発サーバー起動
-- `npm run build`: プロダクションビルド
-- `npm run start`: プロダクションビルドの実行
-- `npm run lint`: ESLint 実行
+```bash
+npm run dev    # 開発サーバー起動
+npm run build  # プロダクションビルド
+npm run lint   # ESLint 実行
+```
 
 ## ライセンス
 
 MIT License
-
-## 貢献
-
-バグ報告や機能リクエストは GitHub Issues からお願いします。
