@@ -12,18 +12,20 @@ export const viewport: Viewport = {
   themeColor: "#6366F1",
 };
 
+const BASE =
+  process.env.VERCEL ? "" : process.env.NODE_ENV === "production" ? "/tabiikanmaike" : "";
+
 export const metadata: Metadata = {
   title: "旅のしおり",
   description: "旅行プランを日別に管理できるアプリ",
-  manifest: "/tabiikanmaike/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "旅のしおり",
   },
   icons: {
-    icon: "/tabiikanmaike/icon.svg",
-    apple: "/tabiikanmaike/icon.svg",
+    icon: `${BASE}/icon.svg`,
+    apple: `${BASE}/icon.svg`,
   },
 };
 
