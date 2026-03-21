@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import LZString from "lz-string";
 import { useTrips } from "@/components/trip-context";
 import { TripActivity, PackingItem, NoteEntry, TodoTask } from "@/lib/trips";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
@@ -849,8 +850,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   });
                   if (tripData.notes) { lines.push(`📓 メモ`); lines.push(tripData.notes); }
                   const text = lines.join("\n");
-                  const encoded = encodeURIComponent(JSON.stringify(tripData));
-                  const link = `${window.location.origin}/trips/import?data=${encoded}`;
+                  const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(tripData));
+                  const base = window.location.href.split("/trips/")[0];
+                  const link = `${base}/trips/import?data=${encoded}`;
                   setShareText(text);
                   setShareLink(link);
                   setCopiedText(false);

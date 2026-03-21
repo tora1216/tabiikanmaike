@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import LZString from "lz-string";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTrips } from "@/components/trip-context";
 import type { Trip } from "@/lib/trips";
@@ -18,7 +19,10 @@ function ImportContent() {
 
   let trip: Trip | null = null;
   try {
-    if (raw) trip = JSON.parse(decodeURIComponent(raw)) as Trip;
+    if (raw) {
+      const decompressed = LZString.decompressFromEncodedURIComponent(raw);
+      trip = JSON.parse(decompressed ?? decodeURIComponent(raw)) as Trip;
+    }
   } catch {
     // parse error handled below
   }
