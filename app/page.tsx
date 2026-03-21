@@ -6,6 +6,9 @@ import { useState, useEffect } from "react";
 import { useTrips } from "@/components/trip-context";
 import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon } from "@heroicons/react/24/outline";
 import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import type { Trip } from "@/lib/trips";
 
 const TRIP_COLORS = [
   "#6366F1", "#3B82F6", "#F97316", "#EC4899",
@@ -107,6 +110,9 @@ export default function Home() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [linkInput, setLinkInput] = useState("");
+  const [linkImporting, setLinkImporting] = useState(false);
+  const [linkResult, setLinkResult] = useState<"ok" | "error" | null>(null);
   useEffect(() => {
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches);
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
@@ -655,15 +661,14 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            {/* Add to Home Screen */}
+            {/* Add to Home Screen - only show when not installed and supported */}
+            {!isInstalled && (isIOS || deferredPrompt) && (
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
               <div className="flex items-center gap-2 mb-3">
                 <ArrowUpOnSquareIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                 <span className="text-sm font-bold text-slate-800 dark:text-white">ホーム画面に追加</span>
               </div>
-              {isInstalled ? (
-                <p className="text-sm text-slate-500 dark:text-slate-400">すでにホーム画面に追加されています。</p>
-              ) : isIOS ? (
+              {isIOS ? (
                 <ol className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-700 dark:text-slate-300">1</span>
@@ -678,16 +683,67 @@ export default function Home() {
                     <span>「追加」をタップして完了</span>
                   </li>
                 </ol>
-              ) : deferredPrompt ? (
+              ) : (
                 <button
                   onClick={handleInstall}
                   className="w-full rounded-xl bg-[#22C55E] py-2.5 text-sm font-semibold text-white transition hover:bg-green-400"
                 >
                   ホーム画面にインストール
                 </button>
-              ) : (
-                <p className="text-sm text-slate-500 dark:text-slate-400">お使いのブラウザでは自動インストールに対応していません。ブラウザのメニューから「ホーム画面に追加」を選択してください。</p>
               )}
+            </div>
+            )}
+
+            {/* Link import */}
+            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <p className="mb-3 text-sm font-bold text-slate-800 dark:text-white">共有リンクから旅をインポート</p>
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="共有リンクを貼り付け（/view/…）"
+                    value={linkInput}
+                    onChange={(e) => { setLinkInput(e.target.value); setLinkResult(null); }}
+                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                  />
+                  <button
+                    type="button"
+                    disabled={!linkInput.trim() || linkImporting}
+                    onClick={async () => {
+                      setLinkImporting(true);
+                      setLinkResult(null);
+                      try {
+                        const match = linkInput.trim().match(/\/view\/([A-Za-z0-9_-]+)/);
+                        if (!match) throw new Error("invalid");
+                        const snap = await getDoc(doc(db, "shared_trips", match[1]));
+                        if (!snap.exists()) throw new Error("not found");
+                        const trip = snap.data().trip as Trip;
+                        addTrip({
+                          title: trip.title,
+                          startDate: trip.startDate,
+                          endDate: trip.endDate,
+                          description: trip.description,
+                          days: trip.days,
+                          packingList: trip.packingList,
+                          notes: trip.notes,
+                          noteEntries: trip.noteEntries,
+                        });
+                        setLinkInput("");
+                        setLinkResult("ok");
+                      } catch {
+                        setLinkResult("error");
+                      } finally {
+                        setLinkImporting(false);
+                      }
+                    }}
+                    className="shrink-0 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    {linkImporting ? "…" : "追加"}
+                  </button>
+                </div>
+                {linkResult === "ok" && <p className="text-xs text-green-500">旅を追加しました ✓</p>}
+                {linkResult === "error" && <p className="text-xs text-red-500">リンクが無効か、旅が見つかりません</p>}
+              </div>
             </div>
 
             {/* データ管理 */}
