@@ -17,10 +17,6 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function fmtTime(t?: string) {
-  return t ?? "";
-}
-
 export default function ViewPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -71,7 +67,7 @@ export default function ViewPage() {
     Math.round((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86400000) + 1
   );
   const allDays = Array.from({ length: totalDays }, (_, i) => i + 1);
-  const tripIcon = TRIP_ICONS[trip.icon ?? "plane"] ?? "✈️";
+  const tripIcon = TRIP_ICONS[trip.tripIcon ?? "plane"] ?? "✈️";
   const totalCost = (trip.days ?? []).reduce((s, a) => {
     if (!a.cost) return s;
     return s + (a.costType === "per_person" ? a.cost * (trip.participants ?? 2) : a.cost);
@@ -150,19 +146,18 @@ export default function ViewPage() {
                   {acts.map((a, i) => {
                     const isTransport = a.type === "transport";
                     const name = isTransport && a.from && a.to ? `${a.from} → ${a.to}` : a.destination;
-                    const timeStr = a.time && a.endTime
-                      ? `${a.time} ~ ${a.endTime}`
-                      : a.time ? `${a.time} ~` : a.endTime ? `~ ${a.endTime}` : "";
+                    const mapsQuery = isTransport && a.from && a.to
+                      ? `${a.from} ${a.to}` : a.destination;
                     return (
                       <li key={i} className="flex items-start gap-3 px-4 py-3">
                         <span className="mt-0.5 text-lg">{a.icon}</span>
                         <div className="min-w-0 flex-1">
-                          {timeStr && <p className="text-[11px] text-slate-400">{timeStr}</p>}
+                          {a.time && <p className="text-[11px] text-slate-400">{a.time}</p>}
                           <p className="text-sm font-semibold text-slate-800">{name}</p>
                           {a.memo && <p className="text-xs text-slate-500">{a.memo}</p>}
-                          {a.mapsUrl && (
+                          {mapsQuery && (
                             <a
-                              href={a.mapsUrl}
+                              href={`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="mt-1 inline-flex items-center gap-1 text-[11px] text-indigo-500 hover:underline"
