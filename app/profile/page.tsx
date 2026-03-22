@@ -86,7 +86,7 @@ export default function ProfilePage() {
           const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
           await setDoc(ref, { japan: localJapan, world: localWorld });
         }
-      } catch {/* ignore */}
+      } catch (e) { console.error("keiken sync error:", e); }
       setSyncing(false);
     };
     sync();
@@ -484,7 +484,7 @@ export default function ProfilePage() {
                         <button
                           key={id}
                           type="button"
-                          onClick={() => { setJapanEditOpen(false); openDialog(id, false); }}
+                          onClick={() => openDialog(id, false)}
                           className="flex items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-semibold transition hover:brightness-95"
                           style={{ backgroundColor: level === 0 ? "#F8FAFC" : lv.bg, borderColor: level === 0 ? "#E5E7EB" : lv.border, color: level === 0 ? "#64748B" : lv.text }}
                         >

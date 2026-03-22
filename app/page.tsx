@@ -637,35 +637,6 @@ export default function Home() {
       {settingsOpen && (
         <Modal title="設定" onClose={() => setSettingsOpen(false)}>
           <div className="mt-5 space-y-5">
-            {/* バージョン・アップデート情報 */}
-            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-800 dark:text-white">アップデート情報</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">v{APP_VERSION}</span>
-              </div>
-              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                {CHANGELOG.map((entry, i) => (
-                  <div key={entry.version}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${i === 0 ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400" : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"}`}>
-                        v{entry.version}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{entry.title}</span>
-                      <span className="ml-auto text-[10px] text-slate-400">{entry.date}</span>
-                    </div>
-                    <ul className="space-y-0.5 pl-2">
-                      {entry.changes.map((c, j) => (
-                        <li key={j} className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
-                          {c}
-                        </li>
-                      ))}
-                    </ul>
-                    {i < CHANGELOG.length - 1 && <div className="mt-3 border-b border-slate-100 dark:border-slate-700" />}
-                  </div>
-                ))}
-              </div>
-            </div>
             {/* Add to Home Screen - only show when not installed and supported */}
             {!isInstalled && (isIOS || deferredPrompt) && (
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
@@ -698,6 +669,35 @@ export default function Home() {
               )}
             </div>
             )}
+            {/* バージョン・アップデート情報 */}
+            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-800 dark:text-white">アップデート情報</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">v{APP_VERSION}</span>
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                {CHANGELOG.map((entry, i) => (
+                  <div key={entry.version}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${i === 0 ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400" : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"}`}>
+                        v{entry.version}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{entry.title}</span>
+                      <span className="ml-auto text-[10px] text-slate-400">{entry.date}</span>
+                    </div>
+                    <ul className="space-y-0.5 pl-2">
+                      {entry.changes.map((c, j) => (
+                        <li key={j} className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                    {i < CHANGELOG.length - 1 && <div className="mt-3 border-b border-slate-100 dark:border-slate-700" />}
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* Link import */}
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
