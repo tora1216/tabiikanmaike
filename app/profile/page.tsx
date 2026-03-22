@@ -210,14 +210,6 @@ export default function ProfilePage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => doSync()}
-                  disabled={syncing}
-                  className="shrink-0 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  {syncing ? "…" : "再同期"}
-                </button>
-                <button
-                  type="button"
                   onClick={logout}
                   className="shrink-0 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                 >

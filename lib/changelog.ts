@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.6.0";
+export const APP_VERSION = "1.6.1";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,17 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.6.1",
+    date: "2026-03-22",
+    title: "共有・マイページ改善",
+    changes: [
+      "共有旅程をリアルタイム同期（閲覧中に更新が自動反映）",
+      "旅程を削除すると共有リンクも無効化されるように",
+      "ユーザー名設定機能を追加",
+      "経験値をPCとスマホで同期（ログイン時）",
+    ],
+  },
   {
     version: "1.6.0",
     date: "2026-03-22",
@@ -95,7 +106,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "1.1.0",
-    date: "2026-03-10",
+    date: "2026-03-13",
     title: "詳細機能追加",
     changes: [
       "ドラッグ＆ドロップでスケジュール並び替え",
@@ -106,7 +117,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "1.0.0",
-    date: "2026-03-01",
+    date: "2026-03-07",
     title: "初回リリース 🎉",
     changes: [
       "旅の作成・編集・削除",

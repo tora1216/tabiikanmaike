@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
 import type { Trip } from "@/lib/trips";
 import Link from "next/link";
@@ -34,13 +34,16 @@ export default function ViewPage() {
       if (done.includes(id)) setAlreadyImported(true);
     } catch { /* ignore */ }
     if (!db) { setError("データの読み込みに失敗しました。"); setLoading(false); return; }
-    getDoc(doc(db, "shared_trips", id))
-      .then((snap) => {
-        if (!snap.exists()) { setError("この共有リンクは無効です。"); return; }
+    const unsubscribe = onSnapshot(
+      doc(db, "shared_trips", id),
+      (snap) => {
+        if (!snap.exists()) { setError("この共有リンクは無効です。"); setLoading(false); return; }
         setTrip(snap.data().trip as Trip);
-      })
-      .catch(() => setError("データの読み込みに失敗しました。"))
-      .finally(() => setLoading(false));
+        setLoading(false);
+      },
+      () => { setError("データの読み込みに失敗しました。"); setLoading(false); }
+    );
+    return unsubscribe;
   }, [id]);
 
   if (loading) {
