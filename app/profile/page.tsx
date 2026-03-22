@@ -39,6 +39,11 @@ export default function ProfilePage() {
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const prevUserId = useRef<string | null>(null);
 
+  // プロフィール名
+  const [username, setUsername] = useState("");
+  const [usernameEditOpen, setUsernameEditOpen] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState("");
+
   // ローカル初期化
   useEffect(() => {
     try {
@@ -46,6 +51,8 @@ export default function ProfilePage() {
       if (saved) setScores(JSON.parse(saved));
       const savedW = localStorage.getItem("keiken_world");
       if (savedW) setWorldScores(JSON.parse(savedW));
+      const savedName = localStorage.getItem("profile_username");
+      if (savedName) setUsername(savedName);
     } catch {/* ignore */}
     setHydrated(true);
   }, []);
@@ -124,6 +131,16 @@ export default function ProfilePage() {
     }
   }, [worldScores, hydrated, user]);
 
+  const saveUsername = (name: string) => {
+    const trimmed = name.trim();
+    setUsername(trimmed);
+    localStorage.setItem("profile_username", trimmed);
+    if (db && user) {
+      setDoc(doc(db, "users", user.uid, "profile", "data"), { username: trimmed }, { merge: true }).catch(() => {});
+    }
+    setUsernameEditOpen(false);
+  };
+
   const openDialog = (id: string, isWorld: boolean) => {
     setSelectedId(id);
     setIsWorldDialog(isWorld);
@@ -175,7 +192,18 @@ export default function ProfilePage() {
                   <img src={user.photoURL} alt="avatar" className="h-9 w-9 rounded-full" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">{user.displayName}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">
+                      {username || user.displayName}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => { setUsernameDraft(username || user.displayName || ""); setUsernameEditOpen(true); }}
+                      className="shrink-0 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      <PencilSquareIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                     {syncing ? "同期中…" : syncError ? <span className="text-red-500">同期失敗: {syncError}</span> : lastSynced ? `最終同期 ${lastSynced.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}` : user.email}
                   </p>
@@ -198,10 +226,24 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-start gap-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-lg dark:bg-slate-700">
+                    👤
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">ログインなしで利用可能</p>
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">旅程の作成・編集・持ち物管理など、ほとんどの機能はログイン不要で使えます。</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white">
+                        {username || "名前未設定"}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setUsernameDraft(username); setUsernameEditOpen(true); }}
+                        className="shrink-0 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      >
+                        <PencilSquareIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">ログインなしで利用中</p>
                   </div>
                 </div>
                 <div className="rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-700/50">
@@ -565,6 +607,42 @@ export default function ProfilePage() {
             >
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── ユーザー名編集ダイアログ ─────────────────────────────────────────── */}
+      {usernameEditOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" onClick={() => setUsernameEditOpen(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-4 text-base font-bold text-slate-900 dark:text-white">ユーザー名を編集</h3>
+            <input
+              type="text"
+              value={usernameDraft}
+              onChange={(e) => setUsernameDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") saveUsername(usernameDraft); }}
+              placeholder="名前を入力"
+              maxLength={30}
+              autoFocus
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setUsernameEditOpen(false)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 dark:border-slate-600 dark:text-slate-300"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => saveUsername(usernameDraft)}
+                className="flex-1 rounded-xl bg-indigo-500 py-2.5 text-sm font-bold text-white hover:bg-indigo-600"
+              >
+                保存
+              </button>
+            </div>
           </div>
         </div>
       )}
