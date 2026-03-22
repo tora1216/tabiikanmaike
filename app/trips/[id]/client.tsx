@@ -605,6 +605,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     try {
       let shareId = tripData.shareId;
       if (!shareId) {
+        if (!db) throw new Error("db not initialized");
         const docRef = await addDoc(collection(db, "shared_trips"), {
           trip: JSON.parse(JSON.stringify(tripData)),
           createdAt: serverTimestamp(),

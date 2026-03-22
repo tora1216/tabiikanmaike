@@ -58,6 +58,7 @@ export default function ProfilePage() {
     const sync = async () => {
       setSyncing(true);
       try {
+        if (!db) { setSyncing(false); return; }
         const ref = doc(db, "users", user.uid, "keiken", "data");
         const snap = await getDoc(ref);
         if (snap.exists()) {
@@ -95,7 +96,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem("keiken", JSON.stringify(scores));
-    if (user && prevUserId.current === user.uid) {
+    if (db && user && prevUserId.current === user.uid) {
       const ref = doc(db, "users", user.uid, "keiken", "data");
       const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
       setDoc(ref, { japan: scores, world: localWorld }).catch(() => {});
@@ -105,7 +106,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem("keiken_world", JSON.stringify(worldScores));
-    if (user && prevUserId.current === user.uid) {
+    if (db && user && prevUserId.current === user.uid) {
       const ref = doc(db, "users", user.uid, "keiken", "data");
       const localJapan = JSON.parse(localStorage.getItem("keiken") || "{}");
       setDoc(ref, { japan: localJapan, world: worldScores }).catch(() => {});

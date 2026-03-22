@@ -720,6 +720,7 @@ export default function Home() {
                       try {
                         const match = linkInput.trim().match(/\/view\/([A-Za-z0-9_-]+)/);
                         if (!match) throw new Error("invalid");
+                        if (!db) throw new Error("db not initialized");
                         const snap = await getDoc(doc(db, "shared_trips", match[1]));
                         if (!snap.exists()) throw new Error("not found");
                         const trip = snap.data().trip as Trip;

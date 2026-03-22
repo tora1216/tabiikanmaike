@@ -33,6 +33,7 @@ export default function ViewPage() {
       const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];
       if (done.includes(id)) setAlreadyImported(true);
     } catch { /* ignore */ }
+    if (!db) { setError("データの読み込みに失敗しました。"); setLoading(false); return; }
     getDoc(doc(db, "shared_trips", id))
       .then((snap) => {
         if (!snap.exists()) { setError("この共有リンクは無効です。"); return; }
