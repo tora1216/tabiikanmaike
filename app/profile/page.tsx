@@ -150,13 +150,7 @@ export default function ProfilePage() {
             <ArrowLeftIcon className="h-3.5 w-3.5" />ホーム
           </Link>
           <span className="text-sm font-bold text-slate-900 dark:text-white">マイページ</span>
-          <button
-            type="button"
-            onClick={() => tab === "japan" ? setEditOpen(true) : setWorldEditOpen(true)}
-            className="flex items-center gap-1 rounded-full bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-600"
-          >
-            <PencilSquareIcon className="h-3.5 w-3.5" />編集
-          </button>
+          <div className="w-16" />
         </div>
       </header>
 
