@@ -879,7 +879,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="ml-4 flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setShareConfirmOpen(true)}
+                onClick={() => tripData.shareId ? handleShare() : setShareConfirmOpen(true)}
                 className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <ShareIcon className="h-3.5 w-3.5" />共有
