@@ -699,63 +699,60 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Link import */}
-            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-              <p className="mb-3 text-sm font-bold text-slate-800 dark:text-white">共有リンクから旅をインポート</p>
-              <div className="space-y-1.5">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="共有リンクを貼り付け（/view/…）"
-                    value={linkInput}
-                    onChange={(e) => { setLinkInput(e.target.value); setLinkResult(null); }}
-                    className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-                  />
-                  <button
-                    type="button"
-                    disabled={!linkInput.trim() || linkImporting}
-                    onClick={async () => {
-                      setLinkImporting(true);
-                      setLinkResult(null);
-                      try {
-                        const match = linkInput.trim().match(/\/view\/([A-Za-z0-9_-]+)/);
-                        if (!match) throw new Error("invalid");
-                        if (!db) throw new Error("db not initialized");
-                        const snap = await getDoc(doc(db, "shared_trips", match[1]));
-                        if (!snap.exists()) throw new Error("not found");
-                        const trip = snap.data().trip as Trip;
-                        addTrip({
-                          title: trip.title,
-                          startDate: trip.startDate,
-                          endDate: trip.endDate,
-                          description: trip.description,
-                          days: trip.days,
-                          packingList: trip.packingList,
-                          notes: trip.notes,
-                          noteEntries: trip.noteEntries,
-                        });
-                        setLinkInput("");
-                        setLinkResult("ok");
-                      } catch {
-                        setLinkResult("error");
-                      } finally {
-                        setLinkImporting(false);
-                      }
-                    }}
-                    className="shrink-0 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-                  >
-                    {linkImporting ? "…" : "追加"}
-                  </button>
-                </div>
-                {linkResult === "ok" && <p className="text-xs text-green-500">旅を追加しました ✓</p>}
-                {linkResult === "error" && <p className="text-xs text-red-500">リンクが無効か、旅が見つかりません</p>}
-              </div>
-            </div>
-
             {/* データ管理 */}
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
               <p className="mb-3 text-sm font-bold text-slate-800 dark:text-white">データ管理</p>
               <div className="space-y-2">
+                {/* Link import */}
+                <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-slate-700">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">共有リンクから旅をインポート</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="共有リンクを貼り付け"
+                      value={linkInput}
+                      onChange={(e) => { setLinkInput(e.target.value); setLinkResult(null); }}
+                      className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[16px] leading-tight text-slate-700 outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                    />
+                    <button
+                      type="button"
+                      disabled={!linkInput.trim() || linkImporting}
+                      onClick={async () => {
+                        setLinkImporting(true);
+                        setLinkResult(null);
+                        try {
+                          const match = linkInput.trim().match(/\/view\/([A-Za-z0-9_-]+)/);
+                          if (!match) throw new Error("invalid");
+                          if (!db) throw new Error("db not initialized");
+                          const snap = await getDoc(doc(db, "shared_trips", match[1]));
+                          if (!snap.exists()) throw new Error("not found");
+                          const trip = snap.data().trip as Trip;
+                          addTrip({
+                            title: trip.title,
+                            startDate: trip.startDate,
+                            endDate: trip.endDate,
+                            description: trip.description,
+                            days: trip.days,
+                            packingList: trip.packingList,
+                            notes: trip.notes,
+                            noteEntries: trip.noteEntries,
+                          });
+                          setLinkInput("");
+                          setLinkResult("ok");
+                        } catch {
+                          setLinkResult("error");
+                        } finally {
+                          setLinkImporting(false);
+                        }
+                      }}
+                      className="shrink-0 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                    >
+                      {linkImporting ? "…" : "追加"}
+                    </button>
+                  </div>
+                  {linkResult === "ok" && <p className="text-xs text-green-500">旅を追加しました ✓</p>}
+                  {linkResult === "error" && <p className="text-xs text-red-500">リンクが無効か、旅が見つかりません</p>}
+                </div>
                 <button
                   type="button"
                   onClick={() => {

@@ -242,8 +242,7 @@ export default function ProfilePage() {
                   <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">ログインするとできること</p>
                   <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                     <li>📱 経験値をPCとスマホで同期</li>
-                    <li>🔗 旅程を共有リンクで共有</li>
-                    <li>🔄 共有した旅程をリアルタイムで同期</li>
+                    <li>🔄 共有した旅程を閲覧者にリアルタイム更新</li>
                   </ul>
                 </div>
                 <button
