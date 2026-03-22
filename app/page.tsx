@@ -9,6 +9,7 @@ import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import type { Trip } from "@/lib/trips";
+import LZString from "lz-string";
 
 const TRIP_COLORS = [
   "#6366F1", "#3B82F6", "#F97316", "#EC4899",
@@ -112,7 +113,7 @@ export default function Home() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [linkInput, setLinkInput] = useState("");
   const [linkImporting, setLinkImporting] = useState(false);
-  const [linkResult, setLinkResult] = useState<"ok" | "error" | null>(null);
+  const [linkResult, setLinkResult] = useState<"ok" | "error" | "already" | null>(null);
   useEffect(() => {
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches);
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
@@ -721,22 +722,54 @@ export default function Home() {
                         setLinkImporting(true);
                         setLinkResult(null);
                         try {
-                          const match = linkInput.trim().match(/\/view\/([A-Za-z0-9_-]+)/);
+                          const raw = linkInput.trim();
+
+                          // LZ圧縮形式（/trips/import?data=...）
+                          const lzMatch = raw.match(/[?&]data=([^&]+)/);
+                          if (lzMatch) {
+                            const lzKey = lzMatch[1];
+                            const importedLz = (() => { try { return JSON.parse(localStorage.getItem("imported_lz_shares") ?? "[]") as string[]; } catch { return []; } })();
+                            if (importedLz.includes(lzKey) && (() => { try { const decompressed = LZString.decompressFromEncodedURIComponent(lzKey); const t = JSON.parse(decompressed ?? "") as Trip; return trips.some((x) => x.title === t.title && x.startDate === t.startDate && x.endDate === t.endDate); } catch { return false; } })()) {
+                              setLinkResult("already"); setLinkImporting(false); return;
+                            }
+                            const decompressed = LZString.decompressFromEncodedURIComponent(lzKey);
+                            const trip = JSON.parse(decompressed ?? decodeURIComponent(lzKey)) as Trip;
+                            addTrip({
+                              title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
+                              description: trip.description, days: trip.days,
+                              packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
+                            });
+                            try { localStorage.setItem("imported_lz_shares", JSON.stringify([...importedLz, lzKey])); } catch { /* ignore */ }
+                            setLinkInput("");
+                            setLinkResult("ok");
+                            setLinkImporting(false);
+                            return;
+                          }
+
+                          // Firestore形式（/view/{shareId}）
+                          const match = raw.match(/\/view\/([A-Za-z0-9_-]+)/);
                           if (!match) throw new Error("invalid");
+                          const shareId = match[1];
+                          const alreadyImported = (() => {
+                            try { return (JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]).includes(shareId); } catch { return false; }
+                          })();
+                          if (alreadyImported && trips.some((t) => t.shareId === shareId)) {
+                            setLinkResult("already"); setLinkImporting(false); return;
+                          }
                           if (!db) throw new Error("db not initialized");
-                          const snap = await getDoc(doc(db, "shared_trips", match[1]));
+                          const snap = await getDoc(doc(db, "shared_trips", shareId));
                           if (!snap.exists()) throw new Error("not found");
                           const trip = snap.data().trip as Trip;
                           addTrip({
-                            title: trip.title,
-                            startDate: trip.startDate,
-                            endDate: trip.endDate,
-                            description: trip.description,
-                            days: trip.days,
-                            packingList: trip.packingList,
-                            notes: trip.notes,
-                            noteEntries: trip.noteEntries,
+                            title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
+                            description: trip.description, days: trip.days,
+                            packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
+                            shareId,
                           });
+                          try {
+                            const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];
+                            if (!done.includes(shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, shareId]));
+                          } catch { /* ignore */ }
                           setLinkInput("");
                           setLinkResult("ok");
                         } catch {
@@ -751,6 +784,7 @@ export default function Home() {
                     </button>
                   </div>
                   {linkResult === "ok" && <p className="text-xs text-green-500">旅を追加しました ✓</p>}
+                  {linkResult === "already" && <p className="text-xs text-amber-500">この旅はすでにインポート済みです</p>}
                   {linkResult === "error" && <p className="text-xs text-red-500">リンクが無効か、旅が見つかりません</p>}
                 </div>
                 <button
