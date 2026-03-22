@@ -35,6 +35,8 @@ export default function ProfilePage() {
   const { user, loading: authLoading, login, logout } = useAuth();
   const [hydrated, setHydrated] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const prevUserId = useRef<string | null>(null);
 
   // ローカル初期化
@@ -48,48 +50,57 @@ export default function ProfilePage() {
     setHydrated(true);
   }, []);
 
+  const doSync = async (uid?: string) => {
+    const targetUid = uid ?? user?.uid;
+    if (!targetUid || !db) {
+      setSyncError(!db ? "Firebase未設定" : null);
+      return;
+    }
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      const ref = doc(db, "users", targetUid, "keiken", "data");
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const data = snap.data() as { japan?: Record<string, number>; world?: Record<string, number> };
+        setScores(prev => {
+          const merged: Record<string, number> = { ...prev };
+          for (const [k, v] of Object.entries(data.japan ?? {})) {
+            merged[k] = Math.max(merged[k] ?? 0, v);
+          }
+          localStorage.setItem("keiken", JSON.stringify(merged));
+          return merged;
+        });
+        setWorldScores(prev => {
+          const merged: Record<string, number> = { ...prev };
+          for (const [k, v] of Object.entries(data.world ?? {})) {
+            merged[k] = Math.max(merged[k] ?? 0, v);
+          }
+          localStorage.setItem("keiken_world", JSON.stringify(merged));
+          return merged;
+        });
+      } else {
+        const localJapan = JSON.parse(localStorage.getItem("keiken") || "{}");
+        const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
+        await setDoc(ref, { japan: localJapan, world: localWorld });
+      }
+      setLastSynced(new Date());
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("keiken sync error:", e);
+      setSyncError(msg);
+    }
+    setSyncing(false);
+  };
+
   // ログイン時: Firestoreと同期（両方のデータで最大値を採用）
   useEffect(() => {
     if (!hydrated || authLoading) return;
     if (!user) { prevUserId.current = null; return; }
     if (prevUserId.current === user.uid) return;
     prevUserId.current = user.uid;
-
-    const sync = async () => {
-      setSyncing(true);
-      try {
-        if (!db) { setSyncing(false); return; }
-        const ref = doc(db, "users", user.uid, "keiken", "data");
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-          const data = snap.data() as { japan?: Record<string, number>; world?: Record<string, number> };
-          // ローカルとクラウドで各都道府県・国の最大レベルを採用
-          setScores(prev => {
-            const merged: Record<string, number> = { ...prev };
-            for (const [k, v] of Object.entries(data.japan ?? {})) {
-              merged[k] = Math.max(merged[k] ?? 0, v);
-            }
-            localStorage.setItem("keiken", JSON.stringify(merged));
-            return merged;
-          });
-          setWorldScores(prev => {
-            const merged: Record<string, number> = { ...prev };
-            for (const [k, v] of Object.entries(data.world ?? {})) {
-              merged[k] = Math.max(merged[k] ?? 0, v);
-            }
-            localStorage.setItem("keiken_world", JSON.stringify(merged));
-            return merged;
-          });
-        } else {
-          // 初回ログイン：ローカルデータをアップロード
-          const localJapan = JSON.parse(localStorage.getItem("keiken") || "{}");
-          const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
-          await setDoc(ref, { japan: localJapan, world: localWorld });
-        }
-      } catch (e) { console.error("keiken sync error:", e); }
-      setSyncing(false);
-    };
-    sync();
+    doSync(user.uid);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, hydrated, authLoading]);
 
   // スコア変更時: localStorageに保存 + ログイン中はFirestoreにも保存
@@ -166,9 +177,17 @@ export default function ProfilePage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">{user.displayName}</p>
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                    {syncing ? "経験値を同期中…" : user.email}
+                    {syncing ? "同期中…" : syncError ? <span className="text-red-500">同期失敗: {syncError}</span> : lastSynced ? `最終同期 ${lastSynced.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}` : user.email}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => doSync()}
+                  disabled={syncing}
+                  className="shrink-0 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  {syncing ? "…" : "再同期"}
+                </button>
                 <button
                   type="button"
                   onClick={logout}

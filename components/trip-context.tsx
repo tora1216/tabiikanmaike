@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { initialTrips, type Trip } from "@/lib/trips";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, deleteDoc } from "firebase/firestore";
 
 type TripContextValue = {
   trips: Trip[];
@@ -60,11 +62,26 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         return newTrip;
       },
       removeTrip: (id) => {
-        setTrips((prev) => prev.filter((trip) => trip.id !== id));
+        setTrips((prev) => {
+          const trip = prev.find((t) => t.id === id);
+          if (trip?.shareId && db) {
+            deleteDoc(doc(db, "shared_trips", trip.shareId)).catch(() => {});
+          }
+          return prev.filter((t) => t.id !== id);
+        });
       },
       updateTrip: (id, updater) => {
         setTrips((prev) =>
-          prev.map((trip) => (trip.id === id ? { ...updater(trip), updatedAt: new Date().toISOString() } : trip))
+          prev.map((trip) => {
+            if (trip.id !== id) return trip;
+            const updated = { ...updater(trip), updatedAt: new Date().toISOString() };
+            if (updated.shareId && db) {
+              setDoc(doc(db, "shared_trips", updated.shareId), {
+                trip: JSON.parse(JSON.stringify(updated)),
+              }, { merge: true }).catch(() => {});
+            }
+            return updated;
+          })
         );
       },
     }),
