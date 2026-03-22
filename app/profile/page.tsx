@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeftIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { useAuth } from "@/components/auth-context";
 import japanMap from "@svg-maps/japan";
 import worldMap from "@svg-maps/world";
 import {
   LEVELS, PREFECTURES, PREF_ORDER, MAX_SCORE, REGIONS,
   CONTINENTS, COUNTRIES, ISO_TO_COUNTRY, MAX_SCORE_WORLD,
 } from "@/lib/keiken";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 // ─── メインコンポーネント ──────────────────────────────────────────────────────
 
@@ -29,8 +32,12 @@ export default function ProfilePage() {
   const [isWorldDialog, setIsWorldDialog] = useState(false);
   const [pendingLevel, setPendingLevel] = useState<number>(0);
 
+  const { user, loading: authLoading, login, logout } = useAuth();
   const [hydrated, setHydrated] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const prevUserId = useRef<string | null>(null);
 
+  // ローカル初期化
   useEffect(() => {
     try {
       const saved = localStorage.getItem("keiken");
@@ -41,15 +48,69 @@ export default function ProfilePage() {
     setHydrated(true);
   }, []);
 
+  // ログイン時: Firestoreと同期（両方のデータで最大値を採用）
+  useEffect(() => {
+    if (!hydrated || authLoading) return;
+    if (!user) { prevUserId.current = null; return; }
+    if (prevUserId.current === user.uid) return;
+    prevUserId.current = user.uid;
+
+    const sync = async () => {
+      setSyncing(true);
+      try {
+        const ref = doc(db, "users", user.uid, "keiken", "data");
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const data = snap.data() as { japan?: Record<string, number>; world?: Record<string, number> };
+          // ローカルとクラウドで各都道府県・国の最大レベルを採用
+          setScores(prev => {
+            const merged: Record<string, number> = { ...prev };
+            for (const [k, v] of Object.entries(data.japan ?? {})) {
+              merged[k] = Math.max(merged[k] ?? 0, v);
+            }
+            localStorage.setItem("keiken", JSON.stringify(merged));
+            return merged;
+          });
+          setWorldScores(prev => {
+            const merged: Record<string, number> = { ...prev };
+            for (const [k, v] of Object.entries(data.world ?? {})) {
+              merged[k] = Math.max(merged[k] ?? 0, v);
+            }
+            localStorage.setItem("keiken_world", JSON.stringify(merged));
+            return merged;
+          });
+        } else {
+          // 初回ログイン：ローカルデータをアップロード
+          const localJapan = JSON.parse(localStorage.getItem("keiken") || "{}");
+          const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
+          await setDoc(ref, { japan: localJapan, world: localWorld });
+        }
+      } catch {/* ignore */}
+      setSyncing(false);
+    };
+    sync();
+  }, [user, hydrated, authLoading]);
+
+  // スコア変更時: localStorageに保存 + ログイン中はFirestoreにも保存
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem("keiken", JSON.stringify(scores));
-  }, [scores, hydrated]);
+    if (user && prevUserId.current === user.uid) {
+      const ref = doc(db, "users", user.uid, "keiken", "data");
+      const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
+      setDoc(ref, { japan: scores, world: localWorld }).catch(() => {});
+    }
+  }, [scores, hydrated, user]);
 
   useEffect(() => {
     if (!hydrated) return;
     localStorage.setItem("keiken_world", JSON.stringify(worldScores));
-  }, [worldScores, hydrated]);
+    if (user && prevUserId.current === user.uid) {
+      const ref = doc(db, "users", user.uid, "keiken", "data");
+      const localJapan = JSON.parse(localStorage.getItem("keiken") || "{}");
+      setDoc(ref, { japan: localJapan, world: worldScores }).catch(() => {});
+    }
+  }, [worldScores, hydrated, user]);
 
   const openDialog = (id: string, isWorld: boolean) => {
     setSelectedId(id);
@@ -99,6 +160,53 @@ export default function ProfilePage() {
       </header>
 
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+        {/* ログインセクション */}
+        {!authLoading && (
+          <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+            {user ? (
+              <div className="flex items-center gap-3">
+                {user.photoURL && (
+                  <img src={user.photoURL} alt="avatar" className="h-9 w-9 rounded-full" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-800 dark:text-white">{user.displayName}</p>
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                    {syncing ? "経験値を同期中…" : user.email}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="shrink-0 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  ログアウト
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Googleでログインすると共有旅程のリアルタイム同期・複数端末アクセスが可能になります
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={login}
+                  className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Googleでログイン
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* タブ */}
         <div className="mb-5 flex rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-800">
           <button
@@ -437,6 +545,7 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

@@ -23,6 +23,12 @@
 - 旅程を短いリンクで共有（閲覧専用）
 - リンクを知っている人のみアクセス可能（Firebase Firestore で管理）
 - 共有ページから自分のリストへのインポートも可能
+- **共有したデータのみサーバーに保存されます**（非共有の旅程はローカルのみ）
+
+### アカウント（任意）
+- Googleログインはオプション。ログインなしで全機能が利用可能
+- ログインすると共有した旅のリアルタイム同期・複数端末アクセスが可能に
+- マイページからログイン／ログアウト管理
 
 ### マイページ（経県値）
 - 日本47都道府県の経験値マップ（SVG地図表示）
@@ -93,7 +99,8 @@ app/
 ├── manifest.ts           # PWA マニフェスト
 └── globals.css           # グローバルスタイル
 components/
-└── trip-context.tsx      # 旅データのコンテキスト（localStorage）
+├── trip-context.tsx      # 旅データのコンテキスト（localStorage）
+└── auth-context.tsx      # 認証コンテキスト（Firebase Auth）
 lib/
 ├── trips.ts              # 型定義・初期データ
 ├── firebase.ts           # Firebase 初期化

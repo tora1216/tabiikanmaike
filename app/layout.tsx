@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { TripProvider } from "@/components/trip-context";
+import { AuthProvider } from "@/components/auth-context";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -40,7 +41,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}` }} />
       </head>
       <body className={`${geist.variable} antialiased`}>
-        <TripProvider>{children}</TripProvider>
+        <AuthProvider><TripProvider>{children}</TripProvider></AuthProvider>
       </body>
     </html>
   );

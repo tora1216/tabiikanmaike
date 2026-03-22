@@ -50,7 +50,7 @@ export type Trip = {
 export const initialTrips: Trip[] = [
   {
     id: "sapporo-spring",
-    title: "札幌旅行",
+    title: "札幌旅行(サンプル)",
     startDate: "2026-04-24",
     endDate: "2026-04-26",
     description: "春の北海道・札幌へ。海鮮・ラーメン・ジンギスカンを食べ尽くす2泊3日。",
@@ -161,7 +161,7 @@ export const initialTrips: Trip[] = [
   },
   {
     id: "fukuoka-summer",
-    title: "福岡旅行",
+    title: "福岡旅行(サンプル)",
     startDate: "2026-06-05",
     endDate: "2026-06-07",
     description: "博多ラーメン・もつ鍋・中洲の屋台を楽しむ2泊3日の福岡グルメ旅。",
@@ -271,7 +271,7 @@ export const initialTrips: Trip[] = [
   },
   {
     id: "korea-summer",
-    title: "韓国旅行",
+    title: "韓国旅行(サンプル)",
     startDate: "2026-07-18",
     endDate: "2026-07-20",
     description: "ソウルで食べて買って歩く2泊3日。参鶏湯・焼肉・チキンを制覇。",

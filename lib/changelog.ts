@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.5.1";
+export const APP_VERSION = "1.6.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -9,13 +9,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "1.5.1",
+    version: "1.6.0",
     date: "2026-03-22",
-    title: "細かい改善",
+    title: "Googleログイン追加",
     changes: [
-      "旅カードに最終更新日を表示",
-      "アクティビティのメモで改行が反映されるように",
-      "海外経験値ダイアログの国名が切れないように修正",
+      "Googleアカウントでログイン可能に",
+      "ログインなしで全機能利用できるように",
     ],
   },
   {

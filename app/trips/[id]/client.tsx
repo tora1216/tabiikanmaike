@@ -568,11 +568,58 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // Share modal
   const [shareModal, setShareModal] = useState(false);
+  const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [shareLink, setShareLink] = useState("");
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
+
+  const handleShare = async () => {
+    const lines: string[] = [
+      `✈️ ${tripData.title}`,
+      `📅 ${fmtDateLong(tripData.startDate)} 〜 ${fmtDateLong(tripData.endDate)}`,
+    ];
+    if (tripData.description) lines.push(`📝 ${tripData.description}`);
+    lines.push("");
+    allDayNumbers.forEach((n) => {
+      const acts = tripData.days.filter((d) => d.day === n);
+      lines.push(`【Day ${n}】${fmtDayDate(tripData.startDate, n)}`);
+      if (acts.length === 0) { lines.push("　(予定なし)"); }
+      acts.forEach((a) => {
+        const name = a.type === "transport" && a.from && a.to ? `${a.from} → ${a.to}` : a.destination;
+        const time = a.time ? `${a.time} ` : "";
+        lines.push(`　${time}${a.icon} ${name}${a.cost ? ` ¥${a.cost.toLocaleString()}` : ""}`);
+        if (a.memo) lines.push(`　　└ ${a.memo}`);
+      });
+      lines.push("");
+    });
+    if (tripData.notes) { lines.push(`📓 メモ`); lines.push(tripData.notes); }
+    setShareText(lines.join("\n"));
+    setShareLink("");
+    setCopiedText(false);
+    setCopiedLink(false);
+    setShareConfirmOpen(false);
+    setShareModal(true);
+    setShareLinkLoading(true);
+    try {
+      let shareId = tripData.shareId;
+      if (!shareId) {
+        const docRef = await addDoc(collection(db, "shared_trips"), {
+          trip: JSON.parse(JSON.stringify(tripData)),
+          createdAt: serverTimestamp(),
+        });
+        shareId = docRef.id;
+        updateTrip(tripData.id, (c) => ({ ...c, shareId }));
+      }
+      setShareLink(`${window.location.origin}/view/${shareId}`);
+    } catch {
+      const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(tripData));
+      setShareLink(`${window.location.origin}/trips/import?data=${encoded}`);
+    } finally {
+      setShareLinkLoading(false);
+    }
+  };
 
   // Packing list state
   const [packingInput, setPackingInput] = useState("");
@@ -831,53 +878,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="ml-4 flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                onClick={async () => {
-                  const lines: string[] = [
-                    `✈️ ${tripData.title}`,
-                    `📅 ${fmtDateLong(tripData.startDate)} 〜 ${fmtDateLong(tripData.endDate)}`,
-                  ];
-                  if (tripData.description) lines.push(`📝 ${tripData.description}`);
-                  lines.push("");
-                  allDayNumbers.forEach((n) => {
-                    const acts = tripData.days.filter((d) => d.day === n);
-                    lines.push(`【Day ${n}】${fmtDayDate(tripData.startDate, n)}`);
-                    if (acts.length === 0) { lines.push("　(予定なし)"); }
-                    acts.forEach((a) => {
-                      const name = a.type === "transport" && a.from && a.to
-                        ? `${a.from} → ${a.to}` : a.destination;
-                      const time = a.time ? `${a.time} ` : "";
-                      lines.push(`　${time}${a.icon} ${name}${a.cost ? ` ¥${a.cost.toLocaleString()}` : ""}`);
-                      if (a.memo) lines.push(`　　└ ${a.memo}`);
-                    });
-                    lines.push("");
-                  });
-                  if (tripData.notes) { lines.push(`📓 メモ`); lines.push(tripData.notes); }
-                  const text = lines.join("\n");
-                  setShareText(text);
-                  setShareLink("");
-                  setCopiedText(false);
-                  setCopiedLink(false);
-                  setShareModal(true);
-                  setShareLinkLoading(true);
-                  try {
-                    const base = window.location.origin;
-                    let shareId = tripData.shareId;
-                    if (!shareId) {
-                      const docRef = await addDoc(collection(db, "shared_trips"), {
-                        trip: JSON.parse(JSON.stringify(tripData)),
-                        createdAt: serverTimestamp(),
-                      });
-                      shareId = docRef.id;
-                      updateTrip(tripData.id, (c) => ({ ...c, shareId }));
-                    }
-                    setShareLink(`${base}/view/${shareId}`);
-                  } catch {
-                    const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(tripData));
-                    setShareLink(`${window.location.origin}/trips/import?data=${encoded}`);
-                  } finally {
-                    setShareLinkLoading(false);
-                  }
-                }}
+                onClick={() => setShareConfirmOpen(true)}
                 className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <ShareIcon className="h-3.5 w-3.5" />共有
@@ -1687,6 +1688,33 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       )}
 
       {/* Share Modal */}
+      {shareConfirmOpen && (
+        <Modal title="旅を共有" onClose={() => setShareConfirmOpen(false)}>
+          <div className="space-y-4 pt-1">
+            <div className="space-y-1">
+              <p className="text-sm text-slate-600 dark:text-slate-300">共有したデータはサーバーに保存されます。</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">リンクを知っている人のみが閲覧できる状態になります。</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShareConfirmOpen(false)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                className="flex-1 rounded-xl bg-indigo-500 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-600"
+              >
+                共有する
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {shareModal && (
         <Modal title="旅を共有" onClose={() => setShareModal(false)}>
           <div className="space-y-4">
