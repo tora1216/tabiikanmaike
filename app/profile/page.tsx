@@ -178,16 +178,25 @@ export default function ProfilePage() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Googleでログインすると共有旅程のリアルタイム同期・複数端末アクセスが可能になります
-                  </p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">ログインなしで利用可能</p>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">旅程の作成・編集・持ち物管理など、ほとんどの機能はログイン不要で使えます。</p>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-700/50">
+                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">ログインするとできること</p>
+                  <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    <li>📱 経験値をPCとスマホで同期</li>
+                    <li>🔗 旅程を共有リンクで共有</li>
+                    <li>🔄 共有した旅程をリアルタイムで同期</li>
+                  </ul>
                 </div>
                 <button
                   type="button"
                   onClick={login}
-                  className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -232,7 +241,7 @@ export default function ProfilePage() {
         {tab === "japan" && (
           <>
             <div className="mb-6 rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">経県値</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">国内経験値</p>
               <div className="mt-2 flex items-end gap-3">
                 <span className="text-5xl font-black text-slate-900 dark:text-white">{totalScore}</span>
                 <span className="mb-1 text-sm text-slate-400">/ {MAX_SCORE} 点</span>
