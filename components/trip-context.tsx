@@ -64,7 +64,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       },
       updateTrip: (id, updater) => {
         setTrips((prev) =>
-          prev.map((trip) => (trip.id === id ? updater(trip) : trip))
+          prev.map((trip) => (trip.id === id ? { ...updater(trip), updatedAt: new Date().toISOString() } : trip))
         );
       },
     }),

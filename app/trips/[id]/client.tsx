@@ -160,7 +160,7 @@ function ActivityCard({
             <p className="mt-0.5 text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
           )}
           {activity.memo && (
-            <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{activity.memo}</p>
+            <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-500 dark:text-slate-400">{activity.memo}</p>
           )}
           {activity.cost !== undefined && activity.cost > 0 && (
             <p className="mt-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">

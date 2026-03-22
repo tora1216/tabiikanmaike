@@ -330,7 +330,7 @@ export default function ProfilePage() {
                 return (
                   <div key={cont.id}>
                     <p className="mb-2 text-xs font-bold text-slate-400">{cont.emoji} {cont.name}</p>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
                       {countries.map((country) => {
                         const level = worldScores[country.id] ?? 0;
                         const lv = LEVELS[level];
@@ -340,7 +340,7 @@ export default function ProfilePage() {
                             style={{ backgroundColor: level === 0 ? "#FAFAFA" : lv.bg, borderColor: level === 0 ? "#E5E7EB" : lv.border }}
                           >
                             <span className="text-base leading-none">{country.flag}</span>
-                            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700">{country.name}</span>
+                            <span className="min-w-0 flex-1 text-xs font-semibold leading-tight text-slate-700">{country.name}</span>
                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white" style={{ backgroundColor: lv.dot }}>{level}</span>
                           </button>
                         );

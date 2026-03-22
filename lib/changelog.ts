@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.5.0";
+export const APP_VERSION = "1.5.1";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,16 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.5.1",
+    date: "2026-03-22",
+    title: "細かい改善",
+    changes: [
+      "旅カードに最終更新日を表示",
+      "アクティビティのメモで改行が反映されるように",
+      "海外経験値ダイアログの国名が切れないように修正",
+    ],
+  },
   {
     version: "1.5.0",
     date: "2026-03-22",

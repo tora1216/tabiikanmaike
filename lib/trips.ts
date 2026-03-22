@@ -44,6 +44,7 @@ export type Trip = {
   tripIcon?: string;
   participants?: number;
   shareId?: string;
+  updatedAt?: string;
 };
 
 export const initialTrips: Trip[] = [

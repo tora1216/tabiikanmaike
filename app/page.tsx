@@ -357,7 +357,7 @@ export default function Home() {
                         {trip.description}
                       </p>
                     )}
-                    <div className="mt-3 flex flex-wrap gap-1.5">
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
                         {days}日間
                       </span>
@@ -367,6 +367,11 @@ export default function Home() {
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
                         {trip.days.length}スポット
                       </span>
+                      {trip.updatedAt && (
+                        <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500">
+                          更新 {new Date(trip.updatedAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })} {new Date(trip.updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
                     </div>
                   </Link>
                 </div>
