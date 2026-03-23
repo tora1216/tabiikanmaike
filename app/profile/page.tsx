@@ -34,7 +34,9 @@ export default function ProfilePage() {
 
   const { user, loading: authLoading, login, logout } = useAuth();
   const [hydrated, setHydrated] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [syncingUI, setSyncingUI] = useState(false);
+  const syncingRef = useRef(false); // 即時チェック用（Reactのstateは次renderまで反映されないため）
+  const [loginConfirmOpen, setLoginConfirmOpen] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const prevUserId = useRef<string | null>(null);
@@ -63,7 +65,8 @@ export default function ProfilePage() {
       setSyncError(!db ? "Firebase未設定" : null);
       return;
     }
-    setSyncing(true);
+    syncingRef.current = true;
+    setSyncingUI(true);
     setSyncError(null);
     try {
       const ref = doc(db, "users", targetUid, "keiken", "data");
@@ -97,7 +100,8 @@ export default function ProfilePage() {
       console.error("keiken sync error:", e);
       setSyncError(msg);
     }
-    setSyncing(false);
+    syncingRef.current = false;
+    setSyncingUI(false);
   };
 
   // ログイン時: Firestoreと同期（両方のデータで最大値を採用）
@@ -112,24 +116,14 @@ export default function ProfilePage() {
 
   // スコア変更時: localStorageに保存 + ログイン中はFirestoreにも保存
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || syncingRef.current) return;
     localStorage.setItem("keiken", JSON.stringify(scores));
-    if (db && user && prevUserId.current === user.uid) {
-      const ref = doc(db, "users", user.uid, "keiken", "data");
-      const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
-      setDoc(ref, { japan: scores, world: localWorld }).catch(() => {});
-    }
-  }, [scores, hydrated, user]);
-
-  useEffect(() => {
-    if (!hydrated) return;
     localStorage.setItem("keiken_world", JSON.stringify(worldScores));
     if (db && user && prevUserId.current === user.uid) {
       const ref = doc(db, "users", user.uid, "keiken", "data");
-      const localJapan = JSON.parse(localStorage.getItem("keiken") || "{}");
-      setDoc(ref, { japan: localJapan, world: worldScores }).catch(() => {});
+      setDoc(ref, { japan: scores, world: worldScores }).catch(() => {});
     }
-  }, [worldScores, hydrated, user]);
+  }, [scores, worldScores, hydrated, user, syncingUI]);
 
   const saveUsername = (name: string) => {
     const trimmed = name.trim();
@@ -205,7 +199,7 @@ export default function ProfilePage() {
                     </button>
                   </div>
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                    {syncing ? "同期中…" : syncError ? <span className="text-red-500">同期失敗: {syncError}</span> : lastSynced ? `最終同期 ${lastSynced.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}` : user.email}
+                    {syncingUI ? "同期中…" : syncError ? <span className="text-red-500">同期失敗: {syncError}</span> : lastSynced ? `最終同期 ${lastSynced.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}` : user.email}
                   </p>
                 </div>
                 <button
@@ -241,13 +235,14 @@ export default function ProfilePage() {
                 <div className="rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-700/50">
                   <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-slate-400">ログインするとできること</p>
                   <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                    <li>📱 経験値をPCとスマホで同期</li>
+                    <li>☁️ 旅程・経験値をサーバーに保存</li>
+                    <li>📱 PCとスマホでデータを自動同期</li>
                     <li>🔄 共有した旅程を閲覧者にリアルタイム更新</li>
                   </ul>
                 </div>
                 <button
                   type="button"
-                  onClick={login}
+                  onClick={() => setLoginConfirmOpen(true)}
                   className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
@@ -598,6 +593,35 @@ export default function ProfilePage() {
             >
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── ログイン確認ダイアログ ──────────────────────────────────────────── */}
+      {loginConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" onClick={() => setLoginConfirmOpen(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative w-full max-w-xs rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800" onClick={(e) => e.stopPropagation()}>
+            <h3 className="mb-2 text-base font-bold text-slate-900 dark:text-white">Googleでログイン</h3>
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+              ログインすると、旅程と経験値データがサーバーに保存されます。同じアカウントでログインした端末間でデータが自動的に同期されます。
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setLoginConfirmOpen(false)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 dark:border-slate-600 dark:text-slate-300"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLoginConfirmOpen(false); login(); }}
+                className="flex-1 rounded-xl bg-indigo-500 py-2.5 text-sm font-bold text-white hover:bg-indigo-600"
+              >
+                ログイン
+              </button>
+            </div>
           </div>
         </div>
       )}

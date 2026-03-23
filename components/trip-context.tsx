@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { initialTrips, type Trip } from "@/lib/trips";
+import { useAuth } from "@/components/auth-context";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 type TripContextValue = {
   trips: Trip[];
@@ -17,14 +18,16 @@ const TripContext = createContext<TripContextValue | undefined>(undefined);
 export function TripProvider({ children }: { children: React.ReactNode }) {
   const [trips, setTrips] = useState<Trip[]>(initialTrips);
   const [hydrated, setHydrated] = useState(false);
+  const { user } = useAuth();
+  const prevUserId = useRef<string | null>(null);
+  const syncing = useRef(false);
 
-  // Load from localStorage after mount to avoid SSR mismatch
+  // Load from localStorage after mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem("trips");
       if (stored) {
         const parsed = JSON.parse(stored) as Trip[];
-        // Normalize icon field: replace old text-based icons with a default emoji
         const normalized = parsed.map((trip) => ({
           ...trip,
           days: trip.days.map((d) => ({
@@ -34,21 +37,54 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }));
         setTrips(normalized);
       }
-    } catch {
-      // ignore read errors
-    }
+    } catch { /* ignore */ }
     setHydrated(true);
   }, []);
 
-  // Persist to localStorage whenever trips change (after hydration)
+  // ログイン時: Firestoreと同期
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem("trips", JSON.stringify(trips));
-    } catch {
-      // ignore write errors
+    if (!hydrated || !user) { prevUserId.current = null; return; }
+    if (prevUserId.current === user.uid) return;
+    prevUserId.current = user.uid;
+
+    const sync = async () => {
+      if (!db) return;
+      syncing.current = true;
+      try {
+        const ref = doc(db, "users", user.uid, "trips", "data");
+        const snap = await getDoc(ref);
+        setTrips((local) => {
+          const cloud: Trip[] = snap.exists() ? (snap.data().trips as Trip[] ?? []) : [];
+          // マージ: 同じIDは更新日時が新しい方を優先、ユニークなものはすべて統合
+          const merged = new Map<string, Trip>();
+          for (const t of [...local, ...cloud]) {
+            const existing = merged.get(t.id);
+            if (!existing) { merged.set(t.id, t); continue; }
+            const existingAt = existing.updatedAt ?? existing.startDate ?? "";
+            const newAt = t.updatedAt ?? t.startDate ?? "";
+            if (newAt > existingAt) merged.set(t.id, t);
+          }
+          const result = Array.from(merged.values());
+          localStorage.setItem("trips", JSON.stringify(result));
+          // マージ結果をFirestoreに保存
+          setDoc(ref, { trips: JSON.parse(JSON.stringify(result)) }).catch(() => {});
+          return result;
+        });
+      } catch (e) { console.error("trips sync error:", e); }
+      syncing.current = false;
+    };
+    sync();
+  }, [user, hydrated]);
+
+  // Persist to localStorage + Firestore whenever trips change (after hydration)
+  useEffect(() => {
+    if (!hydrated || syncing.current) return;
+    try { localStorage.setItem("trips", JSON.stringify(trips)); } catch { /* ignore */ }
+    if (db && user && prevUserId.current === user.uid) {
+      const ref = doc(db, "users", user.uid, "trips", "data");
+      setDoc(ref, { trips: JSON.parse(JSON.stringify(trips)) }).catch(() => {});
     }
-  }, [trips, hydrated]);
+  }, [trips, hydrated, user]);
 
   const value = useMemo<TripContextValue>(
     () => ({
@@ -93,8 +129,6 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
 export function useTrips() {
   const ctx = useContext(TripContext);
-  if (!ctx) {
-    throw new Error("useTrips must be used within TripProvider");
-  }
+  if (!ctx) throw new Error("useTrips must be used within TripProvider");
   return ctx;
 }

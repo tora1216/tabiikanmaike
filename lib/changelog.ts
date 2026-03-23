@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.6.1";
+export const APP_VERSION = "1.6.2";
 
 export type ChangelogEntry = {
   version: string;
@@ -9,14 +9,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.6.2",
+    date: "2026-03-23",
+    title: "端末間データ同期",
+    changes: [
+      "ログインすると旅程・経験値をすべての端末で同期",
+      "同じアカウントでログインするとデータが自動マージ（新しい方を優先）",
+    ],
+  },
+  {
     version: "1.6.1",
     date: "2026-03-22",
-    title: "共有・マイページ改善",
+    title: "共有・同期の改善",
     changes: [
       "共有旅程をリアルタイム同期（閲覧中に更新が自動反映）",
       "旅程を削除すると共有リンクも無効化されるように",
-      "ユーザー名設定機能を追加",
-      "経験値をPCとスマホで同期（ログイン時）",
       "インポート済みの旅程の重複インポートを防止",
     ],
   },
