@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTrips } from "@/components/trip-context";
 import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon } from "@heroicons/react/24/outline";
@@ -92,7 +91,6 @@ function Modal({
 }
 
 export default function Home() {
-  const router = useRouter();
   const { trips, addTrip, removeTrip, updateTrip } = useTrips();
 
   const [isDark, setIsDark] = useState(false);
@@ -198,7 +196,7 @@ export default function Home() {
   const handleCopy = () => {
     const t = trips.find((t) => t.id === editId);
     if (!t) return;
-    const copied = addTrip({
+    addTrip({
       title: `${t.title}（コピー）`,
       startDate: t.startDate,
       endDate: t.endDate,
@@ -212,7 +210,6 @@ export default function Home() {
     });
     setEditOpen(false);
     setEditId(null);
-    router.push(`/trips?id=${copied.id}`);
   };
 
   const handleUpdate = () => {
