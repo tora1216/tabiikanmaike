@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
+import { useTrips } from "@/components/trip-context";
 import type { Trip } from "@/lib/trips";
 import Link from "next/link";
 import { ArrowLeftIcon, MapPinIcon, CreditCardIcon } from "@heroicons/react/24/outline";
@@ -18,12 +19,20 @@ function fmtDate(d: string) {
 
 export default function ViewPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const { addTrip } = useTrips();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [imported, setImported] = useState(false);
+  const [alreadyImported, setAlreadyImported] = useState(false);
 
   useEffect(() => {
     if (!id) return;
+    try {
+      const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];
+      if (done.includes(id)) setAlreadyImported(true);
+    } catch { /* ignore */ }
     if (!db) { setError("データの読み込みに失敗しました。"); setLoading(false); return; }
     const unsubscribe = onSnapshot(
       doc(db, "shared_trips", id),
@@ -67,6 +76,25 @@ export default function ViewPage() {
     if (!a.cost) return s;
     return s + (a.costType === "per_person" ? a.cost * (trip.participants ?? 2) : a.cost);
   }, 0);
+
+  const handleImport = () => {
+    addTrip({
+      title: trip.title,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      description: trip.description,
+      days: trip.days,
+      packingList: trip.packingList,
+      notes: trip.notes,
+      noteEntries: trip.noteEntries,
+    });
+    try {
+      const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];
+      localStorage.setItem("imported_shares", JSON.stringify([...done, id]));
+    } catch { /* ignore */ }
+    setImported(true);
+    setTimeout(() => router.push("/"), 1000);
+  };
 
   return (
     <div className="min-h-screen bg-[#F0F5FA] pb-16">
@@ -159,9 +187,23 @@ export default function ViewPage() {
 
         {/* Import hint */}
         <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <p className="mb-1 text-xs font-semibold text-slate-600">この旅をインポートするには</p>
-          <p className="text-xs text-slate-400">設定の「データの追加」にこのページのURLを貼り付けて追加できます</p>
+          <p className="mb-1.5 text-xs font-semibold text-slate-600">インポート方法</p>
+          <ol className="list-decimal space-y-0.5 pl-4 text-xs text-slate-400">
+            <li>このページのURLを相手に共有する</li>
+            <li>受け取った側はリンクを開く</li>
+            <li>設定の「データの追加」にURLを貼り付けて追加</li>
+          </ol>
         </div>
+
+        {/* Import button */}
+        <button
+          type="button"
+          onClick={handleImport}
+          disabled={imported || alreadyImported}
+          className="w-full rounded-2xl bg-[#22C55E] py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-400 disabled:opacity-60"
+        >
+          {imported ? "追加しました ✓" : alreadyImported ? "追加済みです ✓" : "自分の旅程リストに追加する"}
+        </button>
       </div>
     </div>
   );
