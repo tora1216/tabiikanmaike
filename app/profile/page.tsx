@@ -38,7 +38,6 @@ export default function ProfilePage() {
   const syncingRef = useRef(false); // 即時チェック用（Reactのstateは次renderまで反映されないため）
   const [loginConfirmOpen, setLoginConfirmOpen] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const prevUserId = useRef<string | null>(null);
 
   // プロフィール名
@@ -94,7 +93,6 @@ export default function ProfilePage() {
         const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
         await setDoc(ref, { japan: localJapan, world: localWorld });
       }
-      setLastSynced(new Date());
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("keiken sync error:", e);
@@ -199,7 +197,7 @@ export default function ProfilePage() {
                     </button>
                   </div>
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                    {syncingUI ? "同期中…" : syncError ? <span className="text-red-500">同期失敗: {syncError}</span> : lastSynced ? `最終同期 ${lastSynced.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}` : user.email}
+                    {syncingUI ? "同期中…" : syncError ? <span className="text-red-500">同期失敗: {syncError}</span> : user.email}
                   </p>
                 </div>
                 <button
