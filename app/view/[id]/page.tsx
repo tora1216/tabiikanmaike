@@ -108,6 +108,29 @@ export default function ViewPage() {
       </div>
 
       <div className="mx-auto max-w-xl px-4 pt-6 space-y-4">
+        {/* Import */}
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <p className="mb-2 text-xs font-semibold text-slate-600">この旅をインポートするには</p>
+          <div className="mb-3 space-y-1.5">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-600">初めて利用する方</span>
+              <span className="text-slate-400">下の追加ボタンを押してください</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 font-semibold text-blue-500">既に利用済みの方</span>
+              <span className="text-slate-400">設定の「データの追加」からインポートしてください</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={imported || alreadyImported}
+            className="w-full rounded-xl bg-[#22C55E] py-2.5 text-sm font-bold text-white transition hover:bg-green-400 disabled:opacity-60"
+          >
+            {imported ? "追加しました ✓" : alreadyImported ? "追加済みです ✓" : "旅程リストに追加する"}
+          </button>
+        </div>
+
         {/* Trip title card */}
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
@@ -186,25 +209,6 @@ export default function ViewPage() {
           );
         })}
 
-        {/* Import hint */}
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <p className="mb-1.5 text-xs font-semibold text-slate-600">インポート方法</p>
-          <ol className="list-decimal space-y-0.5 pl-4 text-xs text-slate-400">
-            <li>このページのURLを相手に共有する</li>
-            <li>受け取った側はリンクを開く</li>
-            <li>設定の「データの追加」にURLを貼り付けて追加</li>
-          </ol>
-        </div>
-
-        {/* Import button */}
-        <button
-          type="button"
-          onClick={handleImport}
-          disabled={imported || alreadyImported}
-          className="w-full rounded-2xl bg-[#22C55E] py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-green-400 disabled:opacity-60"
-        >
-          {imported ? "追加しました ✓" : alreadyImported ? "追加済みです ✓" : "自分の旅程リストに追加する"}
-        </button>
       </div>
     </div>
   );
