@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
@@ -19,7 +19,6 @@ function fmtDate(d: string) {
 
 export default function ViewPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { addTrip } = useTrips();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,7 +92,6 @@ export default function ViewPage() {
       localStorage.setItem("imported_shares", JSON.stringify([...done, id]));
     } catch { /* ignore */ }
     setImported(true);
-    setTimeout(() => router.push("/"), 1000);
   };
 
   return (
