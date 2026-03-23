@@ -601,7 +601,11 @@ export default function Home() {
               <button
                 className="flex items-center gap-1.5 rounded-full border border-red-200 px-3 py-2 text-sm text-red-500 transition hover:bg-red-50"
                 onClick={() => {
-                  if (window.confirm("この旅を削除してもよろしいですか？")) {
+                  const trip = trips.find((t) => t.id === editId);
+                  const msg = trip?.shareId
+                    ? "この旅を削除すると共有リンクも無効になります。\n本当に削除してもよろしいですか？"
+                    : "この旅を削除してもよろしいですか？";
+                  if (window.confirm(msg)) {
                     removeTrip(editId);
                     setEditOpen(false);
                     setEditId(null);

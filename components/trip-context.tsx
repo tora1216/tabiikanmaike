@@ -15,15 +15,31 @@ type TripContextValue = {
 
 const TripContext = createContext<TripContextValue | undefined>(undefined);
 
+// 削除済みトリップIDと削除日時のマップ
+type DeletedAt = Record<string, string>;
+
+function loadDeletedAt(): DeletedAt {
+  try {
+    const stored = localStorage.getItem("trips_deleted");
+    return stored ? JSON.parse(stored) : {};
+  } catch { return {}; }
+}
+
+function saveDeletedAt(deletedAt: DeletedAt) {
+  try { localStorage.setItem("trips_deleted", JSON.stringify(deletedAt)); } catch { /* ignore */ }
+}
+
 export function TripProvider({ children }: { children: React.ReactNode }) {
   const [trips, setTrips] = useState<Trip[]>(initialTrips);
   const [hydrated, setHydrated] = useState(false);
   const { user } = useAuth();
   const prevUserId = useRef<string | null>(null);
   const syncing = useRef(false);
+  const deletedAtRef = useRef<DeletedAt>({});
 
   // Load from localStorage after mount
   useEffect(() => {
+    deletedAtRef.current = loadDeletedAt();
     try {
       const stored = localStorage.getItem("trips");
       if (stored) {
@@ -35,7 +51,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             icon: d.icon && d.icon.length <= 4 ? d.icon : "📍",
           })),
         }));
-        setTrips(normalized);
+        // 削除済みIDを除外
+        const deletedIds = deletedAtRef.current;
+        setTrips(normalized.filter((t) => !deletedIds[t.id]));
       }
     } catch { /* ignore */ }
     setHydrated(true);
@@ -54,8 +72,21 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         const ref = doc(db, "users", user.uid, "trips", "data");
         const snap = await getDoc(ref);
         setTrips((local) => {
-          const cloud: Trip[] = snap.exists() ? (snap.data().trips as Trip[] ?? []) : [];
-          // マージ: 同じIDは更新日時が新しい方を優先、ユニークなものはすべて統合
+          const cloudData = snap.exists() ? snap.data() : null;
+          const cloud: Trip[] = cloudData?.trips as Trip[] ?? [];
+          const cloudDeletedAt: DeletedAt = cloudData?.deletedAt ?? {};
+
+          // トゥームストーンをマージ（同じIDは新しい方を優先）
+          const mergedDeletedAt: DeletedAt = { ...deletedAtRef.current };
+          for (const [id, ts] of Object.entries(cloudDeletedAt)) {
+            if (!mergedDeletedAt[id] || ts > mergedDeletedAt[id]) {
+              mergedDeletedAt[id] = ts;
+            }
+          }
+          deletedAtRef.current = mergedDeletedAt;
+          saveDeletedAt(mergedDeletedAt);
+
+          // トリップをマージ: 同じIDは更新日時が新しい方を優先
           const merged = new Map<string, Trip>();
           for (const t of [...local, ...cloud]) {
             const existing = merged.get(t.id);
@@ -64,10 +95,15 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             const newAt = t.updatedAt ?? t.startDate ?? "";
             if (newAt > existingAt) merged.set(t.id, t);
           }
-          const result = Array.from(merged.values());
+
+          // 削除済みIDを除外
+          const result = Array.from(merged.values()).filter((t) => !mergedDeletedAt[t.id]);
           localStorage.setItem("trips", JSON.stringify(result));
           // マージ結果をFirestoreに保存
-          setDoc(ref, { trips: JSON.parse(JSON.stringify(result)) }).catch(() => {});
+          setDoc(ref, {
+            trips: JSON.parse(JSON.stringify(result)),
+            deletedAt: mergedDeletedAt,
+          }).catch(() => {});
           return result;
         });
       } catch (e) { console.error("trips sync error:", e); }
@@ -82,7 +118,10 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
     try { localStorage.setItem("trips", JSON.stringify(trips)); } catch { /* ignore */ }
     if (db && user && prevUserId.current === user.uid) {
       const ref = doc(db, "users", user.uid, "trips", "data");
-      setDoc(ref, { trips: JSON.parse(JSON.stringify(trips)) }).catch(() => {});
+      setDoc(ref, {
+        trips: JSON.parse(JSON.stringify(trips)),
+        deletedAt: deletedAtRef.current,
+      }).catch(() => {});
     }
   }, [trips, hydrated, user]);
 
@@ -98,8 +137,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         return newTrip;
       },
       removeTrip: (id) => {
+        // トゥームストーンに追加
+        const now = new Date().toISOString();
+        deletedAtRef.current = { ...deletedAtRef.current, [id]: now };
+        saveDeletedAt(deletedAtRef.current);
         setTrips((prev) => {
           const trip = prev.find((t) => t.id === id);
+          // オーナーが削除する場合は shared_trips も削除（友人がインポートした旅程は shareId を持たないため影響なし）
           if (trip?.shareId && db) {
             deleteDoc(doc(db, "shared_trips", trip.shareId)).catch(() => {});
           }
