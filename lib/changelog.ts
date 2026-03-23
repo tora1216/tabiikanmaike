@@ -51,15 +51,6 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: "1.4.3",
-    date: "2026-03-20",
-    title: "データ管理機能の追加",
-    changes: [
-      "設定画面からデータをJSONファイルでエクスポート（バックアップ）",
-      "JSONファイルからデータをインポート（復元）",
-    ],
-  },
-  {
     version: "1.4.2",
     date: "2026-03-20",
     title: "地図表示の改善",

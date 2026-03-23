@@ -674,42 +674,12 @@ export default function Home() {
               )}
             </div>
             )}
-            {/* バージョン・アップデート情報 */}
+            {/* データの追加 */}
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-800 dark:text-white">アップデート情報</span>
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">v{APP_VERSION}</span>
-              </div>
-              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                {CHANGELOG.map((entry, i) => (
-                  <div key={entry.version}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${i === 0 ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400" : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"}`}>
-                        v{entry.version}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{entry.title}</span>
-                      <span className="ml-auto text-[10px] text-slate-400">{entry.date}</span>
-                    </div>
-                    <ul className="space-y-0.5 pl-2">
-                      {entry.changes.map((c, j) => (
-                        <li key={j} className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
-                          {c}
-                        </li>
-                      ))}
-                    </ul>
-                    {i < CHANGELOG.length - 1 && <div className="mt-3 border-b border-slate-100 dark:border-slate-700" />}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* データ管理 */}
-            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-              <p className="mb-3 text-sm font-bold text-slate-800 dark:text-white">データ管理</p>
+              <p className="mb-3 text-sm font-bold text-slate-800 dark:text-white">データの追加</p>
               <div className="space-y-2">
                 {/* Link import */}
-                <div className="space-y-1.5 pb-2 border-b border-slate-100 dark:border-slate-700">
+                <div className="space-y-1.5">
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">共有リンクから旅をインポート</p>
                   <div className="flex gap-2">
                     <input
@@ -791,55 +761,36 @@ export default function Home() {
                   {linkResult === "already" && <p className="text-xs text-amber-500">この旅はすでにインポート済みです</p>}
                   {linkResult === "error" && <p className="text-xs text-red-500">リンクが無効か、旅が見つかりません</p>}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const data = {
-                      version: APP_VERSION,
-                      exportedAt: new Date().toISOString(),
-                      trips: JSON.parse(localStorage.getItem("trips") || "[]"),
-                      keiken: JSON.parse(localStorage.getItem("keiken") || "{}"),
-                      keiken_world: JSON.parse(localStorage.getItem("keiken_world") || "{}"),
-                    };
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `tabiikanmaike-${new Date().toISOString().slice(0, 10)}.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  エクスポート（バックアップ）
-                </button>
-                <label className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" /></svg>
-                  インポート（復元）
-                  <input
-                    type="file"
-                    accept=".json"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        try {
-                          const data = JSON.parse(ev.target?.result as string);
-                          if (!data.trips && !data.keiken) { alert("無効なファイルです"); return; }
-                          if (!confirm("現在のデータを上書きしてインポートしますか？")) return;
-                          if (data.trips) localStorage.setItem("trips", JSON.stringify(data.trips));
-                          if (data.keiken) localStorage.setItem("keiken", JSON.stringify(data.keiken));
-                          if (data.keiken_world) localStorage.setItem("keiken_world", JSON.stringify(data.keiken_world));
-                          window.location.reload();
-                        } catch { alert("ファイルの読み込みに失敗しました"); }
-                      };
-                      reader.readAsText(file);
-                    }}
-                  />
-                </label>
+              </div>
+            </div>
+
+            {/* バージョン・アップデート情報 */}
+            <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-slate-800 dark:text-white">アップデート情報</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">v{APP_VERSION}</span>
+              </div>
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                {CHANGELOG.map((entry, i) => (
+                  <div key={entry.version}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${i === 0 ? "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400" : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"}`}>
+                        v{entry.version}
+                      </span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{entry.title}</span>
+                      <span className="ml-auto text-[10px] text-slate-400">{entry.date}</span>
+                    </div>
+                    <ul className="space-y-0.5 pl-2">
+                      {entry.changes.map((c, j) => (
+                        <li key={j} className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600" />
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                    {i < CHANGELOG.length - 1 && <div className="mt-3 border-b border-slate-100 dark:border-slate-700" />}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

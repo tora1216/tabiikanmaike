@@ -1751,6 +1751,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 </div>
               )}
               <p className="mt-1 text-[11px] text-slate-400">リンクを知っている人のみ閲覧できます</p>
+              <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-700/50">
+                <p className="mb-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">旅のインポート方法</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">リンクを受け取った側は、設定の「データの追加」にリンクを貼り付けて追加できます</p>
+              </div>
             </div>
             {/* Text output */}
             <div>
