@@ -11,8 +11,9 @@ import type { Trip } from "@/lib/trips";
 import LZString from "lz-string";
 
 const TRIP_COLORS = [
-  "#6366F1", "#3B82F6", "#F97316", "#EC4899",
-  "#8B5CF6", "#EF4444", "#14B8A6", "#EAB308",
+  "#3B82F6", "#0EA5E9", "#06B6D4", "#10B981",
+  "#22C55E", "#84CC16", "#EAB308", "#F97316",
+  "#EF4444", "#F43F5E", "#EC4899", "#F472B6",
 ];
 
 const TRIP_ICONS = [
@@ -709,6 +710,7 @@ export default function Home() {
                               title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
                               description: trip.description, days: trip.days,
                               packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
+                              color: trip.color, tripIcon: trip.tripIcon, participants: trip.participants,
                             });
                             try { localStorage.setItem("imported_lz_shares", JSON.stringify([...importedLz, lzKey])); } catch { /* ignore */ }
                             setLinkInput("");
@@ -735,6 +737,7 @@ export default function Home() {
                             title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
                             description: trip.description, days: trip.days,
                             packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
+                            color: trip.color, tripIcon: trip.tripIcon, participants: trip.participants,
                             shareId,
                           });
                           try {
