@@ -111,6 +111,7 @@ export default function ViewPage() {
         {/* Import */}
         <div className="rounded-2xl bg-white p-4 shadow-sm">
           <p className="mb-2 text-xs font-semibold text-slate-600">この旅をインポートするには</p>
+          <p className="mb-2 text-[11px] text-amber-500">⚠ ブラウザで開くことをおすすめします</p>
           <div className="mb-3 space-y-1.5">
             <div className="flex items-center gap-2 text-xs">
               <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-600">初めて利用する方</span>

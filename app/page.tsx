@@ -462,7 +462,7 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
               <textarea
                 className={`${inputCls} resize-none`}
                 rows={3}
@@ -575,7 +575,7 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
               <textarea
                 className={`${inputCls} resize-none`}
                 rows={3}

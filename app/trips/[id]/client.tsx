@@ -464,7 +464,7 @@ function ActivityForm({
       {/* Common: time */}
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始時間</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始時間<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
           <div className="relative">
             <input
               type="time"
@@ -485,7 +485,7 @@ function ActivityForm({
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了時間</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了時間<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
           <div className="relative">
             <input
               type="time"
@@ -509,7 +509,7 @@ function ActivityForm({
 
       {/* Common: memo */}
       <div>
-        <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ</label>
+        <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
         <textarea
           className={`${inputCls} resize-none`}
           value={memo}
@@ -522,7 +522,7 @@ function ActivityForm({
       {/* Common: cost */}
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)</label>
+          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
           <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
             {(["per_person", "total"] as const).map((t) => (
               <button
