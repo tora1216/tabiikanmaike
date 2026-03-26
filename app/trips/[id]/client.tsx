@@ -120,12 +120,14 @@ function ActivityCard({
   onDelete,
   onMapsClick,
   overlay = false,
+  dragHandle,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
   onDelete?: () => void;
   onMapsClick?: (url: string) => void;
   overlay?: boolean;
+  dragHandle?: React.ReactNode;
 }) {
   const isTransport = activity.type === "transport";
 
@@ -172,8 +174,11 @@ function ActivityCard({
           )}
         </div>
 
+        {/* Drag handle */}
+        {!overlay && dragHandle}
+
         {/* Action buttons */}
-        {!overlay && (onEdit || onDelete) && (
+        {!overlay && !dragHandle && (onEdit || onDelete) && (
           <div className="flex flex-shrink-0 items-center gap-1">
             {(() => {
               const mapsQuery = activity.type === "transport"
@@ -239,35 +244,33 @@ function SortableItem({
 
   const style = { transform: CSS.Transform.toString(transform), transition };
 
+  const dragHandleNode = isEditMode ? (
+    <div
+      {...attributes}
+      {...listeners}
+      className="flex h-8 w-7 shrink-0 self-center cursor-grab touch-none select-none items-center justify-center text-slate-300 active:cursor-grabbing dark:text-slate-600"
+    >
+      <svg viewBox="0 0 20 20" className="h-5 w-5 fill-current">
+        <rect x="3" y="4.5" width="14" height="2" rx="1"/>
+        <rect x="3" y="9" width="14" height="2" rx="1"/>
+        <rect x="3" y="13.5" width="14" height="2" rx="1"/>
+      </svg>
+    </div>
+  ) : undefined;
+
   return (
     <li
       ref={setNodeRef}
       style={style}
-      className={`${isEditMode ? "cursor-grab active:cursor-grabbing select-none touch-none" : ""} ${isDragging ? "opacity-0" : ""}`}
+      className={`${isDragging ? "opacity-0" : ""}`}
     >
-      <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <ActivityCard
-            activity={activity}
-            onEdit={isEditMode ? undefined : onEdit}
-            onDelete={isEditMode ? undefined : onDelete}
-            onMapsClick={isEditMode ? undefined : onMapsClick}
-          />
-        </div>
-        {isEditMode && (
-          <div
-            {...attributes}
-            {...listeners}
-            className="flex h-10 w-7 shrink-0 cursor-grab touch-none select-none items-center justify-center text-slate-300 active:cursor-grabbing dark:text-slate-600"
-          >
-            <svg viewBox="0 0 20 20" className="h-5 w-5 fill-current">
-              <circle cx="7" cy="5" r="1.5"/><circle cx="13" cy="5" r="1.5"/>
-              <circle cx="7" cy="10" r="1.5"/><circle cx="13" cy="10" r="1.5"/>
-              <circle cx="7" cy="15" r="1.5"/><circle cx="13" cy="15" r="1.5"/>
-            </svg>
-          </div>
-        )}
-      </div>
+      <ActivityCard
+        activity={activity}
+        onEdit={isEditMode ? undefined : onEdit}
+        onDelete={isEditMode ? undefined : onDelete}
+        onMapsClick={isEditMode ? undefined : onMapsClick}
+        dragHandle={dragHandleNode}
+      />
     </li>
   );
 }
