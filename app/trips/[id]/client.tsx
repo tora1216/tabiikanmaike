@@ -133,12 +133,53 @@ function ActivityCard({
 
   return (
     <div
-      className={`rounded-xl border bg-white p-3 dark:bg-slate-800 ${
+      className={`relative rounded-xl border bg-white p-3 dark:bg-slate-800 ${
         overlay
           ? "border-indigo-500 shadow-2xl rotate-1"
           : "border-slate-200/80 shadow-sm dark:border-slate-700"
       }`}
     >
+      {/* Action buttons - absolute top-right */}
+      {!overlay && !dragHandle && (onEdit || onDelete) && (
+        <div className="absolute right-2 top-2 flex items-center gap-1">
+          {(() => {
+            const mapsQuery = activity.type === "transport"
+              ? activity.to
+              : activity.destination;
+            return mapsQuery ? (
+              <button
+                type="button"
+                className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onMapsClick?.(`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`); }}
+              >
+                <MapPinIcon className="h-3.5 w-3.5" />
+              </button>
+            ) : null;
+          })()}
+          {onEdit && (
+            <button
+              type="button"
+              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-500"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            >
+              <PencilIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div className={`mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-xl select-none ${
@@ -150,13 +191,13 @@ function ActivityCard({
         {/* Content */}
         <div className="min-w-0 flex-1">
           {isTransport && activity.from && activity.to ? (
-            <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+            <div className={`flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-20" : ""}`}>
               <span>{activity.from}</span>
               <span className="text-slate-300 dark:text-slate-600">→</span>
               <span>{activity.to}</span>
             </div>
           ) : (
-            <p className="font-semibold leading-snug text-slate-900 dark:text-white">{activity.destination}</p>
+            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-20" : ""}`}>{activity.destination}</p>
           )}
           {activity.time && (
             <p className="mt-0.5 text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
@@ -176,47 +217,6 @@ function ActivityCard({
 
         {/* Drag handle */}
         {!overlay && dragHandle}
-
-        {/* Action buttons */}
-        {!overlay && !dragHandle && (onEdit || onDelete) && (
-          <div className="flex flex-shrink-0 items-center gap-1">
-            {(() => {
-              const mapsQuery = activity.type === "transport"
-                ? activity.to
-                : activity.destination;
-              return mapsQuery ? (
-                <button
-                  type="button"
-                  className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); onMapsClick?.(`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`); }}
-                >
-                  <MapPinIcon className="h-3.5 w-3.5" />
-                </button>
-              ) : null;
-            })()}
-            {onEdit && (
-              <button
-                type="button"
-                className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-500"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              >
-                <PencilIcon className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {onDelete && (
-              <button
-                type="button"
-                className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
