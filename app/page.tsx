@@ -141,7 +141,8 @@ export default function Home() {
   const [description, setDescription] = useState("");
   const [addColor, setAddColor] = useState(TRIP_COLORS[0]);
   const [addIcon, setAddIcon] = useState("✈️");
-  const [addParticipants, setAddParticipants] = useState(2);
+  const [addMembers, setAddMembers] = useState<string[]>([]);
+  const [addMemberInput, setAddMemberInput] = useState("");
   const [addError, setAddError] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
@@ -152,7 +153,8 @@ export default function Home() {
   const [editDesc, setEditDesc] = useState("");
   const [editColor, setEditColor] = useState(TRIP_COLORS[0]);
   const [editIcon, setEditIcon] = useState("✈️");
-  const [editParticipants, setEditParticipants] = useState(2);
+  const [editMembers, setEditMembers] = useState<string[]>([]);
+  const [editMemberInput, setEditMemberInput] = useState("");
   const [editError, setEditError] = useState("");
 
   const resetAdd = () => {
@@ -162,7 +164,8 @@ export default function Home() {
     setDescription("");
     setAddColor(TRIP_COLORS[0]);
     setAddIcon("✈️");
-    setAddParticipants(2);
+    setAddMembers([]);
+    setAddMemberInput("");
     setAddError("");
   };
 
@@ -175,7 +178,7 @@ export default function Home() {
       setAddError("終了日は開始日より後の日付を設定してください。");
       return;
     }
-    addTrip({ title, startDate, endDate, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, participants: addParticipants });
+    addTrip({ title, startDate, endDate, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, members: addMembers });
     resetAdd();
     setAddOpen(false);
   };
@@ -190,7 +193,8 @@ export default function Home() {
     setEditDesc(t.description ?? "");
     setEditColor(t.color ?? TRIP_COLORS[0]);
     setEditIcon(t.tripIcon ?? "✈️");
-    setEditParticipants(t.participants ?? 2);
+    setEditMembers(t.members ?? []);
+    setEditMemberInput("");
     setEditOpen(true);
   };
 
@@ -207,7 +211,7 @@ export default function Home() {
       todoList: t.todoList,
       notes: t.notes,
       tripIcon: t.tripIcon,
-      participants: t.participants,
+      members: t.members,
     });
     setEditOpen(false);
     setEditId(null);
@@ -230,7 +234,7 @@ export default function Home() {
       description: editDesc.trim(),
       color: editColor,
       tripIcon: editIcon,
-      participants: editParticipants,
+      members: editMembers,
     }));
     setEditError("");
     setEditOpen(false);
@@ -361,7 +365,7 @@ export default function Home() {
                         {days}日間
                       </span>
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
-                        {trip.participants ?? 2}人
+                        {(trip.members?.length || trip.participants) ?? 0}人
                       </span>
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
                         {trip.days.length}スポット
@@ -413,12 +417,42 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">参加人数 *</label>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setAddParticipants(p => Math.max(1, p - 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">−</button>
-                <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{addParticipants}</span>
-                <button type="button" onClick={() => setAddParticipants(p => Math.min(99, p + 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">＋</button>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メンバー名<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+              <div className="flex gap-2">
+                <input
+                  className={`${inputCls} flex-1`}
+                  value={addMemberInput}
+                  onChange={(e) => setAddMemberInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const name = addMemberInput.trim();
+                      if (name && !addMembers.includes(name)) setAddMembers([...addMembers, name]);
+                      setAddMemberInput("");
+                    }
+                  }}
+                  placeholder="例）あおい"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = addMemberInput.trim();
+                    if (name && !addMembers.includes(name)) setAddMembers([...addMembers, name]);
+                    setAddMemberInput("");
+                  }}
+                  className="rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400"
+                >追加</button>
               </div>
+              {addMembers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {addMembers.map((m) => (
+                    <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                      {m}
+                      <button type="button" onClick={() => setAddMembers(addMembers.filter((x) => x !== m))} className="text-slate-400 hover:text-red-400">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
@@ -527,12 +561,42 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">参加人数</label>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setEditParticipants(p => Math.max(1, p - 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">−</button>
-                <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{editParticipants}</span>
-                <button type="button" onClick={() => setEditParticipants(p => Math.min(99, p + 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 text-lg font-bold">＋</button>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メンバー名<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+              <div className="flex gap-2">
+                <input
+                  className={`${inputCls} flex-1`}
+                  value={editMemberInput}
+                  onChange={(e) => setEditMemberInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const name = editMemberInput.trim();
+                      if (name && !editMembers.includes(name)) setEditMembers([...editMembers, name]);
+                      setEditMemberInput("");
+                    }
+                  }}
+                  placeholder="例）あおい"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = editMemberInput.trim();
+                    if (name && !editMembers.includes(name)) setEditMembers([...editMembers, name]);
+                    setEditMemberInput("");
+                  }}
+                  className="rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400"
+                >追加</button>
               </div>
+              {editMembers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {editMembers.map((m) => (
+                    <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                      {m}
+                      <button type="button" onClick={() => setEditMembers(editMembers.filter((x) => x !== m))} className="text-slate-400 hover:text-red-400">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>

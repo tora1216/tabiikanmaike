@@ -327,6 +327,9 @@ type ActivityFormProps = {
   memo: string; setMemo: (v: string) => void;
   cost: number; setCost: (v: number) => void;
   costType: "per_person" | "total"; setCostType: (v: "per_person" | "total") => void;
+  activityMembers: string[]; setActivityMembers: (v: string[]) => void;
+  paidBy: string; setPaidBy: (v: string) => void;
+  allMembers: string[];
   onClearError: () => void;
 };
 
@@ -341,6 +344,9 @@ function ActivityForm({
   memo, setMemo,
   cost, setCost,
   costType, setCostType,
+  activityMembers, setActivityMembers,
+  paidBy, setPaidBy,
+  allMembers,
   onClearError,
 }: ActivityFormProps) {
   const transport = TRANSPORT_CATEGORIES.find((t) => t.icon === dayIcon);
@@ -552,6 +558,63 @@ function ActivityForm({
           min={0}
         />
       </div>
+
+      {/* Member selector (only when per_person and members exist) */}
+      {costType === "per_person" && allMembers.length > 0 && (
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+            対象メンバー<span className="ml-1 font-normal text-slate-400">（未選択は全員）</span>
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {allMembers.map((m) => {
+              const selected = activityMembers.includes(m);
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() =>
+                    setActivityMembers(
+                      selected ? activityMembers.filter((x) => x !== m) : [...activityMembers, m]
+                    )
+                  }
+                  className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
+                    selected
+                      ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
+                      : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                  }`}
+                >
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Payer selector */}
+      {allMembers.length > 0 && cost > 0 && (
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+            支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {allMembers.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setPaidBy(paidBy === m ? "" : m)}
+                className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
+                  paidBy === m
+                    ? "border-emerald-400 bg-emerald-50 text-emerald-600 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
+                    : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -647,6 +710,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [memo, setMemo] = useState("");
   const [cost, setCost] = useState(0);
   const [costType, setCostType] = useState<"per_person" | "total">("per_person");
+  const [activityMembers, setActivityMembers] = useState<string[]>([]);
+  const [paidBy, setPaidBy] = useState("");
   const [editingActivity, setEditingActivity] = useState<TripActivity | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -665,7 +730,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setCost(0); setCostType("per_person"); setFormError("");
+    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setFormError("");
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -716,13 +781,15 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     Math.ceil((new Date(tripData.endDate).getTime() - new Date(tripData.startDate).getTime()) / 86400000) + 1;
   const allDayNumbers = Array.from({ length: tripDayCount }, (_, i) => i + 1);
   const bannerColor = tripData.color ?? "#6366F1";
-  const participants = tripData.participants ?? 2;
-  const activityTotalCost = (a: TripActivity) =>
-    (a.cost || 0) > 0
-      ? a.costType === "per_person"
-        ? (a.cost || 0) * participants
-        : (a.cost || 0)
-      : 0;
+  const participants = tripData.members?.length || tripData.participants || 2;
+  const activityTotalCost = (a: TripActivity) => {
+    if (!a.cost || a.cost <= 0) return 0;
+    if (a.costType === "per_person") {
+      const count = a.activityMembers?.length || participants;
+      return a.cost * count;
+    }
+    return a.cost;
+  };
   const totalCost = tripData.days.reduce((s, a) => s + activityTotalCost(a), 0);
 
   // Countdown
@@ -803,6 +870,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setMemo(activity.memo || "");
     setCost(activity.cost || 0);
     setCostType(activity.costType ?? "per_person");
+    setActivityMembers(activity.activityMembers ?? []);
+    setPaidBy(activity.paidBy ?? "");
     setIsEditOpen(true);
   }
 
@@ -827,6 +896,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               memo: memo || undefined,
               cost: cost > 0 ? cost : undefined,
               costType: cost > 0 ? costType : undefined,
+              activityMembers: cost > 0 && activityMembers.length > 0 ? activityMembers : undefined,
+              paidBy: cost > 0 && paidBy ? paidBy : undefined,
             }
           : d
       ),
@@ -857,6 +928,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           memo: memo || undefined,
           cost: cost > 0 ? cost : undefined,
           costType: cost > 0 ? costType : undefined,
+          activityMembers: cost > 0 && activityMembers.length > 0 ? activityMembers : undefined,
+          paidBy: cost > 0 && paidBy ? paidBy : undefined,
         },
       ],
     }));
@@ -915,7 +988,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 {tripDayCount}日間
               </span>
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-                {tripData.participants ?? 2}人
+                {participants}人
               </span>
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                 {tripData.days.length}スポット
@@ -1359,8 +1432,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 <p className="mt-1 text-3xl font-black text-slate-900 dark:text-white">¥{totalCost.toLocaleString()}</p>
                 {totalCost > 0 && (
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    1人あたり ¥{Math.ceil(totalCost / (tripData.participants ?? 2)).toLocaleString()}
-                    <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">（{tripData.participants ?? 2}人）</span>
+                    1人あたり ¥{Math.ceil(totalCost / participants).toLocaleString()}
+                    <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">（{participants}人）</span>
                   </p>
                 )}
                 {totalCost === 0 && (
@@ -1403,7 +1476,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             </p>
                             {a.costType === "per_person" && (
                               <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                                ¥{(a.cost ?? 0).toLocaleString()} × {participants}人
+                                ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
+                                {a.activityMembers?.length
+                                  ? a.activityMembers.join("・")
+                                  : `${participants}人`}
                               </p>
                             )}
                           </div>
@@ -1437,10 +1513,68 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             </p>
                             {a.costType === "per_person" && (
                               <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                                ¥{(a.cost ?? 0).toLocaleString()} × {participants}人
+                                ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
+                                {a.activityMembers?.length
+                                  ? a.activityMembers.join("・")
+                                  : `${participants}人`}
                               </p>
                             )}
                           </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
+              {/* Settlement */}
+              {(() => {
+                const members = tripData.members ?? [];
+                if (members.length < 2) return null;
+                const hasPaidBy = tripData.days.some((a) => a.cost && a.paidBy);
+                if (!hasPaidBy) return null;
+
+                // Calculate net balance per member (positive = owed money, negative = owes money)
+                const balance: Record<string, number> = {};
+                members.forEach((m) => (balance[m] = 0));
+                tripData.days.forEach((a) => {
+                  if (!a.cost || !a.paidBy || !(a.paidBy in balance)) return;
+                  const total = activityTotalCost(a);
+                  const beneficiaries = a.activityMembers?.length ? a.activityMembers : members;
+                  const share = total / beneficiaries.length;
+                  balance[a.paidBy] += total;
+                  beneficiaries.forEach((m) => { if (m in balance) balance[m] -= share; });
+                });
+
+                // Greedy settlement: pair max creditor with max debtor
+                const settlements: { from: string; to: string; amount: number }[] = [];
+                const pos = members.map((m) => ({ m, v: balance[m] })).filter((x) => x.v > 0.5).sort((a, b) => b.v - a.v);
+                const neg = members.map((m) => ({ m, v: balance[m] })).filter((x) => x.v < -0.5).sort((a, b) => a.v - b.v);
+                let i = 0, j = 0;
+                while (i < pos.length && j < neg.length) {
+                  const amt = Math.min(pos[i].v, -neg[j].v);
+                  settlements.push({ from: neg[j].m, to: pos[i].m, amount: Math.ceil(amt) });
+                  pos[i].v -= amt;
+                  neg[j].v += amt;
+                  if (pos[i].v < 0.5) i++;
+                  if (neg[j].v > -0.5) j++;
+                }
+                if (settlements.length === 0) return null;
+
+                return (
+                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                    <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">💸 清算</p>
+                    </div>
+                    <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
+                      {settlements.map((s, idx) => (
+                        <li key={idx} className="flex items-center justify-between py-3">
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            <span className="font-semibold">{s.from}</span>
+                            <span className="mx-1.5 text-slate-400">→</span>
+                            <span className="font-semibold">{s.to}</span>
+                          </span>
+                          <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">¥{s.amount.toLocaleString()}</span>
                         </li>
                       ))}
                     </ul>
@@ -1561,6 +1695,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             memo={memo} setMemo={setMemo}
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
+            activityMembers={activityMembers} setActivityMembers={setActivityMembers}
+            paidBy={paidBy} setPaidBy={setPaidBy}
+            allMembers={tripData.members ?? []}
             onClearError={() => setFormError("")}
           />
           {formError && (
@@ -1641,6 +1778,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             memo={memo} setMemo={setMemo}
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
+            activityMembers={activityMembers} setActivityMembers={setActivityMembers}
+            paidBy={paidBy} setPaidBy={setPaidBy}
+            allMembers={tripData.members ?? []}
             onClearError={() => setFormError("")}
           />
           {formError && (

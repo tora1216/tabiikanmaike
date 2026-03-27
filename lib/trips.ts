@@ -9,6 +9,8 @@ export type TripActivity = {
   memo?: string;
   cost?: number;
   costType?: "per_person" | "total";
+  activityMembers?: string[]; // subset of trip members this cost applies to
+  paidBy?: string;            // who paid for this activity
 };
 
 export type PackingItem = {
@@ -42,7 +44,8 @@ export type Trip = {
   noteEntries?: NoteEntry[];
   color?: string;
   tripIcon?: string;
-  participants?: number;
+  members?: string[];   // named member list
+  participants?: number; // legacy fallback
   shareId?: string;
   updatedAt?: string;
 };
@@ -55,7 +58,7 @@ export const initialTrips: Trip[] = [
     tripIcon: "🚃",
     startDate: "2026-04-04",
     endDate: "2026-04-05",
-    participants: 2,
+    members: ["ダッキー", "バニー", "ロッツォ"],
     description: "北陸新幹線で行く1泊2日の富山旅。富山の絶景を巡り、地元グルメも満喫。",
     days: [
       {
@@ -69,6 +72,8 @@ export const initialTrips: Trip[] = [
         memo: "北陸新幹線 かがやき503号",
         cost: 14120,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 1,
@@ -79,6 +84,8 @@ export const initialTrips: Trip[] = [
         memo: "TOYAMAキラリ内。世界的なガラス作家の作品を展示。常設展は200円",
         cost: 200,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 1,
@@ -89,6 +96,8 @@ export const initialTrips: Trip[] = [
         memo: "富山名物もつ煮込みうどんの老舗。濃厚な出汁ともつが絶品。並ぶ覚悟で",
         cost: 1000,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 1,
@@ -108,6 +117,8 @@ export const initialTrips: Trip[] = [
         memo: "富山湾の新鮮なネタが揃う回転寿司。白エビ・ブリ・ホタルイカがおすすめ",
         cost: 2000,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 1,
@@ -136,6 +147,8 @@ export const initialTrips: Trip[] = [
         memo: "あいの風とやま鉄道",
         cost: 420,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 2,
@@ -146,6 +159,8 @@ export const initialTrips: Trip[] = [
         memo: "国宝の禅寺。高岡藩主・前田利長の菩提寺。静かで荘厳な雰囲気",
         cost: 500,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 2,
@@ -165,6 +180,8 @@ export const initialTrips: Trip[] = [
         memo: "高岡名物の氷見うどん。コシのある細麺とあっさりだしが絶品。高岡駅すぐ",
         cost: 900,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 2,
@@ -177,6 +194,8 @@ export const initialTrips: Trip[] = [
         memo: "JR氷見線",
         cost: 310,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 2,
@@ -198,6 +217,8 @@ export const initialTrips: Trip[] = [
         memo: "JR氷見線で高岡駅へ、JR城端線に乗り換えて新高岡駅（1駅）",
         cost: 500,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
       {
         day: 2,
@@ -219,6 +240,8 @@ export const initialTrips: Trip[] = [
         memo: "北陸新幹線 はくたか572号",
         cost: 13850,
         costType: "per_person",
+        activityMembers: ["ダッキー", "バニー", "ロッツォ"],
+        paidBy: "ダッキー",
       },
     ],
   },

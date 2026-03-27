@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.6.2";
+export const APP_VERSION = "1.7.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,20 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.7.0",
+    date: "2026-03-27",
+    title: "割り勘・メンバー管理",
+    changes: [
+      "旅の参加者をメンバー名（タグ形式）で登録できるように",
+      "アクティビティの費用に対象メンバーと支払い者を設定できるように",
+      "費用タブに清算表を追加（誰が誰にいくら払えばよいか自動計算）",
+      "並び替えハンドルを三本線アイコンに変更",
+      "任意入力項目に（任意）ラベルを追加",
+      "アクティビティのメモが右端まで広がるように改善",
+      "共有リンクの閲覧ページにブラウザ推奨の注意書きを追加",
+    ],
+  },
   {
     version: "1.6.2",
     date: "2026-03-23",
