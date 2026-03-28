@@ -13,7 +13,7 @@ import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
   DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon,
-  ClipboardDocumentIcon,
+  ClipboardDocumentIcon, CheckIcon,
 
 } from "@heroicons/react/24/outline";
 import {
@@ -1663,10 +1663,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                           setCopiedSettlement(true);
                           setTimeout(() => setCopiedSettlement(false), 2000);
                         }}
-                        title={copiedSettlement ? "コピーしました" : "コピー"}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                        className={`rounded-lg p-1.5 transition hover:bg-slate-100 dark:hover:bg-slate-700 ${copiedSettlement ? "text-green-500" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"}`}
                       >
-                        <ClipboardDocumentIcon className="h-4 w-4" />
+                        {copiedSettlement ? <CheckIcon className="h-4 w-4" /> : <ClipboardDocumentIcon className="h-4 w-4" />}
                       </button>
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
