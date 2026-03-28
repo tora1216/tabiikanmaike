@@ -22,6 +22,12 @@ export default function ViewPage() {
   const [imported, setImported] = useState(false);
   const [alreadyImported, setAlreadyImported] = useState(false);
 
+  // Password gate
+  const [storedPassword, setStoredPassword] = useState("");
+  const [unlocked, setUnlocked] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     try {
@@ -33,7 +39,11 @@ export default function ViewPage() {
       doc(db, "shared_trips", id),
       (snap) => {
         if (!snap.exists()) { setError("この共有リンクは無効です。"); setLoading(false); return; }
-        setTrip(snap.data().trip as Trip);
+        const data = snap.data();
+        const pw = data.password ?? "";
+        setStoredPassword(pw);
+        if (!pw) setUnlocked(true);
+        setTrip(data.trip as Trip);
         setLoading(false);
       },
       () => { setError("データの読み込みに失敗しました。"); setLoading(false); }
@@ -57,6 +67,46 @@ export default function ViewPage() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F0F5FA] px-4">
         <p className="text-sm text-slate-500">{error || "データが見つかりません。"}</p>
         <Link href="/" className="text-sm font-semibold text-indigo-500 hover:underline">トップへ戻る</Link>
+      </div>
+    );
+  }
+
+  // Password gate screen
+  if (!unlocked) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#F0F5FA] px-4">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-sm">
+          <p className="mb-1 text-lg font-black text-slate-900">🔑 合言葉を入力</p>
+          <p className="mb-4 text-xs text-slate-500">この旅程を閲覧するには合言葉が必要です</p>
+          <input
+            type="text"
+            value={passwordInput}
+            onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (passwordInput === storedPassword) { setUnlocked(true); }
+                else { setPasswordError(true); }
+              }
+            }}
+            placeholder="合言葉を入力してください"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none ring-indigo-500 focus:ring-2"
+            autoFocus
+          />
+          {passwordError && (
+            <p className="mt-1.5 text-xs font-semibold text-red-500">合言葉が違います</p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (passwordInput === storedPassword) { setUnlocked(true); }
+              else { setPasswordError(true); }
+            }}
+            className="mt-3 w-full rounded-xl bg-indigo-500 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-600"
+          >
+            確認
+          </button>
+          <Link href="/" className="mt-3 block text-center text-xs text-slate-400 hover:underline">トップへ戻る</Link>
+        </div>
       </div>
     );
   }

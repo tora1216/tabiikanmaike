@@ -695,6 +695,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [shareLink, setShareLink] = useState("");
+  const [sharePasswordInput, setSharePasswordInput] = useState("");
+  const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
+  const [sharePasswordConfirmPending, setSharePasswordConfirmPending] = useState(false);
+  const [activeShareId, setActiveShareId] = useState("");
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedSettlement, setCopiedSettlement] = useState(false);
@@ -724,6 +728,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setShareLink("");
     setCopiedText(false);
     setCopiedLink(false);
+    setSharePasswordSaved(false);
+    setSharePasswordConfirmPending(false);
     setShareConfirmOpen(false);
     setShareModal(true);
     setShareLinkLoading(true);
@@ -733,10 +739,11 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         if (!db) throw new Error("db not initialized");
         const docRef = await addDoc(collection(db, "shared_trips"), {
           trip: JSON.parse(JSON.stringify(tripData)),
+          password: sharePasswordInput || null,
           createdAt: serverTimestamp(),
         });
         shareId = docRef.id;
-        updateTrip(tripData.id, (c) => ({ ...c, shareId }));
+        updateTrip(tripData.id, (c) => ({ ...c, shareId, sharePassword: sharePasswordInput || undefined }));
       } else if (db) {
         // 既に共有済みの場合も最新データで上書き（メンバー等の変更を反映）
         const latest = { ...tripData, shareId };
@@ -745,6 +752,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         }, { merge: true });
       }
       setShareLink(`${window.location.origin}/view/${shareId}`);
+      setActiveShareId(shareId ?? "");
     } catch {
       const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(tripData));
       setShareLink(`${window.location.origin}/trips/import?data=${encoded}`);
@@ -1038,7 +1046,15 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="ml-4 flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => tripData.shareId ? handleShare() : setShareConfirmOpen(true)}
+                onClick={() => {
+                  if (tripData.shareId) {
+                    setSharePasswordInput(tripData.sharePassword ?? "");
+                    handleShare();
+                  } else {
+                    setSharePasswordInput("");
+                    setShareConfirmOpen(true);
+                  }
+                }}
                 className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
               >
                 <ShareIcon className="h-3.5 w-3.5" />共有
@@ -2000,6 +2016,17 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               <p className="text-sm text-slate-600 dark:text-slate-300">共有したデータはサーバーに保存されます。</p>
               <p className="text-xs text-slate-400 dark:text-slate-500">リンクを知っている人のみが閲覧できる状態になります。</p>
             </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500 dark:text-slate-400">合言葉<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+              <input
+                type="text"
+                value={sharePasswordInput}
+                onChange={(e) => setSharePasswordInput(e.target.value)}
+                placeholder="設定しない場合は空欄"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">設定するとリンクを開いた際に合言葉の入力が必要になります</p>
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -2048,13 +2075,67 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
                     }}
-                    className="shrink-0 rounded-lg bg-blue-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-600"
+                    className="w-14 shrink-0 rounded-lg bg-blue-500 py-2 text-xs font-semibold text-white transition hover:bg-blue-600"
                   >
                     {copiedLink ? "コピー済" : "コピー"}
                   </button>
                 </div>
               )}
               <p className="mt-1 text-[11px] text-slate-400">リンクを知っている人のみ閲覧できます</p>
+              {/* Password — owner only */}
+              {tripData.shareOwner !== false && (
+                <div className="mt-3">
+                  <p className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">合言葉<span className="ml-1 font-normal text-slate-400">（任意）</span></p>
+                  {sharePasswordConfirmPending ? (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-700 dark:bg-amber-900/20">
+                      <p className="mb-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                        合言葉を「{sharePasswordInput || "なし"}」に変更しますか？
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSharePasswordConfirmPending(false)}
+                          className="flex-1 rounded-lg border border-slate-200 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300"
+                        >
+                          キャンセル
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!db || !activeShareId) return;
+                            await setDoc(doc(db, "shared_trips", activeShareId), { password: sharePasswordInput || null }, { merge: true });
+                            updateTrip(tripData.id, (c) => ({ ...c, sharePassword: sharePasswordInput || undefined }));
+                            setSharePasswordConfirmPending(false);
+                            setSharePasswordSaved(true);
+                            setTimeout(() => setSharePasswordSaved(false), 2000);
+                          }}
+                          className="flex-1 rounded-lg bg-indigo-500 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-600"
+                        >
+                          変更する
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={sharePasswordInput}
+                        onChange={(e) => { setSharePasswordInput(e.target.value); setSharePasswordSaved(false); }}
+                        placeholder="設定しない場合は空欄"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSharePasswordConfirmPending(true)}
+                        className="w-14 shrink-0 rounded-lg bg-indigo-500 py-2 text-xs font-semibold text-white transition hover:bg-indigo-600"
+                      >
+                        {sharePasswordSaved ? "保存済 ✓" : "設定"}
+                      </button>
+                    </div>
+                  )}
+                  <p className="mt-1 text-[11px] text-slate-400">設定するとリンクを開いた際に合言葉の入力が必要になります</p>
+                </div>
+              )}
               <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-700/50">
                 <p className="mb-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">インポート方法</p>
                 <ol className="list-decimal space-y-0.5 pl-4 text-[11px] text-slate-400 dark:text-slate-500">
