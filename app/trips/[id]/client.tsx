@@ -85,7 +85,7 @@ function fmtDateLong(d: string) {
 function fmtDayDate(tripStart: string, dayNum: number) {
   const d = new Date(tripStart);
   d.setDate(d.getDate() + dayNum - 1);
-  return d.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" });
+  return d.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }).replace("（", "(").replace("）", ")");
 }
 
 function activityId(a: TripActivity) {
@@ -1771,15 +1771,15 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             allMembers={tripData.members ?? []}
             daySelector={
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Day<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">日程<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
                 <select
                   className={`${inputCls} appearance-none`}
                   value={editDay}
                   onChange={(e) => setEditDay(Number(e.target.value))}
                 >
-                  <option value={0}>--</option>
+                  <option value={0}></option>
                   {allDayNumbers.map((n) => (
-                    <option key={n} value={n}>Day {n}</option>
+                    <option key={n} value={n}>Day {n}【{fmtDayDate(tripData.startDate, n)}】</option>
                   ))}
                 </select>
               </div>
@@ -1869,16 +1869,16 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             allMembers={tripData.members ?? []}
             daySelector={
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Day<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">日程<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
                 <select
                   className={`${inputCls} appearance-none`}
                   value={addDay}
                   defaultValue={0}
                   onChange={(e) => setAddDay(Number(e.target.value))}
                 >
-                  <option value={0}>--</option>
+                  <option value={0}></option>
                   {allDayNumbers.map((n) => (
-                    <option key={n} value={n}>Day {n}</option>
+                    <option key={n} value={n}>Day {n}【{fmtDayDate(tripData.startDate, n)}】</option>
                   ))}
                 </select>
               </div>
