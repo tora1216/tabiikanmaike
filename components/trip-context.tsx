@@ -158,7 +158,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
           prev.map((trip) => {
             if (trip.id !== id) return trip;
             const updated = { ...updater(trip), updatedAt: new Date().toISOString() };
-            if (updated.shareId && db) {
+            // 友人インポート旅程（shareOwner: false）はログイン済みのみ書き込み。オーナーは常に書き込み可
+            if (updated.shareId && db && (updated.shareOwner !== false || user)) {
               setDoc(doc(db, "shared_trips", updated.shareId), {
                 trip: JSON.parse(JSON.stringify(updated)),
               }, { merge: true }).catch(() => {});
@@ -173,7 +174,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         setTrips((prev) => prev.map((t) => (t.id === id ? trip : t)));
       },
     }),
-    [trips]
+    [trips, user]
   );
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>;

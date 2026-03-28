@@ -49,6 +49,10 @@ function ImportContent() {
         packingList: trip!.packingList,
         notes: trip!.notes,
         noteEntries: trip!.noteEntries,
+        color: trip!.color,
+        tripIcon: trip!.tripIcon,
+        members: trip!.members,
+        participants: trip!.participants,
       });
       setImported(true);
       setTimeout(() => router.push(`/trips?id=${newTrip.id}`), 800);
