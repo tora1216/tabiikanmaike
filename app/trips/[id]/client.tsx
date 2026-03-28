@@ -13,6 +13,7 @@ import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
   DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon,
+  ClipboardDocumentIcon,
 
 } from "@heroicons/react/24/outline";
 import {
@@ -682,6 +683,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [shareLink, setShareLink] = useState("");
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedSettlement, setCopiedSettlement] = useState(false);
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
 
   const handleShare = async () => {
@@ -1651,8 +1653,21 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
                 return (
                   <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-                    <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">💸 清算</p>
+                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">💸 精算</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = settlements.map((s) => `${s.from} → ${s.to}：¥${s.amount.toLocaleString()}`).join("\n");
+                          navigator.clipboard.writeText(text);
+                          setCopiedSettlement(true);
+                          setTimeout(() => setCopiedSettlement(false), 2000);
+                        }}
+                        title={copiedSettlement ? "コピーしました" : "コピー"}
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                      >
+                        <ClipboardDocumentIcon className="h-4 w-4" />
+                      </button>
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
                       {settlements.map((s, idx) => (
