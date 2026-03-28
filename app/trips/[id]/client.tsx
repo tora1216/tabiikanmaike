@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import LZString from "lz-string";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, onSnapshot } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
 import { TripActivity, PackingItem, NoteEntry, TodoTask } from "@/lib/trips";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
@@ -330,6 +330,7 @@ type ActivityFormProps = {
   activityMembers: string[]; setActivityMembers: (v: string[]) => void;
   paidBy: string; setPaidBy: (v: string) => void;
   allMembers: string[];
+  daySelector?: React.ReactNode;
   onClearError: () => void;
 };
 
@@ -346,6 +347,7 @@ function ActivityForm({
   costType, setCostType,
   activityMembers, setActivityMembers,
   paidBy, setPaidBy,
+  daySelector,
   allMembers,
   onClearError,
 }: ActivityFormProps) {
@@ -469,6 +471,10 @@ function ActivityForm({
           </div>
         </div>
       )}
+
+      {/* Day selector (add modal only) */}
+      {/* Day selector */}
+      {daySelector}
 
       {/* Common: time */}
       <div className="grid grid-cols-2 gap-2">
@@ -622,8 +628,26 @@ function ActivityForm({
 // ─── TripDetailClient ─────────────────────────────────────────────────────────
 
 export function TripDetailClient({ tripId }: { tripId: string }) {
-  const { trips, updateTrip } = useTrips();
+  const { trips, updateTrip, syncTripFromRemote } = useTrips();
   const trip = trips.find((t) => t.id === tripId);
+  const shareId = trip?.shareId;
+  const lastRemoteUpdatedAt = useRef<string>("");
+
+  // リアルタイム同期: shareId がある旅はリモート変更を受信する
+  useEffect(() => {
+    if (!shareId || !db) return;
+    const ref = doc(db, "shared_trips", shareId);
+    const unsub = onSnapshot(ref, { includeMetadataChanges: true }, (snap) => {
+      if (snap.metadata.hasPendingWrites) return; // 自分の書き込みはスキップ
+      const remote = snap.data()?.trip;
+      if (!remote) return;
+      const remoteAt = remote.updatedAt ?? "";
+      if (remoteAt && remoteAt === lastRemoteUpdatedAt.current) return; // 重複スキップ
+      lastRemoteUpdatedAt.current = remoteAt;
+      syncTripFromRemote(tripId, remote);
+    });
+    return unsub;
+  }, [shareId, tripId, syncTripFromRemote]);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<"itinerary" | "packing" | "expenses" | "notes">("itinerary");
@@ -715,6 +739,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [editingActivity, setEditingActivity] = useState<TripActivity | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [addDay, setAddDay] = useState(0);
+  const [editDay, setEditDay] = useState(0);
 
   // DnD state
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
@@ -730,7 +756,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setFormError("");
+    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setAddDay(0); setEditDay(0); setFormError("");
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -872,6 +898,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setCostType(activity.costType ?? "per_person");
     setActivityMembers(activity.activityMembers ?? []);
     setPaidBy(activity.paidBy ?? "");
+    setEditDay(activity.day ?? 0);
     setIsEditOpen(true);
   }
 
@@ -887,6 +914,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         d === editingActivity
           ? {
               ...d,
+              day: editDay,
               type: activityType,
               time: fmtTime(startTime, endTime),
               icon: dayIcon,
@@ -918,7 +946,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       days: [
         ...current.days,
         {
-          day: 0,
+          day: addDay,
           type: activityType,
           time: fmtTime(startTime, endTime),
           icon: dayIcon,
@@ -1465,11 +1493,22 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                       {dayActivities.map((a) => (
                         <li key={activityId(a)} className="flex items-center gap-3 py-2.5">
                           <span className="text-lg">{a.icon}</span>
-                          <span className="flex-1 text-sm text-slate-700 dark:text-slate-300">
-                            {a.type === "transport" && a.from && a.to
-                              ? `${a.from} → ${a.to}`
-                              : a.destination}
-                          </span>
+                          <div className="flex flex-1 flex-col min-w-0">
+                            <span className="text-sm text-slate-700 dark:text-slate-300">
+                              {a.type === "transport" && a.from && a.to
+                                ? `${a.from} → ${a.to}`
+                                : a.destination}
+                            </span>
+                            {a.activityMembers && a.activityMembers.length > 0 && (
+                              <div className="mt-0.5 flex flex-wrap gap-1">
+                                {a.activityMembers.map((m) => (
+                                  <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <div className="text-right">
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                               ¥{activityTotalCost(a).toLocaleString()}
@@ -1477,9 +1516,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             {a.costType === "per_person" && (
                               <p className="text-[10px] text-slate-400 dark:text-slate-500">
                                 ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
-                                {a.activityMembers?.length
-                                  ? a.activityMembers.join("・")
-                                  : `${participants}人`}
+                                {`${a.activityMembers?.length || participants}人`}
                               </p>
                             )}
                           </div>
@@ -1506,7 +1543,18 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                       {items.map((a) => (
                         <li key={activityId(a)} className="flex items-center gap-3 py-2.5">
                           <span className="text-lg">{a.icon}</span>
-                          <span className="flex-1 text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
+                          <div className="flex flex-1 flex-col min-w-0">
+                            <span className="text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
+                            {a.activityMembers && a.activityMembers.length > 0 && (
+                              <div className="mt-0.5 flex flex-wrap gap-1">
+                                {a.activityMembers.map((m) => (
+                                  <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                    {m}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                           <div className="text-right">
                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                               ¥{activityTotalCost(a).toLocaleString()}
@@ -1514,9 +1562,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             {a.costType === "per_person" && (
                               <p className="text-[10px] text-slate-400 dark:text-slate-500">
                                 ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
-                                {a.activityMembers?.length
-                                  ? a.activityMembers.join("・")
-                                  : `${participants}人`}
+                                {`${a.activityMembers?.length || participants}人`}
                               </p>
                             )}
                           </div>
@@ -1698,6 +1744,21 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
             paidBy={paidBy} setPaidBy={setPaidBy}
             allMembers={tripData.members ?? []}
+            daySelector={
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Day<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <select
+                  className={`${inputCls} appearance-none`}
+                  value={editDay}
+                  onChange={(e) => setEditDay(Number(e.target.value))}
+                >
+                  <option value={0}>--</option>
+                  {allDayNumbers.map((n) => (
+                    <option key={n} value={n}>Day {n}</option>
+                  ))}
+                </select>
+              </div>
+            }
             onClearError={() => setFormError("")}
           />
           {formError && (
@@ -1781,6 +1842,22 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
             paidBy={paidBy} setPaidBy={setPaidBy}
             allMembers={tripData.members ?? []}
+            daySelector={
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Day<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <select
+                  className={`${inputCls} appearance-none`}
+                  value={addDay}
+                  defaultValue={0}
+                  onChange={(e) => setAddDay(Number(e.target.value))}
+                >
+                  <option value={0}>--</option>
+                  {allDayNumbers.map((n) => (
+                    <option key={n} value={n}>Day {n}</option>
+                  ))}
+                </select>
+              </div>
+            }
             onClearError={() => setFormError("")}
           />
           {formError && (

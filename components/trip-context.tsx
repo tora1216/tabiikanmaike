@@ -11,6 +11,7 @@ type TripContextValue = {
   addTrip: (trip: Omit<Trip, "id">) => Trip;
   removeTrip: (id: string) => void;
   updateTrip: (id: string, updater: (trip: Trip) => Trip) => void;
+  syncTripFromRemote: (id: string, trip: Trip) => void;
 };
 
 const TripContext = createContext<TripContextValue | undefined>(undefined);
@@ -36,6 +37,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const prevUserId = useRef<string | null>(null);
   const syncing = useRef(false);
   const deletedAtRef = useRef<DeletedAt>({});
+  const skipFirestoreRef = useRef(false);
 
   // Load from localStorage after mount
   useEffect(() => {
@@ -116,6 +118,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated || syncing.current) return;
     try { localStorage.setItem("trips", JSON.stringify(trips)); } catch { /* ignore */ }
+    if (skipFirestoreRef.current) { skipFirestoreRef.current = false; return; }
     if (db && user && prevUserId.current === user.uid) {
       const ref = doc(db, "users", user.uid, "trips", "data");
       setDoc(ref, {
@@ -143,8 +146,8 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         saveDeletedAt(deletedAtRef.current);
         setTrips((prev) => {
           const trip = prev.find((t) => t.id === id);
-          // オーナーが削除する場合は shared_trips も削除（友人がインポートした旅程は shareId を持たないため影響なし）
-          if (trip?.shareId && db) {
+          // shareOwner === false の場合は友人のインポート旅程なので Firestore を削除しない
+          if (trip?.shareId && trip?.shareOwner !== false && db) {
             deleteDoc(doc(db, "shared_trips", trip.shareId)).catch(() => {});
           }
           return prev.filter((t) => t.id !== id);
@@ -163,6 +166,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
             return updated;
           })
         );
+      },
+      syncTripFromRemote: (id, trip) => {
+        // リモートからの同期: localStorage は更新するが Firestore への書き戻しはスキップ
+        skipFirestoreRef.current = true;
+        setTrips((prev) => prev.map((t) => (t.id === id ? trip : t)));
       },
     }),
     [trips]

@@ -47,6 +47,7 @@ export type Trip = {
   members?: string[];   // named member list
   participants?: number; // legacy fallback
   shareId?: string;
+  shareOwner?: boolean; // true = 自分が共有を作成したオーナー, false = 友人がインポートした旅
   updatedAt?: string;
 };
 

@@ -88,7 +88,10 @@ export default function ViewPage() {
       noteEntries: trip.noteEntries,
       color: trip.color,
       tripIcon: trip.tripIcon,
+      members: trip.members,
       participants: trip.participants,
+      shareId: id,
+      shareOwner: false,
     });
     try {
       const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];

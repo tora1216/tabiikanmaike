@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.7.0";
+export const APP_VERSION = "1.8.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,17 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.8.0",
+    date: "2026-03-29",
+    title: "リアルタイム共同編集",
+    changes: [
+      "共有リンクからインポートした旅程をリアルタイムで共同編集できるように",
+      "どちらが編集しても全員の画面に即時反映",
+      "共有リンクの削除権限はオーナーのみに制限",
+      "インポート時にメンバー情報も含めて引き継ぐように改善",
+    ],
+  },
   {
     version: "1.7.0",
     date: "2026-03-27",

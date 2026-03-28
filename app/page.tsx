@@ -157,6 +157,10 @@ export default function Home() {
   const [editMemberInput, setEditMemberInput] = useState("");
   const [editError, setEditError] = useState("");
 
+  // inline member name editing (shared across both modals — only one open at a time)
+  const [renamingIdx, setRenamingIdx] = useState<number | null>(null);
+  const [renamingVal, setRenamingVal] = useState("");
+
   const resetAdd = () => {
     setTitle("");
     setStartDate("");
@@ -445,9 +449,24 @@ export default function Home() {
               </div>
               {addMembers.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {addMembers.map((m) => (
+                  {addMembers.map((m, idx) => renamingIdx === idx ? (
+                    <span key={m} className="flex items-center rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-0.5 dark:border-indigo-500 dark:bg-indigo-900/30">
+                      <input
+                        autoFocus
+                        className="w-20 bg-transparent text-xs font-semibold text-indigo-600 outline-none dark:text-indigo-300"
+                        value={renamingVal}
+                        onChange={(e) => setRenamingVal(e.target.value)}
+                        onBlur={() => {
+                          const v = renamingVal.trim();
+                          if (v && !addMembers.some((x, i) => x === v && i !== idx)) setAddMembers(addMembers.map((x, i) => i === idx ? v : x));
+                          setRenamingIdx(null);
+                        }}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenamingIdx(null); }}
+                      />
+                    </span>
+                  ) : (
                     <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                      {m}
+                      <button type="button" onClick={() => { setRenamingIdx(idx); setRenamingVal(m); }} className="hover:text-indigo-500">{m}</button>
                       <button type="button" onClick={() => setAddMembers(addMembers.filter((x) => x !== m))} className="text-slate-400 hover:text-red-400">×</button>
                     </span>
                   ))}
@@ -589,9 +608,24 @@ export default function Home() {
               </div>
               {editMembers.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {editMembers.map((m) => (
+                  {editMembers.map((m, idx) => renamingIdx === idx ? (
+                    <span key={m} className="flex items-center rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-0.5 dark:border-indigo-500 dark:bg-indigo-900/30">
+                      <input
+                        autoFocus
+                        className="w-20 bg-transparent text-xs font-semibold text-indigo-600 outline-none dark:text-indigo-300"
+                        value={renamingVal}
+                        onChange={(e) => setRenamingVal(e.target.value)}
+                        onBlur={() => {
+                          const v = renamingVal.trim();
+                          if (v && !editMembers.some((x, i) => x === v && i !== idx)) setEditMembers(editMembers.map((x, i) => i === idx ? v : x));
+                          setRenamingIdx(null);
+                        }}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenamingIdx(null); }}
+                      />
+                    </span>
+                  ) : (
                     <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                      {m}
+                      <button type="button" onClick={() => { setRenamingIdx(idx); setRenamingVal(m); }} className="hover:text-indigo-500">{m}</button>
                       <button type="button" onClick={() => setEditMembers(editMembers.filter((x) => x !== m))} className="text-slate-400 hover:text-red-400">×</button>
                     </span>
                   ))}
