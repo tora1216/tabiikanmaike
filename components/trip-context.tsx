@@ -8,6 +8,7 @@ import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 
 type TripContextValue = {
   trips: Trip[];
+  hydrated: boolean;
   addTrip: (trip: Omit<Trip, "id">) => Trip;
   removeTrip: (id: string) => void;
   updateTrip: (id: string, updater: (trip: Trip) => Trip) => void;
@@ -131,6 +132,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<TripContextValue>(
     () => ({
       trips,
+      hydrated,
       addTrip: (tripWithoutId) => {
         const date = (tripWithoutId.startDate ?? "").replace(/-/g, "") || Date.now().toString();
         const rand = Math.random().toString(36).slice(2, 6);

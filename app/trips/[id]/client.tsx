@@ -629,7 +629,7 @@ function ActivityForm({
 // ─── TripDetailClient ─────────────────────────────────────────────────────────
 
 export function TripDetailClient({ tripId }: { tripId: string }) {
-  const { trips, updateTrip, syncTripFromRemote } = useTrips();
+  const { trips, hydrated, updateTrip, syncTripFromRemote } = useTrips();
   const { user } = useAuth();
   const trip = trips.find((t) => t.id === tripId);
   const shareId = trip?.shareId;
@@ -791,6 +791,16 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // ── Not found ──
   if (!trip) {
+    if (!hydrated) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-[#F0F5FA]">
+          <svg className="h-6 w-6 animate-spin text-indigo-400" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F0F5FA] p-4">
         <div className="text-center">
