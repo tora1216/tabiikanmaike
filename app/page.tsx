@@ -808,7 +808,7 @@ export default function Home() {
                               title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
                               description: trip.description, days: trip.days,
                               packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
-                              color: trip.color, tripIcon: trip.tripIcon, participants: trip.participants,
+                              color: trip.color, tripIcon: trip.tripIcon, members: trip.members, participants: trip.participants,
                             });
                             try { localStorage.setItem("imported_lz_shares", JSON.stringify([...importedLz, lzKey])); } catch { /* ignore */ }
                             setLinkInput("");
@@ -835,8 +835,9 @@ export default function Home() {
                             title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
                             description: trip.description, days: trip.days,
                             packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
-                            color: trip.color, tripIcon: trip.tripIcon, participants: trip.participants,
-                            shareId,
+                            color: trip.color, tripIcon: trip.tripIcon,
+                            members: trip.members, participants: trip.participants,
+                            shareId, shareOwner: false,
                           });
                           try {
                             const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];

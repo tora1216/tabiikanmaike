@@ -9,10 +9,6 @@ import type { Trip } from "@/lib/trips";
 import Link from "next/link";
 import { ArrowLeftIcon, MapPinIcon, CreditCardIcon } from "@heroicons/react/24/outline";
 
-const TRIP_ICONS: Record<string, string> = {
-  plane: "✈️", train: "🚃", bus: "🚌", car: "🚗",
-};
-
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }
@@ -70,7 +66,7 @@ export default function ViewPage() {
     Math.round((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86400000) + 1
   );
   const allDays = Array.from({ length: totalDays }, (_, i) => i + 1);
-  const tripIcon = TRIP_ICONS[trip.tripIcon ?? "plane"] ?? "✈️";
+  const tripIcon = trip.tripIcon ?? "✈️";
   const memberCount = trip.members?.length || trip.participants || 2;
   const totalCost = (trip.days ?? []).reduce((s, a) => {
     if (!a.cost) return s;
