@@ -71,9 +71,11 @@ export default function ViewPage() {
   );
   const allDays = Array.from({ length: totalDays }, (_, i) => i + 1);
   const tripIcon = TRIP_ICONS[trip.tripIcon ?? "plane"] ?? "✈️";
+  const memberCount = trip.members?.length || trip.participants || 2;
   const totalCost = (trip.days ?? []).reduce((s, a) => {
     if (!a.cost) return s;
-    return s + (a.costType === "per_person" ? a.cost * (trip.participants ?? 2) : a.cost);
+    const count = a.activityMembers?.length || memberCount;
+    return s + (a.costType === "per_person" ? a.cost * count : a.cost);
   }, 0);
 
   const handleImport = () => {
@@ -149,15 +151,24 @@ export default function ViewPage() {
           {trip.description && (
             <p className="mt-3 text-sm text-slate-600">{trip.description}</p>
           )}
+          {(trip.members?.length ?? 0) > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {trip.members!.map((m) => (
+                <span key={m} className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-600">
+                  {m}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500">
-            {trip.participants && (
+            {!(trip.members?.length) && trip.participants && (
               <span>{trip.participants}人</span>
             )}
             {totalCost > 0 && (
               <span className="flex items-center gap-1">
                 <CreditCardIcon className="h-3.5 w-3.5" />
                 合計 ¥{totalCost.toLocaleString()}
-                {trip.participants && ` （1人 ¥${Math.round(totalCost / trip.participants).toLocaleString()}）`}
+                {` （1人 ¥${Math.round(totalCost / memberCount).toLocaleString()}）`}
               </span>
             )}
           </div>

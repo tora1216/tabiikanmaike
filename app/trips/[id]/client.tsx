@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import LZString from "lz-string";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, doc, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
 import { useAuth } from "@/components/auth-context";
 import { TripActivity, PackingItem, NoteEntry, TodoTask } from "@/lib/trips";
@@ -704,6 +704,12 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         });
         shareId = docRef.id;
         updateTrip(tripData.id, (c) => ({ ...c, shareId }));
+      } else if (db) {
+        // 既に共有済みの場合も最新データで上書き（メンバー等の変更を反映）
+        const latest = { ...tripData, shareId };
+        await setDoc(doc(db, "shared_trips", shareId), {
+          trip: JSON.parse(JSON.stringify(latest)),
+        }, { merge: true });
       }
       setShareLink(`${window.location.origin}/view/${shareId}`);
     } catch {
