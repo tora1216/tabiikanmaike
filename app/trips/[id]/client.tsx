@@ -356,6 +356,8 @@ function ActivityForm({
   const suffix = activityType === "transport" ? (transport?.suffix ?? "") : "";
   const fromPh = transport?.fromPh ?? "出発地";
   const toPh = transport?.toPh ?? "目的地";
+  const hasOptionalValues = !!(memo || cost || activityMembers.length || paidBy);
+  const [showOptional, setShowOptional] = useState(hasOptionalValues);
 
   return (
     <div className="space-y-4">
@@ -473,7 +475,6 @@ function ActivityForm({
         </div>
       )}
 
-      {/* Day selector (add modal only) */}
       {/* Day selector */}
       {daySelector}
 
@@ -523,105 +524,121 @@ function ActivityForm({
         </div>
       </div>
 
-      {/* Common: memo */}
-      <div>
-        <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-        <textarea
-          className={`${inputCls} resize-none`}
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          placeholder="例）朝早めに出発して混雑を避ける"
-          rows={2}
-        />
-      </div>
+      {/* 任意項目トグル */}
+      <div className={`rounded-xl border border-dashed transition-colors ${showOptional ? "border-slate-300 dark:border-slate-600" : "border-slate-300 dark:border-slate-600"}`}>
+        <button
+          type="button"
+          onClick={() => setShowOptional((v) => !v)}
+          className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        >
+          <span>{showOptional ? "詳細を閉じる" : "メモ・費用を追加"}</span>
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${showOptional ? "rotate-180" : ""}`} />
+        </button>
 
-      {/* Common: cost */}
-      <div>
-        <div className="mb-1 flex items-center justify-between">
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-          <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
-            {(["per_person", "total"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setCostType(t)}
-                className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
-                  costType === t
-                    ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
-                    : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
-                }`}
-              >
-                {t === "per_person" ? "1人分" : "全員分"}
-              </button>
-            ))}
+        {showOptional && (
+          <div className="space-y-4 border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
+            {/* Common: memo */}
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+            <textarea
+              className={`${inputCls} resize-none`}
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="例）朝早めに出発して混雑を避ける"
+              rows={2}
+            />
           </div>
-        </div>
-        <input
-          type="number"
-          className={inputCls}
-          value={cost || ""}
-          onChange={(e) => setCost(parseInt(e.target.value) || 0)}
-          placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
-          min={0}
-        />
-      </div>
 
-      {/* Member selector (only when per_person and members exist) */}
-      {costType === "per_person" && allMembers.length > 0 && (
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-            対象メンバー<span className="ml-1 font-normal text-slate-400">（未選択は全員）</span>
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {allMembers.map((m) => {
-              const selected = activityMembers.includes(m);
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() =>
-                    setActivityMembers(
-                      selected ? activityMembers.filter((x) => x !== m) : [...activityMembers, m]
-                    )
-                  }
-                  className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
-                    selected
-                      ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
-                      : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                  }`}
-                >
-                  {m}
-                </button>
-              );
-            })}
+          {/* Common: cost */}
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+              <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+                {(["per_person", "total"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setCostType(t)}
+                    className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+                      costType === t
+                        ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+                        : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+                    }`}
+                  >
+                    {t === "per_person" ? "1人分" : "全員分"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <input
+              type="number"
+              className={inputCls}
+              value={cost || ""}
+              onChange={(e) => setCost(parseInt(e.target.value) || 0)}
+              placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
+              min={0}
+            />
           </div>
+
+          {/* Member selector (only when per_person and members exist) */}
+          {costType === "per_person" && allMembers.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                対象メンバー<span className="ml-1 font-normal text-slate-400">（未選択は全員）</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {allMembers.map((m) => {
+                  const selected = activityMembers.includes(m);
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() =>
+                        setActivityMembers(
+                          selected ? activityMembers.filter((x) => x !== m) : [...activityMembers, m]
+                        )
+                      }
+                      className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
+                        selected
+                          ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
+                          : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Payer selector */}
+          {allMembers.length > 0 && cost > 0 && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {allMembers.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPaidBy(paidBy === m ? "" : m)}
+                    className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
+                      paidBy === m
+                        ? "border-emerald-400 bg-emerald-50 text-emerald-600 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      {/* Payer selector */}
-      {allMembers.length > 0 && cost > 0 && (
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-            支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {allMembers.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setPaidBy(paidBy === m ? "" : m)}
-                className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
-                  paidBy === m
-                    ? "border-emerald-400 bg-emerald-50 text-emerald-600 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
-                    : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1873,7 +1890,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 <select
                   className={`${inputCls} appearance-none`}
                   value={addDay}
-                  defaultValue={0}
                   onChange={(e) => setAddDay(Number(e.target.value))}
                 >
                   <option value={0}></option>
