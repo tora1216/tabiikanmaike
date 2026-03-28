@@ -331,6 +331,7 @@ type ActivityFormProps = {
   costType: "per_person" | "total"; setCostType: (v: "per_person" | "total") => void;
   activityMembers: string[]; setActivityMembers: (v: string[]) => void;
   paidBy: string; setPaidBy: (v: string) => void;
+  settled: boolean; setSettled: (v: boolean) => void;
   allMembers: string[];
   daySelector?: React.ReactNode;
   onClearError: () => void;
@@ -349,6 +350,7 @@ function ActivityForm({
   costType, setCostType,
   activityMembers, setActivityMembers,
   paidBy, setPaidBy,
+  settled, setSettled,
   daySelector,
   allMembers,
   onClearError,
@@ -554,21 +556,32 @@ function ActivityForm({
           <div>
             <div className="mb-1 flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-              <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
-                {(["per_person", "total"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setCostType(t)}
-                    className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
-                      costType === t
-                        ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
-                        : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
-                    }`}
-                  >
-                    {t === "per_person" ? "1人分" : "全員分"}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2">
+                <label className="flex cursor-pointer items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                  <input
+                    type="checkbox"
+                    checked={settled}
+                    onChange={(e) => setSettled(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-green-500"
+                  />
+                  精算済
+                </label>
+                <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+                  {(["per_person", "total"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setCostType(t)}
+                      className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+                        costType === t
+                          ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+                          : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+                      }`}
+                    >
+                      {t === "per_person" ? "1人分" : "全員分"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <input
@@ -637,6 +650,7 @@ function ActivityForm({
               </div>
             </div>
           )}
+
         </div>
       )}
       </div>
@@ -763,6 +777,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [costType, setCostType] = useState<"per_person" | "total">("per_person");
   const [activityMembers, setActivityMembers] = useState<string[]>([]);
   const [paidBy, setPaidBy] = useState("");
+  const [settled, setSettled] = useState(false);
   const [editingActivity, setEditingActivity] = useState<TripActivity | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -783,7 +798,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setAddDay(0); setEditDay(0); setFormError("");
+    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError("");
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -935,6 +950,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setCostType(activity.costType ?? "per_person");
     setActivityMembers(activity.activityMembers ?? []);
     setPaidBy(activity.paidBy ?? "");
+    setSettled(activity.settled ?? false);
     setEditDay(activity.day ?? 0);
     setIsEditOpen(true);
   }
@@ -963,6 +979,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               costType: cost > 0 ? costType : undefined,
               activityMembers: cost > 0 && activityMembers.length > 0 ? activityMembers : undefined,
               paidBy: cost > 0 && paidBy ? paidBy : undefined,
+              settled: cost > 0 && settled ? true : undefined,
             }
           : d
       ),
@@ -995,6 +1012,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           costType: cost > 0 ? costType : undefined,
           activityMembers: cost > 0 && activityMembers.length > 0 ? activityMembers : undefined,
           paidBy: cost > 0 && paidBy ? paidBy : undefined,
+          settled: cost > 0 && settled ? true : undefined,
         },
       ],
     }));
@@ -1535,33 +1553,37 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
                       {dayActivities.map((a) => (
-                        <li key={activityId(a)} className="flex items-center gap-3 py-2.5">
-                          <span className="text-lg">{a.icon}</span>
-                          <div className="flex flex-1 flex-col min-w-0">
-                            <span className="text-sm text-slate-700 dark:text-slate-300">
-                              {a.type === "transport" && a.from && a.to
-                                ? `${a.from} → ${a.to}`
-                                : a.destination}
-                            </span>
-                            {a.activityMembers && a.activityMembers.length > 0 && (
-                              <div className="mt-0.5 flex flex-wrap gap-1">
-                                {a.activityMembers.map((m) => (
-                                  <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                    {m}
-                                  </span>
-                                ))}
+                        <li key={activityId(a)} className="flex items-start gap-3 py-2.5">
+                          <span className="mt-0.5 text-lg">{a.icon}</span>
+                          <div className="flex flex-1 flex-col gap-0.5 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate text-sm text-slate-700 dark:text-slate-300">
+                                {a.type === "transport" && a.from && a.to
+                                  ? `${a.from} → ${a.to}`
+                                  : a.destination}
+                              </span>
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                {a.settled && (
+                                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
+                                )}
+                                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">¥{activityTotalCost(a).toLocaleString()}</span>
                               </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                              ¥{activityTotalCost(a).toLocaleString()}
-                            </p>
-                            {a.costType === "per_person" && (
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                                ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
-                                {`${a.activityMembers?.length || participants}人`}
-                              </p>
+                            </div>
+                            {(a.activityMembers && a.activityMembers.length > 0 || a.costType === "per_person") && (
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex flex-wrap gap-1">
+                                  {(a.activityMembers ?? []).map((m) => (
+                                    <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                      {m}
+                                    </span>
+                                  ))}
+                                </div>
+                                {a.costType === "per_person" && (
+                                  <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                                    ¥{(a.cost ?? 0).toLocaleString()} × {a.activityMembers?.length || participants}人
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                         </li>
@@ -1600,9 +1622,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             )}
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                              ¥{activityTotalCost(a).toLocaleString()}
-                            </p>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {a.settled && (
+                                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
+                              )}
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                ¥{activityTotalCost(a).toLocaleString()}
+                              </p>
+                            </div>
                             {a.costType === "per_person" && (
                               <p className="text-[10px] text-slate-400 dark:text-slate-500">
                                 ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
@@ -1628,7 +1655,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 const balance: Record<string, number> = {};
                 members.forEach((m) => (balance[m] = 0));
                 tripData.days.forEach((a) => {
-                  if (!a.cost || !a.paidBy || !(a.paidBy in balance)) return;
+                  if (!a.cost || !a.paidBy || !(a.paidBy in balance) || a.settled) return;
                   const total = activityTotalCost(a);
                   const beneficiaries = a.activityMembers?.length ? a.activityMembers : members;
                   const share = total / beneficiaries.length;
@@ -1799,6 +1826,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             costType={costType} setCostType={setCostType}
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
             paidBy={paidBy} setPaidBy={setPaidBy}
+            settled={settled} setSettled={setSettled}
             allMembers={tripData.members ?? []}
             daySelector={
               <div>
@@ -1897,6 +1925,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             costType={costType} setCostType={setCostType}
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
             paidBy={paidBy} setPaidBy={setPaidBy}
+            settled={settled} setSettled={setSettled}
             allMembers={tripData.members ?? []}
             daySelector={
               <div>

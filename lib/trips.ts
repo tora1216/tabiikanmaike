@@ -11,6 +11,7 @@ export type TripActivity = {
   costType?: "per_person" | "total";
   activityMembers?: string[]; // subset of trip members this cost applies to
   paidBy?: string;            // who paid for this activity
+  settled?: boolean;          // true = this expense is already settled, exclude from settlement calc
 };
 
 export type PackingItem = {
