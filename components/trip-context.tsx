@@ -138,7 +138,12 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         const rand = Math.random().toString(36).slice(2, 6);
         const id = `trip-${date}-${rand}`;
         const newTrip: Trip = { ...tripWithoutId, id };
-        setTrips((prev) => [...prev, newTrip]);
+        setTrips((prev) => {
+          const next = [...prev, newTrip];
+          // ナビゲーション前にlocalStorageへ即時書き込み（Full Page Load対策）
+          try { localStorage.setItem("trips", JSON.stringify(next)); } catch { /* ignore */ }
+          return next;
+        });
         return newTrip;
       },
       removeTrip: (id) => {
