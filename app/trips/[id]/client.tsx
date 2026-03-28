@@ -594,24 +594,32 @@ function ActivityForm({
             />
           </div>
 
-          {/* Member selector (only when per_person and members exist) */}
+          {/* Member selector (only when per_person and members exist and cost > 0) */}
           {costType === "per_person" && allMembers.length > 0 && (
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-                対象メンバー<span className="ml-1 font-normal text-slate-400">（未選択は全員）</span>
+                対象メンバー
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {allMembers.map((m) => {
-                  const selected = activityMembers.includes(m);
+                  const isAll = activityMembers.length === 0;
+                  const selected = isAll || activityMembers.includes(m);
                   return (
                     <button
                       key={m}
                       type="button"
-                      onClick={() =>
-                        setActivityMembers(
-                          selected ? activityMembers.filter((x) => x !== m) : [...activityMembers, m]
-                        )
-                      }
+                      onClick={() => {
+                        if (isAll) {
+                          // 全員選択状態でクリック → そのメンバーだけ外す
+                          setActivityMembers(allMembers.filter((x) => x !== m));
+                        } else {
+                          const next = selected
+                            ? activityMembers.filter((x) => x !== m)
+                            : [...activityMembers, m];
+                          // 全員選択になったら [] に戻す
+                          setActivityMembers(next.length === allMembers.length ? [] : next);
+                        }
+                      }}
                       className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
                         selected
                           ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
@@ -627,7 +635,7 @@ function ActivityForm({
           )}
 
           {/* Payer selector */}
-          {allMembers.length > 0 && cost > 0 && (
+          {allMembers.length > 0 && (
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
                 支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
@@ -1547,112 +1555,32 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 )}
               </div>
 
-              {/* Per day breakdown */}
-              {allDayNumbers.map((dayNum) => {
-                const dayActivities = tripData.days.filter(
-                  (d) => d.day === dayNum && d.cost !== undefined && d.cost > 0
-                );
-                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a), 0);
-                if (dayActivities.length === 0) return null;
-                return (
-                  <div key={dayNum} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
-                      <div className="flex items-center gap-2.5">
-                        <span className="flex items-center justify-center rounded-full bg-[#22C55E] px-3 py-0.5 text-xs font-bold text-white">
-                          Day {dayNum}
-                        </span>
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                          {fmtDayDate(tripData.startDate, dayNum)}
-                        </span>
-                      </div>
-                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">¥{dayCost.toLocaleString()}</span>
-                    </div>
-                    <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
-                      {dayActivities.map((a) => (
-                        <li key={activityId(a)} className="flex items-start gap-3 py-2.5">
-                          <span className="mt-0.5 text-lg">{a.icon}</span>
-                          <div className="flex flex-1 flex-col gap-0.5 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-sm text-slate-700 dark:text-slate-300">
-                                {a.type === "transport" && a.from && a.to
-                                  ? `${a.from} → ${a.to}`
-                                  : a.destination}
-                              </span>
-                              <div className="flex shrink-0 items-center gap-1.5">
-                                {a.settled && (
-                                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
-                                )}
-                                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">¥{activityTotalCost(a).toLocaleString()}</span>
-                              </div>
-                            </div>
-                            {(a.activityMembers && a.activityMembers.length > 0 || a.costType === "per_person") && (
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex flex-wrap gap-1">
-                                  {(a.activityMembers ?? []).map((m) => (
-                                    <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                      {m}
-                                    </span>
-                                  ))}
-                                </div>
-                                {a.costType === "per_person" && (
-                                  <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
-                                    ¥{(a.cost ?? 0).toLocaleString()} × {a.activityMembers?.length || participants}人
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-
-              {/* Unassigned with cost */}
-              {(() => {
-                const items = unassigned.filter((d) => d.cost !== undefined && d.cost > 0);
-                if (items.length === 0) return null;
+              {/* Per member spending */}
+              {(tripData.members?.length ?? 0) >= 2 && totalCost > 0 && (() => {
+                const memberSpending: Record<string, number> = {};
+                (tripData.members ?? []).forEach((m) => (memberSpending[m] = 0));
+                tripData.days.forEach((a) => {
+                  if (!a.cost || a.cost <= 0) return;
+                  const effectiveMembers = a.activityMembers?.length
+                    ? a.activityMembers
+                    : (tripData.members ?? []);
+                  const share = a.costType === "per_person"
+                    ? a.cost
+                    : a.cost / effectiveMembers.length;
+                  effectiveMembers.forEach((m) => {
+                    if (m in memberSpending) memberSpending[m] += share;
+                  });
+                });
                 return (
                   <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-                    <div className="border-b border-amber-100 bg-amber-50/80 px-4 py-3 flex items-center justify-between dark:border-slate-700 dark:bg-slate-700/50">
-                      <span className="text-sm font-semibold text-amber-700">📌 未割り当て</span>
-                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                        ¥{items.reduce((s, a) => s + activityTotalCost(a), 0).toLocaleString()}
-                      </span>
+                    <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">👤 メンバー別負担額</p>
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
-                      {items.map((a) => (
-                        <li key={activityId(a)} className="flex items-center gap-3 py-2.5">
-                          <span className="text-lg">{a.icon}</span>
-                          <div className="flex flex-1 flex-col min-w-0">
-                            <span className="text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
-                            {a.activityMembers && a.activityMembers.length > 0 && (
-                              <div className="mt-0.5 flex flex-wrap gap-1">
-                                {a.activityMembers.map((m) => (
-                                  <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                    {m}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {a.settled && (
-                                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
-                              )}
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                                ¥{activityTotalCost(a).toLocaleString()}
-                              </p>
-                            </div>
-                            {a.costType === "per_person" && (
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                                ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
-                                {`${a.activityMembers?.length || participants}人`}
-                              </p>
-                            )}
-                          </div>
+                      {(tripData.members ?? []).map((m) => (
+                        <li key={m} className="flex items-center justify-between py-3">
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{m}</span>
+                          <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">¥{Math.round(memberSpending[m] ?? 0).toLocaleString()}</span>
                         </li>
                       ))}
                     </ul>
@@ -1726,6 +1654,132 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   </div>
                 );
               })()}
+
+              {/* Per day breakdown */}
+              {allDayNumbers.map((dayNum) => {
+                const dayActivities = tripData.days.filter(
+                  (d) => d.day === dayNum && d.cost !== undefined && d.cost > 0
+                );
+                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a), 0);
+                if (dayActivities.length === 0) return null;
+                return (
+                  <div key={dayNum} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex items-center justify-center rounded-full bg-[#22C55E] px-3 py-0.5 text-xs font-bold text-white">
+                          Day {dayNum}
+                        </span>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                          {fmtDayDate(tripData.startDate, dayNum)}
+                        </span>
+                      </div>
+                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">¥{dayCost.toLocaleString()}</span>
+                    </div>
+                    <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
+                      {dayActivities.map((a) => (
+                        <li key={activityId(a)} className="flex items-start gap-3 py-2.5">
+                          <span className="mt-0.5 text-lg">{a.icon}</span>
+                          <div className="flex flex-1 flex-col gap-0.5 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate text-sm text-slate-700 dark:text-slate-300">
+                                {a.type === "transport" && a.from && a.to
+                                  ? `${a.from} → ${a.to}`
+                                  : a.destination}
+                              </span>
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                {a.settled && (
+                                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
+                                )}
+                                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">¥{activityTotalCost(a).toLocaleString()}</span>
+                              </div>
+                            </div>
+                            {(() => {
+                              const effectiveMembers = a.activityMembers?.length
+                                ? a.activityMembers
+                                : (tripData.members ?? []);
+                              if (a.costType !== "per_person" && effectiveMembers.length === 0) return null;
+                              return (
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex flex-wrap gap-1">
+                                    {effectiveMembers.map((m) => (
+                                      <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                        {m}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  {a.costType === "per_person" && (
+                                    <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                                      ¥{(a.cost ?? 0).toLocaleString()} × {effectiveMembers.length || participants}人
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+
+              {/* Unassigned with cost */}
+              {(() => {
+                const items = unassigned.filter((d) => d.cost !== undefined && d.cost > 0);
+                if (items.length === 0) return null;
+                return (
+                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                    <div className="border-b border-amber-100 bg-amber-50/80 px-4 py-3 flex items-center justify-between dark:border-slate-700 dark:bg-slate-700/50">
+                      <span className="text-sm font-semibold text-amber-700">📌 未割り当て</span>
+                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                        ¥{items.reduce((s, a) => s + activityTotalCost(a), 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
+                      {items.map((a) => (
+                        <li key={activityId(a)} className="flex items-center gap-3 py-2.5">
+                          <span className="text-lg">{a.icon}</span>
+                          <div className="flex flex-1 flex-col min-w-0">
+                            <span className="text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
+                            {(() => {
+                              const effectiveMembers = a.activityMembers?.length
+                                ? a.activityMembers
+                                : (tripData.members ?? []);
+                              if (effectiveMembers.length === 0) return null;
+                              return (
+                                <div className="mt-0.5 flex flex-wrap gap-1">
+                                  {effectiveMembers.map((m) => (
+                                    <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                      {m}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {a.settled && (
+                                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
+                              )}
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                ¥{activityTotalCost(a).toLocaleString()}
+                              </p>
+                            </div>
+                            {a.costType === "per_person" && (
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                                ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
+                                {`${a.activityMembers?.length || participants}人`}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
             </div>
           </main>
         )}
