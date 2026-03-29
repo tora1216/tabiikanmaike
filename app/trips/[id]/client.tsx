@@ -1707,7 +1707,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             </div>
                             {(() => {
                               const allMembers = tripData.members ?? [];
-                              const isAll = !a.activityMembers?.length;
+                              const isAll = !a.activityMembers?.length ||
+                                (allMembers.length > 0 && a.activityMembers!.length === allMembers.length && a.activityMembers!.every(m => allMembers.includes(m)));
                               const count = isAll ? allMembers.length : a.activityMembers!.length;
                               if (!a.paidBy && !allMembers.length) return null;
                               return (
@@ -1769,8 +1770,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                           <div className="flex flex-1 flex-col min-w-0">
                             <span className="text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
                             {(() => {
-                              const isAll = !a.activityMembers?.length;
-                              if (isAll && (tripData.members?.length ?? 0) === 0) return null;
+                              const allMembers2 = tripData.members ?? [];
+                              const isAll = !a.activityMembers?.length ||
+                                (allMembers2.length > 0 && a.activityMembers!.length === allMembers2.length && a.activityMembers!.every(m => allMembers2.includes(m)));
+                              if (isAll && allMembers2.length === 0) return null;
                               return (
                                 <div className="mt-0.5 flex flex-wrap gap-1">
                                   {isAll ? (
