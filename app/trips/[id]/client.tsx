@@ -1557,30 +1557,42 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
               {/* Per member spending */}
               {(tripData.members?.length ?? 0) >= 2 && totalCost > 0 && (() => {
+                const members = tripData.members ?? [];
                 const memberSpending: Record<string, number> = {};
-                (tripData.members ?? []).forEach((m) => (memberSpending[m] = 0));
+                const memberPaid: Record<string, number> = {};
+                members.forEach((m) => { memberSpending[m] = 0; memberPaid[m] = 0; });
                 tripData.days.forEach((a) => {
                   if (!a.cost || a.cost <= 0) return;
                   const effectiveMembers = a.activityMembers?.length
                     ? a.activityMembers
-                    : (tripData.members ?? []);
+                    : members;
                   const share = a.costType === "per_person"
                     ? a.cost
                     : a.cost / effectiveMembers.length;
                   effectiveMembers.forEach((m) => {
                     if (m in memberSpending) memberSpending[m] += share;
                   });
+                  if (a.paidBy && a.paidBy in memberPaid) {
+                    memberPaid[a.paidBy] += activityTotalCost(a);
+                  }
                 });
                 return (
                   <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-                    <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-700/50">
                       <p className="text-sm font-bold text-slate-700 dark:text-slate-200">👤 メンバー別負担額</p>
+                      <div className="flex gap-1">
+                        <span className="w-20 text-right text-[11px] font-semibold text-slate-400">支払額</span>
+                        <span className="w-20 text-right text-[11px] font-semibold text-slate-400">負担額</span>
+                      </div>
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
-                      {(tripData.members ?? []).map((m) => (
-                        <li key={m} className="flex items-center justify-between py-3">
-                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{m}</span>
-                          <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">¥{Math.round(memberSpending[m] ?? 0).toLocaleString()}</span>
+                      {members.map((m) => (
+                        <li key={m} className="flex items-center justify-between py-2.5">
+                          <span className="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{m}</span>
+                          <div className="flex gap-1">
+                            <span className="w-20 text-right text-sm font-semibold text-emerald-600 dark:text-emerald-400">¥{Math.round(memberPaid[m] ?? 0).toLocaleString()}</span>
+                            <span className="w-20 text-right text-sm font-semibold text-indigo-600 dark:text-indigo-400">¥{Math.round(memberSpending[m] ?? 0).toLocaleString()}</span>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -1694,22 +1706,37 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                               </div>
                             </div>
                             {(() => {
-                              const effectiveMembers = a.activityMembers?.length
-                                ? a.activityMembers
-                                : (tripData.members ?? []);
-                              if (a.costType !== "per_person" && effectiveMembers.length === 0) return null;
+                              const allMembers = tripData.members ?? [];
+                              const isAll = !a.activityMembers?.length;
+                              const count = isAll ? allMembers.length : a.activityMembers!.length;
+                              if (!a.paidBy && !allMembers.length) return null;
                               return (
                                 <div className="flex items-center justify-between gap-2">
-                                  <div className="flex flex-wrap gap-1">
-                                    {effectiveMembers.map((m) => (
-                                      <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                        {m}
-                                      </span>
-                                    ))}
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    {a.paidBy && (
+                                      <>
+                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
+                                        <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
+                                      </>
+                                    )}
+                                    {isAll ? (
+                                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
+                                    ) : (
+                                      a.activityMembers!.map((m) => (
+                                        <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                          {m}
+                                        </span>
+                                      ))
+                                    )}
                                   </div>
                                   {a.costType === "per_person" && (
                                     <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
-                                      ¥{(a.cost ?? 0).toLocaleString()} × {effectiveMembers.length || participants}人
+                                      ¥{(a.cost ?? 0).toLocaleString()} × {count || participants}人
+                                    </span>
+                                  )}
+                                  {a.costType === "total" && (count || participants) > 0 && (
+                                    <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                                      ¥{Math.round((a.cost ?? 0) / (count || participants)).toLocaleString()}<span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
                                     </span>
                                   )}
                                 </div>
@@ -1742,17 +1769,19 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                           <div className="flex flex-1 flex-col min-w-0">
                             <span className="text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
                             {(() => {
-                              const effectiveMembers = a.activityMembers?.length
-                                ? a.activityMembers
-                                : (tripData.members ?? []);
-                              if (effectiveMembers.length === 0) return null;
+                              const isAll = !a.activityMembers?.length;
+                              if (isAll && (tripData.members?.length ?? 0) === 0) return null;
                               return (
                                 <div className="mt-0.5 flex flex-wrap gap-1">
-                                  {effectiveMembers.map((m) => (
-                                    <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                      {m}
-                                    </span>
-                                  ))}
+                                  {isAll ? (
+                                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
+                                  ) : (
+                                    a.activityMembers!.map((m) => (
+                                      <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                        {m}
+                                      </span>
+                                    ))
+                                  )}
                                 </div>
                               );
                             })()}
@@ -1908,7 +1937,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 >
                   <option value={0}></option>
                   {allDayNumbers.map((n) => (
-                    <option key={n} value={n}>Day {n}【{fmtDayDate(tripData.startDate, n)}】</option>
+                    <option key={n} value={n}>Day {n}  {fmtDayDate(tripData.startDate, n)}</option>
                   ))}
                 </select>
               </div>
@@ -2007,7 +2036,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 >
                   <option value={0}></option>
                   {allDayNumbers.map((n) => (
-                    <option key={n} value={n}>Day {n}【{fmtDayDate(tripData.startDate, n)}】</option>
+                    <option key={n} value={n}>Day {n}  {fmtDayDate(tripData.startDate, n)}</option>
                   ))}
                 </select>
               </div>
