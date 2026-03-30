@@ -165,6 +165,8 @@ export default function Home() {
   const [addIcon, setAddIcon] = useState("✈️");
   const [addMembers, setAddMembers] = useState<string[]>([]);
   const [addMemberInput, setAddMemberInput] = useState("");
+  const [addParticipants, setAddParticipants] = useState(2);
+  const [showAddMembers, setShowAddMembers] = useState(false);
   const [addError, setAddError] = useState("");
 
   const [editOpen, setEditOpen] = useState(false);
@@ -177,6 +179,8 @@ export default function Home() {
   const [editIcon, setEditIcon] = useState("✈️");
   const [editMembers, setEditMembers] = useState<string[]>([]);
   const [editMemberInput, setEditMemberInput] = useState("");
+  const [editParticipants, setEditParticipants] = useState(2);
+  const [showEditMembers, setShowEditMembers] = useState(false);
   const [editError, setEditError] = useState("");
 
   // inline member name editing (shared across both modals — only one open at a time)
@@ -192,6 +196,8 @@ export default function Home() {
     setAddIcon("✈️");
     setAddMembers([]);
     setAddMemberInput("");
+    setAddParticipants(2);
+    setShowAddMembers(false);
     setAddError("");
   };
 
@@ -208,7 +214,7 @@ export default function Home() {
       setAddError("終了日を設定した場合は開始日も入力してください。");
       return;
     }
-    addTrip({ title, startDate: startDate || undefined, endDate: endDate || undefined, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, members: addMembers });
+    addTrip({ title, startDate: startDate || undefined, endDate: endDate || undefined, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, members: addMembers, participants: addMembers.length > 0 ? addMembers.length : addParticipants });
     resetAdd();
     setAddOpen(false);
   };
@@ -225,6 +231,8 @@ export default function Home() {
     setEditIcon(t.tripIcon ?? "✈️");
     setEditMembers(t.members ?? []);
     setEditMemberInput("");
+    setEditParticipants(t.members?.length || t.participants || 2);
+    setShowEditMembers((t.members?.length ?? 0) > 0);
     setEditOpen(true);
   };
 
@@ -269,6 +277,7 @@ export default function Home() {
       color: editColor,
       tripIcon: editIcon,
       members: editMembers,
+      participants: editMembers.length > 0 ? editMembers.length : editParticipants,
       status: undefined,
     }));
     setEditError("");
@@ -465,10 +474,9 @@ export default function Home() {
       {addOpen && (
         <Modal
           title="新しい旅を追加"
-          subtitle="タイトルと日程を入力してください。"
           onClose={() => { resetAdd(); setAddOpen(false); }}
         >
-          <div className="mt-4 space-y-3">
+          <div className="mt-2 space-y-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">カラー</label>
               <ColorSwatch colors={TRIP_COLORS} value={addColor} onChange={setAddColor} />
@@ -499,7 +507,7 @@ export default function Home() {
                 className={inputCls}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="例）夏の北海道ドライブ旅"
+                placeholder="例）富山旅行"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -535,55 +543,81 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メンバー名<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-              <div className="flex gap-2">
-                <input
-                  className={`${inputCls} flex-1`}
-                  value={addMemberInput}
-                  onChange={(e) => setAddMemberInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const name = addMemberInput.trim();
-                      if (name && !addMembers.includes(name)) setAddMembers([...addMembers, name]);
-                      setAddMemberInput("");
-                    }
-                  }}
-                  placeholder="例）あおい"
-                />
+              <div className="mb-1 flex items-baseline gap-2">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">参加人数</label>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">メンバー登録をすると割り勘機能が使えるようになります</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setAddParticipants(p => Math.max(1, p - 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">−</button>
+                  <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{addMembers.length > 0 ? addMembers.length : addParticipants}</span>
+                  <button type="button" onClick={() => setAddParticipants(p => Math.min(99, p + 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">＋</button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const name = addMemberInput.trim();
-                    if (name && !addMembers.includes(name)) setAddMembers([...addMembers, name]);
-                    setAddMemberInput("");
-                  }}
-                  className="rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400"
-                >追加</button>
+                  onClick={() => setShowAddMembers(v => !v)}
+                  className="flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-500 transition hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
+                >
+                  メンバー登録<span className="text-[10px] opacity-60">{showAddMembers ? "▲" : "▼"}</span>
+                </button>
               </div>
-              {addMembers.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {addMembers.map((m, idx) => renamingIdx === idx ? (
-                    <span key={m} className="flex items-center rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-0.5 dark:border-indigo-500 dark:bg-indigo-900/30">
-                      <input
-                        autoFocus
-                        className="w-20 bg-transparent text-xs font-semibold text-indigo-600 outline-none dark:text-indigo-300"
-                        value={renamingVal}
-                        onChange={(e) => setRenamingVal(e.target.value)}
-                        onBlur={() => {
-                          const v = renamingVal.trim();
-                          if (v && !addMembers.some((x, i) => x === v && i !== idx)) setAddMembers(addMembers.map((x, i) => i === idx ? v : x));
-                          setRenamingIdx(null);
-                        }}
-                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenamingIdx(null); }}
-                      />
-                    </span>
-                  ) : (
-                    <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                      <button type="button" onClick={() => { setRenamingIdx(idx); setRenamingVal(m); }} className="hover:text-indigo-500">{m}</button>
-                      <button type="button" onClick={() => setAddMembers(addMembers.filter((x) => x !== m))} className="text-slate-400 hover:text-red-400">×</button>
-                    </span>
-                  ))}
+              {addMembers.length > 0 && addMembers.length !== addParticipants && (
+                <p className="mt-1.5 text-[11px] text-amber-500">⚠ 参加人数（{addParticipants}人）とメンバー数（{addMembers.length}人）が一致していません</p>
+              )}
+              {showAddMembers && (
+                <div className="mt-2">
+                  <div className="flex gap-2">
+                    <input
+                      className={`${inputCls} flex-1`}
+                      value={addMemberInput}
+                      onChange={(e) => setAddMemberInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const name = addMemberInput.trim();
+                          if (name && !addMembers.includes(name)) { const next = [...addMembers, name]; setAddMembers(next); setAddParticipants(next.length); }
+                          setAddMemberInput("");
+                        }
+                      }}
+                      placeholder="例）やまだ"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = addMemberInput.trim();
+                        if (name && !addMembers.includes(name)) { const next = [...addMembers, name]; setAddMembers(next); setAddParticipants(next.length); }
+                        setAddMemberInput("");
+                      }}
+                      className="rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400"
+                    >追加</button>
+                  </div>
+                  {addMembers.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {addMembers.map((m, idx) => renamingIdx === idx ? (
+                        <span key={m} className="flex items-center rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-0.5 dark:border-indigo-500 dark:bg-indigo-900/30">
+                          <input
+                            autoFocus
+                            className="w-20 bg-transparent text-xs font-semibold text-indigo-600 outline-none dark:text-indigo-300"
+                            value={renamingVal}
+                            onChange={(e) => setRenamingVal(e.target.value)}
+                            onBlur={() => {
+                              const v = renamingVal.trim();
+                              if (v && !addMembers.some((x, i) => x === v && i !== idx)) setAddMembers(addMembers.map((x, i) => i === idx ? v : x));
+                              setRenamingIdx(null);
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenamingIdx(null); }}
+                          />
+                        </span>
+                      ) : (
+                        <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                          <button type="button" onClick={() => { setRenamingIdx(idx); setRenamingVal(m); }} className="flex items-center gap-0.5 hover:text-indigo-500">
+                            {m}
+                          </button>
+                          <button type="button" onClick={() => { const next = addMembers.filter((x) => x !== m); setAddMembers(next); setAddParticipants(next.length || 1); }} className="text-slate-400 hover:text-red-400">×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -693,55 +727,81 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メンバー名<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-              <div className="flex gap-2">
-                <input
-                  className={`${inputCls} flex-1`}
-                  value={editMemberInput}
-                  onChange={(e) => setEditMemberInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const name = editMemberInput.trim();
-                      if (name && !editMembers.includes(name)) setEditMembers([...editMembers, name]);
-                      setEditMemberInput("");
-                    }
-                  }}
-                  placeholder="例）あおい"
-                />
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">参加人数</label>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setEditParticipants(p => Math.max(1, p - 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">−</button>
+                  <span className="w-8 text-center font-bold text-slate-900 dark:text-white">{editMembers.length > 0 ? editMembers.length : editParticipants}</span>
+                  <button type="button" onClick={() => setEditParticipants(p => Math.min(99, p + 1))} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-lg font-bold text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">＋</button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const name = editMemberInput.trim();
-                    if (name && !editMembers.includes(name)) setEditMembers([...editMembers, name]);
-                    setEditMemberInput("");
-                  }}
-                  className="rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400"
-                >追加</button>
+                  onClick={() => setShowEditMembers(v => !v)}
+                  className="flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-500 transition hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
+                >
+                  メンバー編集<span className="text-[10px] opacity-60">{showEditMembers ? "▲" : "▼"}</span>
+                </button>
               </div>
-              {editMembers.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {editMembers.map((m, idx) => renamingIdx === idx ? (
-                    <span key={m} className="flex items-center rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-0.5 dark:border-indigo-500 dark:bg-indigo-900/30">
-                      <input
-                        autoFocus
-                        className="w-20 bg-transparent text-xs font-semibold text-indigo-600 outline-none dark:text-indigo-300"
-                        value={renamingVal}
-                        onChange={(e) => setRenamingVal(e.target.value)}
-                        onBlur={() => {
-                          const v = renamingVal.trim();
-                          if (v && !editMembers.some((x, i) => x === v && i !== idx)) setEditMembers(editMembers.map((x, i) => i === idx ? v : x));
-                          setRenamingIdx(null);
-                        }}
-                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenamingIdx(null); }}
-                      />
-                    </span>
-                  ) : (
-                    <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                      <button type="button" onClick={() => { setRenamingIdx(idx); setRenamingVal(m); }} className="hover:text-indigo-500">{m}</button>
-                      <button type="button" onClick={() => setEditMembers(editMembers.filter((x) => x !== m))} className="text-slate-400 hover:text-red-400">×</button>
-                    </span>
-                  ))}
+              {editMembers.length > 0 && editMembers.length !== editParticipants && (
+                <p className="mt-1.5 text-[11px] text-amber-500">⚠ 参加人数（{editParticipants}人）とメンバー数（{editMembers.length}人）が一致していません</p>
+              )}
+              {showEditMembers && (
+                <div className="mt-2">
+                  <div className="flex gap-2">
+                    <input
+                      className={`${inputCls} flex-1`}
+                      value={editMemberInput}
+                      onChange={(e) => setEditMemberInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const name = editMemberInput.trim();
+                          if (name && !editMembers.includes(name)) { const next = [...editMembers, name]; setEditMembers(next); setEditParticipants(next.length); }
+                          setEditMemberInput("");
+                        }
+                      }}
+                      placeholder="例）やまだ"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = editMemberInput.trim();
+                        if (name && !editMembers.includes(name)) { const next = [...editMembers, name]; setEditMembers(next); setEditParticipants(next.length); }
+                        setEditMemberInput("");
+                      }}
+                      className="rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400"
+                    >追加</button>
+                  </div>
+                  {editMembers.length > 0 && (
+                    <div className="mt-2">
+                      <p className="mb-1.5 text-[10px] text-slate-400 dark:text-slate-500">名前をタップすると編集できます</p>
+                      <div className="flex flex-wrap gap-1.5">
+                      {editMembers.map((m, idx) => renamingIdx === idx ? (
+                        <span key={m} className="flex items-center rounded-full border border-indigo-300 bg-indigo-50 px-2.5 py-0.5 dark:border-indigo-500 dark:bg-indigo-900/30">
+                          <input
+                            autoFocus
+                            className="w-20 bg-transparent text-xs font-semibold text-indigo-600 outline-none dark:text-indigo-300"
+                            value={renamingVal}
+                            onChange={(e) => setRenamingVal(e.target.value)}
+                            onBlur={() => {
+                              const v = renamingVal.trim();
+                              if (v && !editMembers.some((x, i) => x === v && i !== idx)) setEditMembers(editMembers.map((x, i) => i === idx ? v : x));
+                              setRenamingIdx(null);
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenamingIdx(null); }}
+                          />
+                        </span>
+                      ) : (
+                        <span key={m} className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                          <button type="button" onClick={() => { setRenamingIdx(idx); setRenamingVal(m); }} className="flex items-center gap-0.5 hover:text-indigo-500">
+                            {m}
+                          </button>
+                          <button type="button" onClick={() => { const next = editMembers.filter((x) => x !== m); setEditMembers(next); setEditParticipants(next.length || 1); }} className="text-slate-400 hover:text-red-400">×</button>
+                        </span>
+                      ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -125,6 +125,7 @@ function ActivityCard({
   onMapsClick,
   overlay = false,
   dragHandle,
+  allMembers,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
@@ -132,6 +133,7 @@ function ActivityCard({
   onMapsClick?: (url: string) => void;
   overlay?: boolean;
   dragHandle?: React.ReactNode;
+  allMembers?: string[];
 }) {
   const isTransport = activity.type === "transport";
 
@@ -209,14 +211,35 @@ function ActivityCard({
           {activity.memo && (
             <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-500 dark:text-slate-400">{activity.memo}</p>
           )}
-          {activity.cost !== undefined && activity.cost > 0 && (
-            <p className="mt-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-              ¥{activity.cost.toLocaleString()}
-              {activity.costType === "per_person" && (
-                <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
-              )}
-            </p>
-          )}
+          {(() => {
+            const hasCost = activity.cost !== undefined && activity.cost > 0;
+            const partialMembers = (() => {
+              if (!allMembers || allMembers.length === 0) return null;
+              const members = activity.activityMembers;
+              if (!members || members.length === 0 || members.length === allMembers.length) return null;
+              return members;
+            })();
+            if (!hasCost && !partialMembers) return null;
+            return (
+              <div className="mt-1 flex items-center justify-between gap-2">
+                {hasCost ? (
+                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                    ¥{activity.cost!.toLocaleString()}
+                    {activity.costType === "per_person" && (
+                      <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
+                    )}
+                  </p>
+                ) : <span />}
+                {partialMembers && (
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {partialMembers.map((m) => (
+                      <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">{m}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Drag handle */}
@@ -234,12 +257,14 @@ function SortableItem({
   onDelete,
   onMapsClick,
   isEditMode,
+  allMembers,
 }: {
   activity: TripActivity;
   onEdit: () => void;
   onDelete: () => void;
   onMapsClick: (url: string) => void;
   isEditMode: boolean;
+  allMembers?: string[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
@@ -274,6 +299,7 @@ function SortableItem({
         onDelete={isEditMode ? undefined : onDelete}
         onMapsClick={isEditMode ? undefined : onMapsClick}
         dragHandle={dragHandleNode}
+        allMembers={allMembers}
       />
     </li>
   );
@@ -542,126 +568,123 @@ function ActivityForm({
 
         {showOptional && (
           <div className="space-y-4 border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
-            {/* Common: memo */}
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-            <textarea
-              className={`${inputCls} resize-none`}
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="例）朝早めに出発して混雑を避ける"
-              rows={2}
-            />
-          </div>
-
-          {/* Common: cost */}
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-              <div className="flex items-center gap-2">
-                <label className="flex cursor-pointer items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={settled}
-                    onChange={(e) => setSettled(e.target.checked)}
-                    className="h-3.5 w-3.5 accent-green-500"
-                  />
-                  精算済
+            {/* 参加メンバー */}
+            {allMembers.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  参加メンバー
                 </label>
-                <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
-                  {(["per_person", "total"] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setCostType(t)}
-                      className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
-                        costType === t
-                          ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
-                          : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
-                      }`}
-                    >
-                      {t === "per_person" ? "1人分" : "全員分"}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-1.5">
+                  {allMembers.map((m) => {
+                    const isAll = activityMembers.length === 0;
+                    const selected = isAll || activityMembers.includes(m);
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          if (isAll) {
+                            setActivityMembers(allMembers.filter((x) => x !== m));
+                          } else {
+                            const next = selected
+                              ? activityMembers.filter((x) => x !== m)
+                              : [...activityMembers, m];
+                            setActivityMembers(next.length === allMembers.length ? [] : next);
+                          }
+                        }}
+                        className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
+                          selected
+                            ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
+                            : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-            <input
-              type="number"
-              className={inputCls}
-              value={cost || ""}
-              onChange={(e) => setCost(parseInt(e.target.value) || 0)}
-              placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
-              min={0}
-            />
-          </div>
+            )}
 
-          {/* Member selector (only when per_person and members exist and cost > 0) */}
-          {costType === "per_person" && allMembers.length > 0 && (
+            {/* 費用 */}
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-                対象メンバー
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {allMembers.map((m) => {
-                  const isAll = activityMembers.length === 0;
-                  const selected = isAll || activityMembers.includes(m);
-                  return (
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <div className="flex items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={settled}
+                      onChange={(e) => setSettled(e.target.checked)}
+                      className="h-3.5 w-3.5 accent-green-500"
+                    />
+                    精算済
+                  </label>
+                  <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+                    {(["per_person", "total"] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setCostType(t)}
+                        className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+                          costType === t
+                            ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+                            : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+                        }`}
+                      >
+                        {t === "per_person" ? "1人分" : "全員分"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <input
+                type="number"
+                className={inputCls}
+                value={cost || ""}
+                onChange={(e) => setCost(parseInt(e.target.value) || 0)}
+                placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
+                min={0}
+              />
+            </div>
+
+            {/* 支払った人 */}
+            {allMembers.length > 0 && (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {allMembers.map((m) => (
                     <button
                       key={m}
                       type="button"
-                      onClick={() => {
-                        if (isAll) {
-                          // 全員選択状態でクリック → そのメンバーだけ外す
-                          setActivityMembers(allMembers.filter((x) => x !== m));
-                        } else {
-                          const next = selected
-                            ? activityMembers.filter((x) => x !== m)
-                            : [...activityMembers, m];
-                          // 全員選択になったら [] に戻す
-                          setActivityMembers(next.length === allMembers.length ? [] : next);
-                        }
-                      }}
+                      onClick={() => setPaidBy(paidBy === m ? "" : m)}
                       className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
-                        selected
-                          ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
+                        paidBy === m
+                          ? "border-emerald-400 bg-emerald-50 text-emerald-600 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
                           : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
                       }`}
                     >
                       {m}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Payer selector */}
-          {allMembers.length > 0 && (
+            {/* メモ */}
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-                支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {allMembers.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setPaidBy(paidBy === m ? "" : m)}
-                    className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
-                      paidBy === m
-                        ? "border-emerald-400 bg-emerald-50 text-emerald-600 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+              <textarea
+                className={`${inputCls} resize-none`}
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="例）朝早めに出発して混雑を避ける"
+                rows={2}
+              />
             </div>
-          )}
-
-        </div>
+          </div>
       )}
       </div>
     </div>
@@ -1240,6 +1263,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 isEditMode={isEditMode}
                                 onEdit={() => openEdit(activity)}
                                 onMapsClick={setMapsUrl}
+                                allMembers={tripData.members}
                                 onDelete={() => {
                                   if (confirm("削除してよろしいですか？")) {
                                     updateTrip(tripData.id, (c) => ({
@@ -1282,6 +1306,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             isEditMode={isEditMode}
                             onEdit={() => openEdit(activity)}
                             onMapsClick={setMapsUrl}
+                            allMembers={tripData.members}
                             onDelete={() => {
                               updateTrip(tripData.id, (c) => ({
                                 ...c,

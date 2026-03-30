@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.8.1";
+export const APP_VERSION = "1.8.2";
 
 export type ChangelogEntry = {
   version: string;
@@ -16,6 +16,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "旅にステータスを追加（計画中・もうすぐ・旅行中・完了・下書き）",
       "旅のフィルタリング機能を追加",
       "開始日・終了日を任意入力に変更",
+      "アクティビティに参加メンバーのバッジを表示",
     ],
   },
   {
