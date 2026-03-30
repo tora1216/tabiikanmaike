@@ -88,7 +88,7 @@ function ImportContent() {
           <p className="mb-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">共有された旅程</p>
           <h1 className="text-xl font-black text-slate-900">{trip.title}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {fmt(trip.startDate)} 〜 {fmt(trip.endDate)}（{totalDays}日間）
+            {trip.startDate && trip.endDate ? `${fmt(trip.startDate)} 〜 ${fmt(trip.endDate)}（${totalDays}日間）` : "日程未定"}
           </p>
           {trip.description && (
             <p className="mt-2 text-sm text-slate-600">{trip.description}</p>

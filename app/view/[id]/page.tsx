@@ -189,7 +189,7 @@ export default function ViewPage() {
             <div>
               <h1 className="text-xl font-black text-slate-900">{trip.title}</h1>
               <p className="text-sm text-slate-500">
-                {fmtDate(trip.startDate)} 〜 {fmtDate(trip.endDate)}（{totalDays}日間）
+                {trip.startDate && trip.endDate ? `${fmtDate(trip.startDate)} 〜 ${fmtDate(trip.endDate)}（${totalDays}日間）` : "日程未定"}
               </p>
             </div>
           </div>
