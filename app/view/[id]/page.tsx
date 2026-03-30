@@ -111,10 +111,9 @@ export default function ViewPage() {
     );
   }
 
-  const totalDays = Math.max(
-    1,
-    Math.round((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86400000) + 1
-  );
+  const totalDays = trip.startDate && trip.endDate
+    ? Math.max(1, Math.round((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86400000) + 1)
+    : Math.max(trip.days?.reduce((m, a) => Math.max(m, a.day), 0) ?? 0, 1);
   const allDays = Array.from({ length: totalDays }, (_, i) => i + 1);
   const tripIcon = trip.tripIcon ?? "✈️";
   const memberCount = trip.members?.length || trip.participants || 2;

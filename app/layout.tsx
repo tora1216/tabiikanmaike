@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     title: "旅のしおり",
   },
   icons: {
-    icon: `${BASE}/icon.svg`,
+    icon: `${BASE}/icon.png`,
     apple: `${BASE}/icon.png`,
   },
 };

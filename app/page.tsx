@@ -382,7 +382,7 @@ export default function Home() {
               const badge = STATUS_BADGE[status];
               const badgeLabel = status === "soon" ? (() => {
                 const today = new Date(); today.setHours(0, 0, 0, 0);
-                const start = new Date(trip.startDate); start.setHours(0, 0, 0, 0);
+                const start = new Date(trip.startDate!); start.setHours(0, 0, 0, 0);
                 const d = Math.ceil((start.getTime() - today.getTime()) / 86400000);
                 return `あと${d}日`;
               })() : badge.label;

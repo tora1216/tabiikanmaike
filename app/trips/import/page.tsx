@@ -61,13 +61,9 @@ function ImportContent() {
     }
   };
 
-  const totalDays =
-    new Date(trip.endDate) >= new Date(trip.startDate)
-      ? Math.round(
-          (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) /
-            86400000
-        ) + 1
-      : 1;
+  const totalDays = trip.startDate && trip.endDate
+    ? Math.round((new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / 86400000) + 1
+    : Math.max(trip.days?.reduce((m, a) => Math.max(m, a.day), 0) ?? 0, 1);
 
   const fmt = (d: string) =>
     new Date(d).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
