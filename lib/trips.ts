@@ -35,8 +35,8 @@ export type NoteEntry = {
 export type Trip = {
   id: string;
   title: string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
   description: string;
   days: TripActivity[];
   packingList?: PackingItem[];
@@ -50,6 +50,7 @@ export type Trip = {
   shareId?: string;
   shareOwner?: boolean; // true = 自分が共有を作成したオーナー, false = 友人がインポートした旅
   sharePassword?: string; // optional passphrase for shared trip access
+  status?: "draft";      // manually set draft status
   updatedAt?: string;
 };
 

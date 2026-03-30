@@ -27,9 +27,30 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("ja-JP", { month: "short", day: "numeric" });
 }
 
-function tripDayCount(start: string, end: string) {
+function tripDayCount(start?: string, end?: string): number | null {
+  if (!start || !end) return null;
   return Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
 }
+
+function getTripStatus(startDate?: string, endDate?: string) {
+  if (!startDate || !endDate) return "draft" as const;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(startDate); start.setHours(0, 0, 0, 0);
+  const end = new Date(endDate); end.setHours(0, 0, 0, 0);
+  const daysUntil = Math.ceil((start.getTime() - today.getTime()) / 86400000);
+  if (today > end) return "completed" as const;
+  if (today >= start) return "ongoing" as const;
+  if (daysUntil <= 7) return "soon" as const;
+  return "planning" as const;
+}
+
+const STATUS_BADGE = {
+  draft:     { label: "下書き", cls: "bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-500" },
+  completed: { label: "完了",   cls: "bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400" },
+  ongoing:   { label: "旅行中", cls: "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" },
+  soon:      { label: "もうすぐ", cls: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400" },
+  planning:  { label: "計画中", cls: "bg-indigo-50 text-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-400" },
+} as const;
 
 const inputCls =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-indigo-500 focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-600";
@@ -110,6 +131,7 @@ export default function Home() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "planning" | "soon" | "ongoing" | "completed">("all");
   const [linkInput, setLinkInput] = useState("");
   const [linkImporting, setLinkImporting] = useState(false);
   const [linkResult, setLinkResult] = useState<"ok" | "error" | "already" | null>(null);
@@ -174,15 +196,19 @@ export default function Home() {
   };
 
   const handleAdd = () => {
-    if (!title || !startDate || !endDate) {
-      setAddError("タイトルと日程は必須項目です。");
+    if (!title) {
+      setAddError("タイトルは必須項目です。");
       return;
     }
-    if (startDate > endDate) {
-      setAddError("終了日は開始日より後の日付を設定してください。");
+    if (startDate && !endDate) {
+      setAddError("開始日を設定した場合は終了日も入力してください。");
       return;
     }
-    addTrip({ title, startDate, endDate, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, members: addMembers });
+    if (!startDate && endDate) {
+      setAddError("終了日を設定した場合は開始日も入力してください。");
+      return;
+    }
+    addTrip({ title, startDate: startDate || undefined, endDate: endDate || undefined, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, members: addMembers });
     resetAdd();
     setAddOpen(false);
   };
@@ -192,8 +218,8 @@ export default function Home() {
     if (!t) return;
     setEditId(id);
     setEditTitle(t.title);
-    setEditStart(t.startDate);
-    setEditEnd(t.endDate);
+    setEditStart(t.startDate ?? "");
+    setEditEnd(t.endDate ?? "");
     setEditDesc(t.description ?? "");
     setEditColor(t.color ?? TRIP_COLORS[0]);
     setEditIcon(t.tripIcon ?? "✈️");
@@ -222,23 +248,28 @@ export default function Home() {
   };
 
   const handleUpdate = () => {
-    if (!editId || !editTitle || !editStart || !editEnd) {
-      setEditError("タイトルと日程は必須項目です。");
+    if (!editId || !editTitle) {
+      setEditError("タイトルは必須項目です。");
       return;
     }
-    if (editStart > editEnd) {
-      setEditError("終了日は開始日より後の日付を設定してください。");
+    if (editStart && !editEnd) {
+      setEditError("開始日を設定した場合は終了日も入力してください。");
+      return;
+    }
+    if (!editStart && editEnd) {
+      setEditError("終了日を設定した場合は開始日も入力してください。");
       return;
     }
     updateTrip(editId, (c) => ({
       ...c,
       title: editTitle,
-      startDate: editStart,
-      endDate: editEnd,
+      startDate: editStart || undefined,
+      endDate: editEnd || undefined,
       description: editDesc.trim(),
       color: editColor,
       tripIcon: editIcon,
       members: editMembers,
+      status: undefined,
     }));
     setEditError("");
     setEditOpen(false);
@@ -298,15 +329,29 @@ export default function Home() {
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-sm font-bold text-slate-600 dark:text-slate-300">
-            {trips.length > 0 ? `${trips.length}件の旅` : "旅の一覧"}
+            {trips.length > 0 ? `${[...trips].filter((t) => statusFilter === "all" || getTripStatus(t.startDate, t.endDate) === statusFilter).length}件の旅` : "旅の一覧"}
           </h2>
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1 rounded-full bg-[#22C55E] px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-400 active:scale-95"
-          >
-            <PlusIcon className="h-4 w-4" />
-            新しい旅
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm font-semibold text-slate-600 outline-none transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            >
+              <option value="all">すべて</option>
+              <option value="draft">下書き</option>
+              <option value="planning">計画中</option>
+              <option value="soon">もうすぐ</option>
+              <option value="ongoing">旅行中</option>
+              <option value="completed">完了</option>
+            </select>
+            <button
+              onClick={() => setAddOpen(true)}
+              className="hidden sm:flex items-center gap-1 rounded-full bg-[#22C55E] px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-400 active:scale-95"
+            >
+              <PlusIcon className="h-4 w-4" />
+              新しい旅
+            </button>
+          </div>
         </div>
 
         {trips.length === 0 ? (
@@ -324,13 +369,27 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[...trips].sort((a, b) => a.startDate.localeCompare(b.startDate)).map((trip) => {
+            {[...trips].filter((t) => statusFilter === "all" || getTripStatus(t.startDate, t.endDate) === statusFilter).sort((a, b) => {
+              const as_ = getTripStatus(a.startDate, a.endDate);
+              const bs_ = getTripStatus(b.startDate, b.endDate);
+              const rank = (s: string) => s === "completed" ? 2 : s === "draft" ? 1 : 0;
+              if (rank(as_) !== rank(bs_)) return rank(as_) - rank(bs_);
+              return (a.startDate ?? "").localeCompare(b.startDate ?? "");
+            }).map((trip) => {
               const days = tripDayCount(trip.startDate, trip.endDate);
               const bannerColor = trip.color ?? TRIP_COLORS[0];
+              const status = getTripStatus(trip.startDate, trip.endDate);
+              const badge = STATUS_BADGE[status];
+              const badgeLabel = status === "soon" ? (() => {
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const start = new Date(trip.startDate); start.setHours(0, 0, 0, 0);
+                const d = Math.ceil((start.getTime() - today.getTime()) / 86400000);
+                return `あと${d}日`;
+              })() : badge.label;
               return (
                 <div
                   key={trip.id}
-                  className="group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-slate-800 dark:ring-slate-700"
+                  className={`group relative overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-slate-800 ${status === "completed" ? "opacity-60 ring-slate-200/40 dark:ring-slate-700/40" : "ring-slate-200/60 dark:ring-slate-700"}`}
                 >
                   {/* Color banner */}
                   <div className="relative h-20" style={{ backgroundColor: bannerColor }}>
@@ -350,13 +409,16 @@ export default function Home() {
 
                   {/* Card body */}
                   <Link href={`/trips?id=${trip.id}`} className="block p-4">
-                    <h3 className="line-clamp-1 font-bold text-slate-900 transition-colors group-hover:text-indigo-500 dark:text-white">
-                      {trip.title}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="line-clamp-1 font-bold text-slate-900 transition-colors group-hover:text-indigo-500 dark:text-white">
+                        {trip.title}
+                      </h3>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>{badgeLabel}</span>
+                    </div>
                     <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                       <CalendarIcon className="h-3.5 w-3.5" />
                       <span>
-                        {fmtDate(trip.startDate)} 〜 {fmtDate(trip.endDate)}
+                        {trip.startDate && trip.endDate ? `${fmtDate(trip.startDate)} 〜 ${fmtDate(trip.endDate)}` : "日程未定"}
                       </span>
                     </div>
                     {trip.description && (
@@ -365,9 +427,11 @@ export default function Home() {
                       </p>
                     )}
                     <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
-                        {days}日間
-                      </span>
+                      {days !== null && (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                          {days}日間
+                        </span>
+                      )}
                       <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
                         {(trip.members?.length || trip.participants) ?? 0}人
                       </span>
@@ -387,6 +451,15 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {/* Mobile FAB */}
+      <button
+        onClick={() => setAddOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#22C55E] text-white shadow-lg transition hover:bg-green-400 active:scale-95 sm:hidden"
+        aria-label="新しい旅"
+      >
+        <PlusIcon className="h-7 w-7" />
+      </button>
 
       {/* Add Modal */}
       {addOpen && (
@@ -418,6 +491,47 @@ export default function Home() {
                     <span className="text-[11px] font-semibold">{label}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
+              <input
+                className={inputCls}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="例）夏の北海道ドライブ旅"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始日<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <input
+                  type="date"
+                  className={`${inputCls} appearance-none`}
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (endDate && e.target.value > endDate) setEndDate("");
+                  }}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了日{startDate ? " *" : <span className="ml-1 font-normal text-slate-400">（任意）</span>}</label>
+                <input
+                  type="date"
+                  className={`${inputCls} appearance-none`}
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => {
+                    if (startDate && e.target.value < startDate) {
+                      setEndDate("");
+                      setAddError("終了日は開始日より後の日付を設定してください。");
+                    } else {
+                      setAddError("");
+                      setEndDate(e.target.value);
+                    }
+                  }}
+                />
               </div>
             </div>
             <div>
@@ -472,47 +586,6 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
-              <input
-                className={inputCls}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="例）夏の北海道ドライブ旅"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始日 *</label>
-                <input
-                  type="date"
-                  className={`${inputCls} appearance-none`}
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    if (endDate && e.target.value > endDate) setEndDate("");
-                  }}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了日 *</label>
-                <input
-                  type="date"
-                  className={`${inputCls} appearance-none`}
-                  value={endDate}
-                  min={startDate || undefined}
-                  onChange={(e) => {
-                    if (startDate && e.target.value < startDate) {
-                      setEndDate("");
-                      setAddError("終了日は開始日より後の日付を設定してください。");
-                    } else {
-                      setAddError("");
-                      setEndDate(e.target.value);
-                    }
-                  }}
-                />
-              </div>
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
@@ -580,6 +653,46 @@ export default function Home() {
               </div>
             </div>
             <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
+              <input
+                className={inputCls}
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始日<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <input
+                  type="date"
+                  className={`${inputCls} appearance-none`}
+                  value={editStart}
+                  onChange={(e) => {
+                    setEditStart(e.target.value);
+                    if (editEnd && e.target.value > editEnd) setEditEnd("");
+                  }}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了日{editStart ? " *" : <span className="ml-1 font-normal text-slate-400">（任意）</span>}</label>
+                <input
+                  type="date"
+                  className={`${inputCls} appearance-none`}
+                  value={editEnd}
+                  min={editStart || undefined}
+                  onChange={(e) => {
+                    if (editStart && e.target.value < editStart) {
+                      setEditEnd("");
+                      setEditError("終了日は開始日より後の日付を設定してください。");
+                    } else {
+                      setEditError("");
+                      setEditEnd(e.target.value);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メンバー名<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
               <div className="flex gap-2">
                 <input
@@ -633,46 +746,6 @@ export default function Home() {
               )}
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
-              <input
-                className={inputCls}
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">開始日 *</label>
-                <input
-                  type="date"
-                  className={`${inputCls} appearance-none`}
-                  value={editStart}
-                  onChange={(e) => {
-                    setEditStart(e.target.value);
-                    if (editEnd && e.target.value > editEnd) setEditEnd("");
-                  }}
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">終了日 *</label>
-                <input
-                  type="date"
-                  className={`${inputCls} appearance-none`}
-                  value={editEnd}
-                  min={editStart || undefined}
-                  onChange={(e) => {
-                    if (editStart && e.target.value < editStart) {
-                      setEditEnd("");
-                      setEditError("終了日は開始日より後の日付を設定してください。");
-                    } else {
-                      setEditError("");
-                      setEditEnd(e.target.value);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-            <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">旅の概要<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
               <textarea
                 className={`${inputCls} resize-none`}
@@ -686,14 +759,7 @@ export default function Home() {
             <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-500">{editError}</p>
           )}
           <div className="mt-6 flex items-center justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <button
-                className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
-                onClick={handleCopy}
-              >
-                <DocumentDuplicateIcon className="h-4 w-4" />
-                コピー
-              </button>
+            <div className="flex items-center gap-2">
               <button
                 className="flex items-center gap-1.5 rounded-full border border-red-200 px-3 py-2 text-sm text-red-500 transition hover:bg-red-50"
                 onClick={() => {
@@ -711,25 +777,20 @@ export default function Home() {
                 <TrashIcon className="h-4 w-4" />
                 削除
               </button>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
               <button
-                className="rounded-full px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
-                onClick={() => {
-                  setEditError("");
-                  setEditOpen(false);
-                  setEditId(null);
-                }}
+                className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                onClick={handleCopy}
               >
-                キャンセル
-              </button>
-              <button
-                className="rounded-full bg-[#22C55E] px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-400"
-                onClick={handleUpdate}
-              >
-                保存
+                <DocumentDuplicateIcon className="h-4 w-4" />
+                コピー
               </button>
             </div>
+            <button
+              className="rounded-full bg-[#22C55E] px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-400"
+              onClick={handleUpdate}
+            >
+              保存
+            </button>
           </div>
         </Modal>
       )}

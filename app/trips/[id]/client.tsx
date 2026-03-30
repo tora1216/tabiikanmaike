@@ -79,11 +79,13 @@ function hashGradient(id: string) {
   return GRADIENTS[Math.abs(h) % GRADIENTS.length];
 }
 
-function fmtDateLong(d: string) {
+function fmtDateLong(d?: string) {
+  if (!d) return "未定";
   return new Date(d).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
 }
 
-function fmtDayDate(tripStart: string, dayNum: number) {
+function fmtDayDate(tripStart: string | undefined, dayNum: number) {
+  if (!tripStart) return "";
   const d = new Date(tripStart);
   d.setDate(d.getDate() + dayNum - 1);
   return d.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }).replace("（", "(").replace("）", ")");
@@ -871,8 +873,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const tripData = trip;
 
   // Derived values
-  const tripDayCount =
-    Math.ceil((new Date(tripData.endDate).getTime() - new Date(tripData.startDate).getTime()) / 86400000) + 1;
+  const tripDayCount = tripData.startDate && tripData.endDate
+    ? Math.ceil((new Date(tripData.endDate).getTime() - new Date(tripData.startDate).getTime()) / 86400000) + 1
+    : Math.max(tripData.days.reduce((m, a) => Math.max(m, a.day), 0), 1);
   const allDayNumbers = Array.from({ length: tripDayCount }, (_, i) => i + 1);
   const bannerColor = tripData.color ?? "#6366F1";
   const participants = tripData.members?.length || tripData.participants || 2;
@@ -888,14 +891,16 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // Countdown
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const tripStart = new Date(tripData.startDate); tripStart.setHours(0, 0, 0, 0);
-  const tripEnd = new Date(tripData.endDate); tripEnd.setHours(0, 0, 0, 0);
-  const daysUntil = Math.ceil((tripStart.getTime() - today.getTime()) / 86400000);
+  const tripStart = tripData.startDate ? new Date(tripData.startDate) : null;
+  const tripEnd = tripData.endDate ? new Date(tripData.endDate) : null;
+  if (tripStart) tripStart.setHours(0, 0, 0, 0);
+  if (tripEnd) tripEnd.setHours(0, 0, 0, 0);
+  const daysUntil = tripStart ? Math.ceil((tripStart.getTime() - today.getTime()) / 86400000) : null;
   const tripIcon = tripData.tripIcon ?? "✈️";
-  const countdownLabel =
+  const countdownLabel = daysUntil === null ? null :
     daysUntil > 0 ? `${tripIcon} 旅まであと ${daysUntil} 日` :
     daysUntil === 0 ? `🎉 今日から旅行！` :
-    today <= tripEnd ? `🌏 旅行中！` :
+    tripEnd && today <= tripEnd ? `🌏 旅行中！` :
     `📸 ${Math.abs(daysUntil)} 日前の旅行`;
   const unassigned = tripData.days.filter((d) => d.day === 0);
   const draggedActivity = dragActiveId
@@ -1080,16 +1085,20 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {/* Banner */}
         <div className="px-4 py-10 text-white sm:px-6 sm:py-12" style={{ backgroundColor: bannerColor }}>
           <div className="mx-auto max-w-3xl">
-            <p className="text-xs font-medium text-white/70">
-              {fmtDateLong(tripData.startDate)} 〜 {fmtDateLong(tripData.endDate)}
-            </p>
+            {(tripData.startDate || tripData.endDate) && (
+              <p className="text-xs font-medium text-white/70">
+                {fmtDateLong(tripData.startDate)} 〜 {fmtDateLong(tripData.endDate)}
+              </p>
+            )}
             <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{tripData.title}</h1>
             {tripData.description && (
               <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/80">{tripData.description}</p>
             )}
-            <div className="mt-3">
-              <span className="text-sm font-bold text-white/90">{countdownLabel}</span>
-            </div>
+            {countdownLabel && (
+              <div className="mt-3">
+                <span className="text-sm font-bold text-white/90">{countdownLabel}</span>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                 {tripDayCount}日間
