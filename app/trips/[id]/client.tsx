@@ -12,7 +12,7 @@ import { PACKING_TEMPLATES } from "@/lib/packing-templates";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
-  DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon,
+  DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
   ClipboardDocumentIcon, CheckIcon,
 
 } from "@heroicons/react/24/outline";
@@ -92,7 +92,11 @@ function fmtDayDate(tripStart: string | undefined, dayNum: number) {
 }
 
 function activityId(a: TripActivity) {
-  return a.time + a.destination;
+  return a.id ?? (a.time + a.destination);
+}
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 function containerDayNumber(containerId: string): number {
@@ -363,6 +367,7 @@ type ActivityFormProps = {
   allMembers: string[];
   daySelector?: React.ReactNode;
   onClearError: () => void;
+  addReturnTrip?: boolean; setAddReturnTrip?: (v: boolean) => void;
 };
 
 function ActivityForm({
@@ -382,6 +387,8 @@ function ActivityForm({
   daySelector,
   allMembers,
   onClearError,
+  addReturnTrip,
+  setAddReturnTrip,
 }: ActivityFormProps) {
   const transport = TRANSPORT_CATEGORIES.find((t) => t.icon === dayIcon);
   const suffix = activityType === "transport" ? (transport?.suffix ?? "") : "";
@@ -470,7 +477,20 @@ function ActivityForm({
       {/* Transport: from → to */}
       {activityType === "transport" && (
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">出発地 → 目的地 *</label>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">出発地 → 目的地 *</label>
+            {setAddReturnTrip && (
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+                <input
+                  type="checkbox"
+                  checked={addReturnTrip ?? false}
+                  onChange={(e) => setAddReturnTrip(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded accent-indigo-500"
+                />
+                帰りの移動を追加
+              </label>
+            )}
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <input
@@ -824,6 +844,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [addDay, setAddDay] = useState(0);
   const [editDay, setEditDay] = useState(0);
+  const [addReturnTrip, setAddReturnTrip] = useState(false);
 
   // DnD state
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
@@ -839,7 +860,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError("");
+    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -1021,7 +1042,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               memo: memo || undefined,
               cost: cost > 0 ? cost : undefined,
               costType: cost > 0 ? costType : undefined,
-              activityMembers: cost > 0 && activityMembers.length > 0 ? activityMembers : undefined,
+              activityMembers: activityMembers.length > 0 ? activityMembers : undefined,
               paidBy: cost > 0 && paidBy ? paidBy : undefined,
               settled: cost > 0 && settled ? true : undefined,
             }
@@ -1044,6 +1065,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       days: [
         ...current.days,
         {
+          id: genId(),
           day: addDay,
           type: activityType,
           time: fmtTime(startTime, endTime),
@@ -1054,10 +1076,20 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           memo: memo || undefined,
           cost: cost > 0 ? cost : undefined,
           costType: cost > 0 ? costType : undefined,
-          activityMembers: cost > 0 && activityMembers.length > 0 ? activityMembers : undefined,
+          activityMembers: activityMembers.length > 0 ? activityMembers : undefined,
           paidBy: cost > 0 && paidBy ? paidBy : undefined,
           settled: cost > 0 && settled ? true : undefined,
         },
+        ...(activityType === "transport" && addReturnTrip && fromPlace && toPlace ? [{
+          id: genId(),
+          day: 0,
+          type: "transport" as const,
+          time: "",
+          icon: dayIcon,
+          destination: `${toPlace} → ${fromPlace}`,
+          from: toPlace,
+          to: fromPlace,
+        }] : []),
       ],
     }));
     setIsAddOpen(false);
@@ -1076,32 +1108,27 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {/* Header */}
         <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md relative dark:bg-slate-800/90 dark:border-slate-700">
           <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-            <span className="truncate text-sm font-bold text-slate-900 sm:text-base dark:text-white">
-              {tripData.title}
-            </span>
-            <div className="ml-4 flex shrink-0 items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  if (tripData.shareId) {
-                    setSharePasswordInput(tripData.sharePassword ?? "");
-                    handleShare();
-                  } else {
-                    setSharePasswordInput("");
-                    setShareConfirmOpen(true);
-                  }
-                }}
-                className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                <ShareIcon className="h-3.5 w-3.5" />共有
-              </button>
-              <Link
-                href="/"
-                className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                <ArrowLeftIcon className="h-3.5 w-3.5" />一覧
-              </Link>
-            </div>
+            <Link
+              href="/"
+              className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <HomeIcon className="h-3.5 w-3.5" />一覧に戻る
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                if (tripData.shareId) {
+                  setSharePasswordInput(tripData.sharePassword ?? "");
+                  handleShare();
+                } else {
+                  setSharePasswordInput("");
+                  setShareConfirmOpen(true);
+                }
+              }}
+              className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <ShareIcon className="h-3.5 w-3.5" />共有
+            </button>
           </div>
         </header>
 
@@ -2079,6 +2106,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               </div>
             }
             onClearError={() => setFormError("")}
+            addReturnTrip={addReturnTrip} setAddReturnTrip={setAddReturnTrip}
           />
           {formError && (
             <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-500">{formError}</p>

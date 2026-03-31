@@ -1,4 +1,5 @@
 export type TripActivity = {
+  id?: string;
   day: number;
   time: string;
   icon: string;

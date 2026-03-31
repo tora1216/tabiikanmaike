@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeftIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, PencilSquareIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "@/components/auth-context";
 import japanMap from "@svg-maps/japan";
 import worldMap from "@svg-maps/world";
@@ -165,12 +165,11 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[#F0F5FA] dark:bg-slate-900">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md dark:bg-slate-800/90 dark:border-slate-700">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link href="/" className="flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-            <ArrowLeftIcon className="h-3.5 w-3.5" />ホーム
+        <div className="mx-auto flex max-w-3xl items-center px-4 py-3 sm:px-6">
+          <Link href="/" className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
+            <HomeIcon className="h-3.5 w-3.5" />一覧に戻る
           </Link>
-          <span className="text-sm font-bold text-slate-900 dark:text-white">マイページ</span>
-          <div className="w-16" />
+          <span className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-slate-900 dark:text-white">マイページ</span>
         </div>
       </header>
 
