@@ -6,7 +6,8 @@ import { useTrips } from "@/components/trip-context";
 import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon } from "@heroicons/react/24/outline";
 import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
 import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { useAuth } from "@/components/auth-context";
 import type { Trip } from "@/lib/trips";
 
 const TRIP_COLORS = [
@@ -113,6 +114,7 @@ function Modal({
 
 export default function Home() {
   const { trips, addTrip, removeTrip, updateTrip } = useTrips();
+  const { user } = useAuth();
 
   const [isDark, setIsDark] = useState(false);
   useEffect(() => {
@@ -956,6 +958,7 @@ export default function Home() {
                             const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];
                             if (!done.includes(shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, shareId]));
                           } catch { /* ignore */ }
+                          if (db && user) updateDoc(doc(db, "shared_trips", shareId), { imports: arrayUnion({ name: user.displayName ?? user.email ?? "名前なし", importedAt: new Date().toISOString() }) }).catch(() => {});
                           setLinkInput("");
                           setLinkResult("ok");
                         } catch {
@@ -985,6 +988,7 @@ export default function Home() {
                             if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
                             addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
                             try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
+                            if (db) updateDoc(doc(db, "shared_trips", pendingImport.shareId), { imports: arrayUnion({ name: user?.displayName ?? "ゲスト", importedAt: new Date().toISOString() }) }).catch(() => {});
                             setLinkInput(""); setPendingImport(null); setLinkResult("ok");
                           }}
                           placeholder="合言葉"
@@ -997,6 +1001,7 @@ export default function Home() {
                             if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
                             addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
                             try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
+                            if (db) updateDoc(doc(db, "shared_trips", pendingImport.shareId), { imports: arrayUnion({ name: user?.displayName ?? "ゲスト", importedAt: new Date().toISOString() }) }).catch(() => {});
                             setLinkInput(""); setPendingImport(null); setLinkResult("ok");
                           }}
                           className="shrink-0 rounded-xl bg-indigo-500 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-600"

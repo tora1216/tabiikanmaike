@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
@@ -724,8 +725,11 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     if (!shareId || !db) return;
     const ref = doc(db, "shared_trips", shareId);
     const unsub = onSnapshot(ref, { includeMetadataChanges: true }, (snap) => {
+      const data = snap.data();
+      // インポート一覧を更新
+      setShareImports((data?.imports ?? []) as { name: string; importedAt: string }[]);
       if (snap.metadata.hasPendingWrites) return; // 自分の書き込みはスキップ
-      const remote = snap.data()?.trip;
+      const remote = data?.trip;
       if (!remote) return;
       const remoteAt = remote.updatedAt ?? "";
       if (remoteAt && remoteAt === lastRemoteUpdatedAt.current) return; // 重複スキップ
@@ -745,11 +749,13 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   // Share modal
   const [shareModal, setShareModal] = useState(false);
   const [shareNeedsLogin, setShareNeedsLogin] = useState(false);
+  const [shareImports, setShareImports] = useState<{ name: string; importedAt: string }[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [shareLink, setShareLink] = useState("");
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [sharePasswordConfirmPending, setSharePasswordConfirmPending] = useState(false);
   const [activeShareId, setActiveShareId] = useState("");
   const [copiedText, setCopiedText] = useState(false);
@@ -2258,6 +2264,22 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 </div>
               )}
               <p className="mt-1 text-[11px] text-slate-400">リンクを知っている人のみ閲覧できます</p>
+              {shareLink && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowQR(v => !v)}
+                    className="text-[11px] font-semibold text-indigo-500 hover:text-indigo-600"
+                  >
+                    {showQR ? "QRコードを隠す" : "QRコードを表示"}
+                  </button>
+                  {showQR && (
+                    <div className="mt-2 flex justify-center rounded-xl border border-slate-200 bg-white p-4">
+                      <QRCodeSVG value={shareLink} size={160} />
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Password — owner only */}
               {tripData.shareOwner !== false && (
                 <div className="mt-3">
@@ -2310,6 +2332,16 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     </div>
                   )}
                   <p className="mt-1 text-[11px] text-slate-400">設定するとリンクを開いた際に合言葉の入力が必要になります</p>
+                </div>
+              )}
+              {tripData.shareOwner !== false && shareImports.length > 0 && (
+                <div className="mt-3 rounded-xl bg-indigo-50 px-3 py-2.5 dark:bg-indigo-900/20">
+                  <p className="mb-1.5 text-[11px] font-semibold text-indigo-500 dark:text-indigo-400">{shareImports.length}人がインポートしました</p>
+                  <div className="flex flex-wrap gap-1">
+                    {shareImports.map((imp, i) => (
+                      <span key={i} className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-800 dark:text-indigo-300">{imp.name}</span>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-700/50">
