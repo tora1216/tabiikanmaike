@@ -8,7 +8,6 @@ import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import type { Trip } from "@/lib/trips";
-import LZString from "lz-string";
 
 const TRIP_COLORS = [
   "#3B82F6", "#0EA5E9", "#06B6D4", "#10B981",
@@ -134,7 +133,10 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "planning" | "soon" | "ongoing" | "completed">("all");
   const [linkInput, setLinkInput] = useState("");
   const [linkImporting, setLinkImporting] = useState(false);
-  const [linkResult, setLinkResult] = useState<"ok" | "error" | "already" | null>(null);
+  const [linkResult, setLinkResult] = useState<"ok" | "error" | "already" | "password" | null>(null);
+  const [linkPasswordInput, setLinkPasswordInput] = useState("");
+  const [linkPasswordError, setLinkPasswordError] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{ shareId: string; trip: Trip; password: string } | null>(null);
   useEffect(() => {
     setIsInstalled(window.matchMedia('(display-mode: standalone)').matches);
     const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
@@ -423,6 +425,9 @@ export default function Home() {
                         {trip.title}
                       </h3>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>{badgeLabel}</span>
+                      {trip.shareOwner === false && (
+                        <span className="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-500 dark:bg-sky-900/30 dark:text-sky-400">共有</span>
+                      )}
                     </div>
                     <div className="mt-1.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
                       <CalendarIcon className="h-3.5 w-3.5" />
@@ -915,29 +920,6 @@ export default function Home() {
                         try {
                           const raw = linkInput.trim();
 
-                          // LZ圧縮形式（/trips/import?data=...）
-                          const lzMatch = raw.match(/[?&]data=([^&]+)/);
-                          if (lzMatch) {
-                            const lzKey = lzMatch[1];
-                            const importedLz = (() => { try { return JSON.parse(localStorage.getItem("imported_lz_shares") ?? "[]") as string[]; } catch { return []; } })();
-                            if (importedLz.includes(lzKey) && (() => { try { const decompressed = LZString.decompressFromEncodedURIComponent(lzKey); const t = JSON.parse(decompressed ?? "") as Trip; return trips.some((x) => x.title === t.title && x.startDate === t.startDate && x.endDate === t.endDate); } catch { return false; } })()) {
-                              setLinkResult("already"); setLinkImporting(false); return;
-                            }
-                            const decompressed = LZString.decompressFromEncodedURIComponent(lzKey);
-                            const trip = JSON.parse(decompressed ?? decodeURIComponent(lzKey)) as Trip;
-                            addTrip({
-                              title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
-                              description: trip.description, days: trip.days,
-                              packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
-                              color: trip.color, tripIcon: trip.tripIcon, members: trip.members, participants: trip.participants,
-                            });
-                            try { localStorage.setItem("imported_lz_shares", JSON.stringify([...importedLz, lzKey])); } catch { /* ignore */ }
-                            setLinkInput("");
-                            setLinkResult("ok");
-                            setLinkImporting(false);
-                            return;
-                          }
-
                           // Firestore形式（/view/{shareId}）
                           const match = raw.match(/\/view\/([A-Za-z0-9_-]+)/);
                           if (!match) throw new Error("invalid");
@@ -951,7 +933,17 @@ export default function Home() {
                           if (!db) throw new Error("db not initialized");
                           const snap = await getDoc(doc(db, "shared_trips", shareId));
                           if (!snap.exists()) throw new Error("not found");
-                          const trip = snap.data().trip as Trip;
+                          const data = snap.data();
+                          const password = data.password ?? "";
+                          const trip = data.trip as Trip;
+                          if (password) {
+                            setPendingImport({ shareId, trip, password });
+                            setLinkPasswordInput("");
+                            setLinkPasswordError(false);
+                            setLinkResult("password");
+                            setLinkImporting(false);
+                            return;
+                          }
                           addTrip({
                             title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
                             description: trip.description, days: trip.days,
@@ -980,6 +972,39 @@ export default function Home() {
                   {linkResult === "ok" && <p className="text-xs text-green-500">旅を追加しました ✓</p>}
                   {linkResult === "already" && <p className="text-xs text-amber-500">この旅はすでにインポート済みです</p>}
                   {linkResult === "error" && <p className="text-xs text-red-500">リンクが無効か、旅が見つかりません</p>}
+                  {linkResult === "password" && pendingImport && (
+                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-700/50">
+                      <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">🔑 合言葉を入力してください</p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={linkPasswordInput}
+                          onChange={(e) => { setLinkPasswordInput(e.target.value); setLinkPasswordError(false); }}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
+                            addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
+                            try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
+                            setLinkInput(""); setPendingImport(null); setLinkResult("ok");
+                          }}
+                          placeholder="合言葉"
+                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
+                            addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
+                            try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
+                            setLinkInput(""); setPendingImport(null); setLinkResult("ok");
+                          }}
+                          className="shrink-0 rounded-xl bg-indigo-500 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-600"
+                        >確認</button>
+                      </div>
+                      {linkPasswordError && <p className="mt-1 text-xs text-red-500">合言葉が違います</p>}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

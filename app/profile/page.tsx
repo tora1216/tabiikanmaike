@@ -234,7 +234,8 @@ export default function ProfilePage() {
                   <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                     <li>☁️ 旅程・経験値をサーバーに保存</li>
                     <li>📱 PCとスマホでデータを自動同期</li>
-                    <li>🔄 共有した旅程を閲覧者にリアルタイム更新</li>
+                    <li>🔗 旅程を共有</li>
+                    <li>🔄 共有した旅程はリアルタイムで共同編集</li>
                   </ul>
                 </div>
                 <button

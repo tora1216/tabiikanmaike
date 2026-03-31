@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import LZString from "lz-string";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
@@ -745,6 +744,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // Share modal
   const [shareModal, setShareModal] = useState(false);
+  const [shareNeedsLogin, setShareNeedsLogin] = useState(false);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [shareText, setShareText] = useState("");
   const [shareLink, setShareLink] = useState("");
@@ -807,8 +807,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       setShareLink(`${window.location.origin}/view/${shareId}`);
       setActiveShareId(shareId ?? "");
     } catch {
-      const encoded = LZString.compressToEncodedURIComponent(JSON.stringify(tripData));
-      setShareLink(`${window.location.origin}/trips/import?data=${encoded}`);
+      setShareModal(false);
     } finally {
       setShareLinkLoading(false);
     }
@@ -1117,6 +1116,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <button
               type="button"
               onClick={() => {
+                if (!user) {
+                  setShareNeedsLogin(true);
+                  return;
+                }
                 if (tripData.shareId) {
                   setSharePasswordInput(tripData.sharePassword ?? "");
                   handleShare();
@@ -2157,6 +2160,29 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       )}
 
       {/* Share Modal */}
+      {shareNeedsLogin && (
+        <Modal title="ログインが必要です" onClose={() => setShareNeedsLogin(false)}>
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-slate-600 dark:text-slate-300">共有機能を使うにはGoogleアカウントでログインしてください。</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShareNeedsLogin(false)}
+                className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                キャンセル
+              </button>
+              <Link
+                href="/profile"
+                className="flex-1 rounded-xl bg-indigo-500 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-indigo-600"
+              >
+                ログインする
+              </Link>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {shareConfirmOpen && (
         <Modal title="旅を共有" onClose={() => setShareConfirmOpen(false)}>
           <div className="space-y-4 pt-1">
@@ -2164,6 +2190,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               <p className="text-sm text-slate-600 dark:text-slate-300">共有したデータはサーバーに保存されます。</p>
               <p className="text-xs text-slate-400 dark:text-slate-500">リンクを知っている人のみが閲覧できる状態になります。</p>
             </div>
+            {user && (
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-slate-500 dark:text-slate-400">合言葉<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
               <input
@@ -2175,6 +2202,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               />
               <p className="mt-1 text-[11px] text-slate-400">設定するとリンクを開いた際に合言葉の入力が必要になります</p>
             </div>
+            )}
             <div className="flex gap-2">
               <button
                 type="button"

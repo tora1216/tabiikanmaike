@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.8.2";
+export const APP_VERSION = "1.8.3";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,17 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.8.2",
+    date: "2026-03-31",
+    title: "UX改善・バグ修正",
+    changes: [
+      "メンバー登録UXの改善",
+      "インポートした旅程に共有バッジを表示",
+      "共有機能の制限",
+      "軽微なバグの修正",
+    ],
+  },
   {
     version: "1.8.1",
     date: "2026-03-30",

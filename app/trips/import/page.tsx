@@ -53,6 +53,7 @@ function ImportContent() {
         tripIcon: trip!.tripIcon,
         members: trip!.members,
         participants: trip!.participants,
+        shareOwner: false,
       });
       setImported(true);
       setTimeout(() => router.push(`/trips?id=${newTrip.id}`), 800);
