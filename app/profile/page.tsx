@@ -195,9 +195,11 @@ export default function ProfilePage() {
                       <PencilSquareIcon className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                    {syncingUI ? "同期中…" : syncError ? <span className="text-red-500">同期失敗: {syncError}</span> : user.email}
-                  </p>
+                  {(syncingUI || syncError) && (
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                      {syncingUI ? "同期中…" : <span className="text-red-500">同期失敗: {syncError}</span>}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
