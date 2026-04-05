@@ -33,6 +33,21 @@ export type NoteEntry = {
   createdAt: string;
 };
 
+export type CandidateSite = {
+  id: string;
+  site: string;
+  price?: number;
+  memo?: string;
+};
+
+export type Candidate = {
+  id: string;
+  icon: string;
+  name: string;
+  sites: CandidateSite[];
+  decidedSiteId?: string;
+};
+
 export type Trip = {
   id: string;
   title: string;
@@ -48,6 +63,7 @@ export type Trip = {
   tripIcon?: string;
   members?: string[];   // named member list
   participants?: number; // legacy fallback
+  candidates?: Candidate[];
   shareId?: string;
   shareOwner?: boolean; // true = 自分が共有を作成したオーナー, false = 友人がインポートした旅
   sharePassword?: string; // optional passphrase for shared trip access

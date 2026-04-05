@@ -7,13 +7,13 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
 import { useAuth } from "@/components/auth-context";
-import { TripActivity, PackingItem, NoteEntry, TodoTask } from "@/lib/trips";
+import { TripActivity, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
   DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
-  ClipboardDocumentIcon, CheckIcon,
+  ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon,
 
 } from "@heroicons/react/24/outline";
 import {
@@ -50,9 +50,11 @@ const GRADIENTS = [
 ];
 
 const PLACE_CATEGORIES = [
-  { icon: "🍚", label: "食事" },
+  { icon: "🍴", label: "食事" },
+  { icon: "☕", label: "カフェ" },
   { icon: "🗼", label: "観光" },
   { icon: "🎡", label: "遊び" },
+  { icon: "🏄", label: "体験" },
   { icon: "🏨", label: "宿泊" },
   { icon: "🛍️", label: "買い物" },
   { icon: "📍", label: "その他" },
@@ -62,11 +64,27 @@ const TRANSPORT_CATEGORIES = [
   { icon: "🚃", label: "電車", fromPh: "東京", toPh: "上野", suffix: "駅" },
   { icon: "🚌", label: "バス", fromPh: "出発バス停", toPh: "到着バス停", suffix: "" },
   { icon: "🚗", label: "車", fromPh: "出発地", toPh: "目的地", suffix: "" },
+  { icon: "🚕", label: "タクシー", fromPh: "出発地", toPh: "目的地", suffix: "" },
   { icon: "✈️", label: "飛行機", fromPh: "羽田空港", toPh: "新千歳空港", suffix: "" },
   { icon: "🚶", label: "徒歩", fromPh: "出発地", toPh: "目的地", suffix: "" },
   { icon: "🚢", label: "船", fromPh: "出発港", toPh: "到着港", suffix: "" },
   { icon: "❓", label: "その他", fromPh: "出発地", toPh: "目的地", suffix: "" },
 ];
+
+const CANDIDATE_ICONS = ["🏨", "✈️", "🍽️", "🚗", "🎡", "🛍️", "🎭", "📍"];
+const SITE_PRESETS = ["じゃらん", "楽天トラベル", "Yahooトラベル", "Trip.com", "Expedia", "その他"];
+
+function candidateSiteUrl(site: string, name: string): string {
+  const q = encodeURIComponent(name);
+  switch (site) {
+    case "じゃらん": return `https://www.jalan.net/yad/?keyword=${q}`;
+    case "楽天トラベル": return `https://travel.rakuten.co.jp/keyword/${q}/`;
+    case "Yahooトラベル": return `https://travel.yahoo.co.jp/keyword?q=${q}`;
+    case "Trip.com": return `https://jp.trip.com/hotels/list?keyword=${q}`;
+    case "Expedia": return `https://www.expedia.co.jp/Hotel-Search?destination=${q}`;
+    default: return `https://www.google.com/search?q=${q}`;
+  }
+}
 
 const inputCls =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[16px] text-slate-900 outline-none ring-indigo-500 focus:bg-white focus:ring-2 transition-all placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:placeholder:text-slate-500 dark:focus:bg-slate-600";
@@ -277,6 +295,33 @@ function SortableItem({
 
   const style = { transform: CSS.Transform.toString(transform), transition };
 
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartPos = useRef<{ x: number; y: number } | null>(null);
+
+  function startLongPress(e: React.PointerEvent) {
+    if (isEditMode) return;
+    longPressStartPos.current = { x: e.clientX, y: e.clientY };
+    longPressTimer.current = setTimeout(() => {
+      onEdit();
+      longPressTimer.current = null;
+    }, 500);
+  }
+
+  function cancelLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    longPressStartPos.current = null;
+  }
+
+  function checkMove(e: React.PointerEvent) {
+    if (!longPressStartPos.current) return;
+    const dx = Math.abs(e.clientX - longPressStartPos.current.x);
+    const dy = Math.abs(e.clientY - longPressStartPos.current.y);
+    if (dx > 8 || dy > 8) cancelLongPress();
+  }
+
   const dragHandleNode = isEditMode ? (
     <div
       {...attributes}
@@ -296,6 +341,10 @@ function SortableItem({
       ref={setNodeRef}
       style={style}
       className={`${isDragging ? "opacity-0" : ""}`}
+      onPointerDown={startLongPress}
+      onPointerMove={checkMove}
+      onPointerUp={cancelLongPress}
+      onPointerCancel={cancelLongPress}
     >
       <ActivityCard
         activity={activity}
@@ -424,7 +473,7 @@ function ActivityForm({
 
       {/* Category grid */}
       {activityType === "place" ? (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {PLACE_CATEGORIES.map(({ icon, label }) => (
             <button
               key={label}
@@ -851,6 +900,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [editDay, setEditDay] = useState(0);
   const [addReturnTrip, setAddReturnTrip] = useState(false);
   const [deleteConfirmActivity, setDeleteConfirmActivity] = useState<TripActivity | null>(null);
+  const [deleteConfirmNoteId, setDeleteConfirmNoteId] = useState<string | null>(null);
+  const [candidatesCollapsed, setCandidatesCollapsed] = useState(false);
+  const [candidateModalOpen, setCandidateModalOpen] = useState(false);
+  const [candidateIcon, setCandidateIcon] = useState("🏨");
+  const [candidateName, setCandidateName] = useState("");
+  const [candidateEditId, setCandidateEditId] = useState<string | null>(null);
+  const [addSiteFor, setAddSiteFor] = useState<string | null>(null);
+  const [siteInput, setSiteInput] = useState({ site: "じゃらん", price: 0, memo: "" });
 
   // DnD state
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
@@ -1878,6 +1935,174 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {/* ── Notes tab ── */}
         {activeTab === "notes" && (
           <main className="mx-auto max-w-3xl px-4 pb-32 pt-6 sm:px-6">
+            {/* 検討中リスト */}
+            <div className="mb-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 検討中リスト</span>
+                <div className="flex items-center gap-2">
+                  {!candidatesCollapsed && (
+                    <button
+                      type="button"
+                      onClick={() => { setCandidateIcon("🏨"); setCandidateName(""); setCandidateEditId(null); setCandidateModalOpen(true); }}
+                      className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                    >
+                      <PlusIcon className="h-3 w-3" />追加
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCandidatesCollapsed((v) => !v)}
+                    className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
+                  >
+                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${candidatesCollapsed ? "" : "rotate-180"}`} />
+                  </button>
+                </div>
+              </div>
+              {!candidatesCollapsed && (
+                (tripData.candidates ?? []).length === 0 ? (
+                <p className="px-4 py-8 text-center text-xs text-slate-400">ホテル・航空券など検討中の候補を追加しましょう</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {(tripData.candidates ?? []).map((candidate) => (
+                    <div key={candidate.id} className="p-4">
+                      {/* Header */}
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{candidate.icon}</span>
+                          <span className={`text-sm font-semibold ${candidate.decidedSiteId ? "text-green-600 dark:text-green-400" : "text-slate-800 dark:text-slate-200"}`}>
+                            {candidate.name}
+                          </span>
+                          {candidate.decidedSiteId && (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">決定</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => { setCandidateIcon(candidate.icon); setCandidateName(candidate.name); setCandidateEditId(candidate.id); setCandidateModalOpen(true); }}
+                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-blue-50 hover:text-blue-500"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).filter((ca) => ca.id !== candidate.id) }))}
+                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      {/* Site rows */}
+                      {candidate.sites.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                          {candidate.sites.map((site) => {
+                            const isDecided = candidate.decidedSiteId === site.id;
+                            return (
+                              <div key={site.id} className={`flex items-start gap-2 rounded-xl px-3 py-2 ${isDecided ? "bg-green-50 dark:bg-green-900/20" : "bg-slate-50 dark:bg-slate-700/50"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, decidedSiteId: isDecided ? undefined : site.id } : ca) }))}
+                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDecided ? "border-green-500 bg-green-500 text-white" : "border-slate-300 hover:border-green-500 dark:border-slate-600"}`}
+                                >
+                                  {isDecided && <svg viewBox="0 0 12 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1,5 4,8 11,1" /></svg>}
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{site.site}</span>
+                                    {site.price !== undefined && site.price > 0 && (
+                                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">¥{site.price.toLocaleString()}</span>
+                                    )}
+                                  </div>
+                                  {site.memo && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{site.memo}</p>}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={candidateSiteUrl(site.site, candidate.name)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-500"
+                                  >
+                                    <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: ca.sites.filter((s) => s.id !== site.id) } : ca) }))}
+                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                                  >
+                                    <TrashIcon className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Add site */}
+                      {addSiteFor === candidate.id ? (
+                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-800 dark:bg-indigo-900/20">
+                          <div className="mb-2 flex flex-wrap gap-1.5">
+                            {SITE_PRESETS.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setSiteInput((prev) => ({ ...prev, site: s }))}
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${siteInput.site === s ? "bg-indigo-500 text-white" : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"}`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            className={`${inputCls} mb-2`}
+                            type="number"
+                            placeholder="金額（任意）"
+                            value={siteInput.price || ""}
+                            onChange={(e) => setSiteInput((prev) => ({ ...prev, price: Number(e.target.value) }))}
+                          />
+                          <input
+                            className={`${inputCls} mb-2`}
+                            placeholder="メモ（クーポン情報など）"
+                            value={siteInput.memo}
+                            onChange={(e) => setSiteInput((prev) => ({ ...prev, memo: e.target.value }))}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSite: CandidateSite = { id: genId(), site: siteInput.site, price: siteInput.price || undefined, memo: siteInput.memo || undefined };
+                                updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: [...ca.sites, newSite] } : ca) }));
+                                setAddSiteFor(null);
+                                setSiteInput({ site: "じゃらん", price: 0, memo: "" });
+                              }}
+                              className="flex-1 rounded-full bg-indigo-500 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400"
+                            >
+                              追加
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setAddSiteFor(null); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
+                              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { setAddSiteFor(candidate.id); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
+                          className="flex items-center gap-1 text-xs text-indigo-400 transition hover:text-indigo-600"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />サイトを追加
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
             {/* Message list */}
             <div className="space-y-3">
               {(tripData.noteEntries ?? []).length === 0 && (
@@ -1898,12 +2123,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      updateTrip(tripData.id, (c) => ({
-                        ...c,
-                        noteEntries: (c.noteEntries ?? []).filter((n) => n.id !== entry.id),
-                      }))
-                    }
+                    onClick={() => setDeleteConfirmNoteId(entry.id)}
                     className="mt-1 shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
                   >
                     <TrashIcon className="h-3.5 w-3.5" />
@@ -2024,6 +2244,68 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             >
               キャンセル
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Candidate Modal */}
+      {candidateModalOpen && (
+        <Modal
+          title={candidateEditId ? "候補を編集" : "候補を追加"}
+          onClose={() => { setCandidateModalOpen(false); setCandidateEditId(null); }}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">アイコン</label>
+              <div className="flex flex-wrap gap-2">
+                {CANDIDATE_ICONS.map((icon) => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => setCandidateIcon(icon)}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl transition ${candidateIcon === icon ? "bg-indigo-50 ring-2 ring-indigo-500 dark:bg-indigo-900/30" : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"}`}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">名前 *</label>
+              <input
+                className={inputCls}
+                value={candidateName}
+                onChange={(e) => setCandidateName(e.target.value)}
+                placeholder="例）ルートイン札幌駅前"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!candidateName.trim()) return;
+                  if (candidateEditId) {
+                    updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidateEditId ? { ...ca, icon: candidateIcon, name: candidateName.trim() } : ca) }));
+                  } else {
+                    const newCandidate: Candidate = { id: genId(), icon: candidateIcon, name: candidateName.trim(), sites: [] };
+                    updateTrip(tripData.id, (c) => ({ ...c, candidates: [...(c.candidates ?? []), newCandidate] }));
+                  }
+                  setCandidateModalOpen(false);
+                  setCandidateEditId(null);
+                  setCandidateName("");
+                }}
+                className="flex-1 rounded-full bg-[#22C55E] py-2.5 text-sm font-semibold text-white transition hover:bg-green-400"
+              >
+                {candidateEditId ? "保存" : "追加"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCandidateModalOpen(false); setCandidateEditId(null); }}
+                className="rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                キャンセル
+              </button>
+            </div>
           </div>
         </Modal>
       )}
@@ -2153,6 +2435,35 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     days: c.days.filter((d) => d !== activity),
                   }));
                   setDeleteConfirmActivity(null);
+                }}
+              >削除</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Note Delete Confirm Dialog */}
+      {deleteConfirmNoteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={() => setDeleteConfirmNoteId(null)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+              <TrashIcon className="h-5 w-5 text-red-500" />
+              削除の確認
+            </div>
+            <p className="mb-5 text-sm text-slate-500 dark:text-slate-400">このメモを削除しますか？</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-full border border-slate-200 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                onClick={() => setDeleteConfirmNoteId(null)}
+              >キャンセル</button>
+              <button
+                type="button"
+                className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                onClick={() => {
+                  updateTrip(tripData.id, (c) => ({ ...c, noteEntries: (c.noteEntries ?? []).filter((n) => n.id !== deleteConfirmNoteId) }));
+                  setDeleteConfirmNoteId(null);
                 }}
               >削除</button>
             </div>

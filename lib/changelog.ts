@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.8.3";
+export const APP_VERSION = "1.8.4";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,20 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.8.4",
+    date: "2026-04-06",
+    title: "検討中リストを追加",
+    changes: [
+      "メモタブに検討中リストを追加（ホテル・航空券などの候補を価格・メモ付きで管理）",
+      "検討中リストから各旅行サイトへ直接リンク",
+      "アクティビティカードを長押しで編集できるように",
+      "アクティビティ・メモの削除時に確認ダイアログを表示",
+      "アクティビティカテゴリにカフェ・体験を追加（4×2グリッド表示に変更）",
+      "移動カテゴリにタクシーを追加",
+      "検討中リストを折りたたみ表示に対応",
+    ],
+  },
   {
     version: "1.8.3",
     date: "2026-04-05",
