@@ -50,10 +50,10 @@ const GRADIENTS = [
 ];
 
 const PLACE_CATEGORIES = [
-  { icon: "🍽️", label: "食事" },
-  { icon: "📷", label: "観光" },
+  { icon: "🍚", label: "食事" },
+  { icon: "🗼", label: "観光" },
   { icon: "🎡", label: "遊び" },
-  { icon: "🛏️", label: "宿泊" },
+  { icon: "🏨", label: "宿泊" },
   { icon: "🛍️", label: "買い物" },
   { icon: "📍", label: "その他" },
 ];
@@ -810,7 +810,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           trip: JSON.parse(JSON.stringify(latest)),
         }, { merge: true });
       }
-      setShareLink(`${window.location.origin}/view/${shareId}`);
+      setShareLink(shareId ?? "");
       setActiveShareId(shareId ?? "");
     } catch {
       setShareModal(false);
@@ -2204,7 +2204,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 value={sharePasswordInput}
                 onChange={(e) => setSharePasswordInput(e.target.value)}
                 placeholder="設定しない場合は空欄"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-base text-slate-700 outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
               />
               <p className="mt-1 text-[11px] text-slate-400">設定するとリンクを開いた際に合言葉の入力が必要になります</p>
             </div>
@@ -2234,7 +2234,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           <div className="space-y-4">
             {/* Share link */}
             <div>
-              <p className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">共有リンク</p>
+              <p className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">共有ID</p>
               {shareLinkLoading ? (
                 <div className="flex h-9 items-center gap-2 text-xs text-slate-400">
                   <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -2263,7 +2263,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   </button>
                 </div>
               )}
-              <p className="mt-1 text-[11px] text-slate-400">リンクを知っている人のみ閲覧できます</p>
+              <p className="mt-1 text-[11px] text-slate-400">IDを知っている人のみ閲覧できます</p>
               {shareLink && (
                 <div className="mt-2">
                   <button
@@ -2275,7 +2275,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   </button>
                   {showQR && (
                     <div className="mt-2 flex justify-center rounded-xl border border-slate-200 bg-white p-4">
-                      <QRCodeSVG value={shareLink} size={160} />
+                      <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/view/${shareLink}`} size={160} />
                     </div>
                   )}
                 </div>
@@ -2320,7 +2320,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                         value={sharePasswordInput}
                         onChange={(e) => { setSharePasswordInput(e.target.value); setSharePasswordSaved(false); }}
                         placeholder="設定しない場合は空欄"
-                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-base text-slate-600 outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
                       />
                       <button
                         type="button"
@@ -2347,9 +2347,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-700/50">
                 <p className="mb-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">インポート方法</p>
                 <ol className="list-decimal space-y-0.5 pl-4 text-[11px] text-slate-400 dark:text-slate-500">
-                  <li>上のリンクを相手に共有する</li>
-                  <li>受け取った側はリンクを開く</li>
-                  <li>設定の「データの追加」にURLを貼り付けて追加</li>
+                  <li>上の共有IDをコピーして相手に送る</li>
+                  <li>受け取った側はアプリを開き、設定の「データの追加」へ</li>
+                  <li>共有IDを入力して追加</li>
                 </ol>
               </div>
             </div>

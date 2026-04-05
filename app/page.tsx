@@ -161,6 +161,7 @@ export default function Home() {
   };
 
   const [addOpen, setAddOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"new" | "import">("new");
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -221,6 +222,7 @@ export default function Home() {
     addTrip({ title, startDate: startDate || undefined, endDate: endDate || undefined, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, members: addMembers, participants: addMembers.length > 0 ? addMembers.length : addParticipants });
     resetAdd();
     setAddOpen(false);
+    setAddMode("new");
   };
 
   const openEdit = (id: string) => {
@@ -480,10 +482,149 @@ export default function Home() {
       {/* Add Modal */}
       {addOpen && (
         <Modal
-          title="新しい旅を追加"
-          onClose={() => { resetAdd(); setAddOpen(false); }}
+          title="旅を追加"
+          onClose={() => { resetAdd(); setAddOpen(false); setAddMode("new"); setLinkInput(""); setLinkResult(null); setPendingImport(null); }}
         >
-          <div className="mt-2 space-y-3">
+          {/* タブ */}
+          <div className="mt-2 mb-4 flex rounded-xl bg-slate-100 p-1 dark:bg-slate-700">
+            <button
+              type="button"
+              onClick={() => setAddMode("new")}
+              className={`flex-1 rounded-lg py-1.5 text-sm font-semibold transition ${addMode === "new" ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:text-slate-400"}`}
+            >新規作成</button>
+            <button
+              type="button"
+              onClick={() => { setAddMode("import"); setLinkResult(null); }}
+              className={`flex-1 rounded-lg py-1.5 text-sm font-semibold transition ${addMode === "import" ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:text-slate-400"}`}
+            >インポート</button>
+          </div>
+
+          {addMode === "import" ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 rounded-xl bg-indigo-50 px-3 py-3 dark:bg-indigo-900/20">
+                <span className="text-2xl">🔗</span>
+                <div>
+                  <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">友だちの旅をインポート</p>
+                  <p className="mt-0.5 text-[11px] text-indigo-500 dark:text-indigo-400">共有IDを入力すると旅程・持ち物リスト・メモをまとめて取り込めます</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="共有IDを入力"
+                  value={linkInput}
+                  onChange={(e) => { setLinkInput(e.target.value); setLinkResult(null); }}
+                  className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[16px] leading-tight text-slate-700 outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                />
+                <button
+                  type="button"
+                  disabled={!linkInput.trim() || linkImporting}
+                  onClick={async () => {
+                    setLinkImporting(true);
+                    setLinkResult(null);
+                    try {
+                      const raw = linkInput.trim();
+                      const urlMatch = raw.match(/\/view\/([A-Za-z0-9_-]+)/);
+                      const idOnly = /^[A-Za-z0-9_-]+$/.test(raw) ? raw : null;
+                      const shareId = urlMatch?.[1] ?? idOnly;
+                      if (!shareId) throw new Error("invalid");
+                      const alreadyImported = (() => {
+                        try { return (JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]).includes(shareId); } catch { return false; }
+                      })();
+                      if (alreadyImported && trips.some((t) => t.shareId === shareId)) {
+                        setLinkResult("already"); setLinkImporting(false); return;
+                      }
+                      if (!db) throw new Error("db not initialized");
+                      const snap = await getDoc(doc(db, "shared_trips", shareId));
+                      if (!snap.exists()) throw new Error("not found");
+                      const data = snap.data();
+                      const password = data.password ?? "";
+                      const trip = data.trip as Trip;
+                      if (password) {
+                        setPendingImport({ shareId, trip, password });
+                        setLinkPasswordInput("");
+                        setLinkPasswordError(false);
+                        setLinkResult("password");
+                        setLinkImporting(false);
+                        return;
+                      }
+                      addTrip({
+                        title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
+                        description: trip.description, days: trip.days,
+                        packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
+                        color: trip.color, tripIcon: trip.tripIcon,
+                        members: trip.members, participants: trip.participants,
+                        shareId, shareOwner: false,
+                      });
+                      try {
+                        const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];
+                        if (!done.includes(shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, shareId]));
+                      } catch { /* ignore */ }
+                      if (db && user) updateDoc(doc(db, "shared_trips", shareId), { imports: arrayUnion({ name: user.displayName ?? user.email ?? "名前なし", importedAt: new Date().toISOString() }) }).catch(() => {});
+                      setLinkInput("");
+                      setLinkResult("ok");
+                    } catch {
+                      setLinkResult("error");
+                    } finally {
+                      setLinkImporting(false);
+                    }
+                  }}
+                  className="shrink-0 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  {linkImporting ? "…" : "追加"}
+                </button>
+              </div>
+              {linkResult === "ok" && <p className="text-xs text-green-500">旅を追加しました ✓</p>}
+              {linkResult === "already" && <p className="text-xs text-amber-500">この旅はすでにインポート済みです</p>}
+              {linkResult === "error" && <p className="text-xs text-red-500">IDが無効か、旅が見つかりません</p>}
+              <div className="rounded-xl bg-slate-100 px-3 py-2.5 dark:bg-slate-700/50">
+                <p className="mb-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">インポートの注意点</p>
+                <ul className="space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <li>・インポートした旅は自分のデータとして保存されます</li>
+                  <li>・作成者が旅を編集すると自動的に反映されます</li>
+                  <li>・作成者が共有を削除すると同期が停止します</li>
+                  <li>・自分が編集した内容も作成者に反映されます</li>
+                </ul>
+              </div>
+              {linkResult === "password" && pendingImport && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-700/50">
+                  <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">🔑 合言葉を入力してください</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={linkPasswordInput}
+                      onChange={(e) => { setLinkPasswordInput(e.target.value); setLinkPasswordError(false); }}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
+                        addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
+                        try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
+                        if (db) updateDoc(doc(db, "shared_trips", pendingImport.shareId), { imports: arrayUnion({ name: user?.displayName ?? "ゲスト", importedAt: new Date().toISOString() }) }).catch(() => {});
+                        setLinkInput(""); setPendingImport(null); setLinkResult("ok");
+                      }}
+                      placeholder="合言葉"
+                      className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[16px] outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
+                        addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
+                        try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
+                        if (db) updateDoc(doc(db, "shared_trips", pendingImport.shareId), { imports: arrayUnion({ name: user?.displayName ?? "ゲスト", importedAt: new Date().toISOString() }) }).catch(() => {});
+                        setLinkInput(""); setPendingImport(null); setLinkResult("ok");
+                      }}
+                      className="shrink-0 rounded-xl bg-indigo-500 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-600"
+                    >確認</button>
+                  </div>
+                  {linkPasswordError && <p className="mt-1 text-xs text-red-500">合言葉が違います</p>}
+                </div>
+              )}
+            </div>
+          ) : (
+          <>
+          <div className="space-y-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">カラー</label>
               <ColorSwatch colors={TRIP_COLORS} value={addColor} onChange={setAddColor} />
@@ -659,6 +800,7 @@ export default function Home() {
               追加
             </button>
           </div>
+          </>)}
         </Modal>
       )}
 
@@ -900,118 +1042,8 @@ export default function Home() {
             )}
             {/* データの追加 */}
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
-              <p className="mb-3 text-sm font-bold text-slate-800 dark:text-white">データの追加</p>
-              <div className="space-y-2">
-                {/* Link import */}
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">共有リンクから旅をインポート</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="共有リンクを貼り付け"
-                      value={linkInput}
-                      onChange={(e) => { setLinkInput(e.target.value); setLinkResult(null); }}
-                      className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[16px] leading-tight text-slate-700 outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-                    />
-                    <button
-                      type="button"
-                      disabled={!linkInput.trim() || linkImporting}
-                      onClick={async () => {
-                        setLinkImporting(true);
-                        setLinkResult(null);
-                        try {
-                          const raw = linkInput.trim();
-
-                          // Firestore形式（/view/{shareId}）
-                          const match = raw.match(/\/view\/([A-Za-z0-9_-]+)/);
-                          if (!match) throw new Error("invalid");
-                          const shareId = match[1];
-                          const alreadyImported = (() => {
-                            try { return (JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]).includes(shareId); } catch { return false; }
-                          })();
-                          if (alreadyImported && trips.some((t) => t.shareId === shareId)) {
-                            setLinkResult("already"); setLinkImporting(false); return;
-                          }
-                          if (!db) throw new Error("db not initialized");
-                          const snap = await getDoc(doc(db, "shared_trips", shareId));
-                          if (!snap.exists()) throw new Error("not found");
-                          const data = snap.data();
-                          const password = data.password ?? "";
-                          const trip = data.trip as Trip;
-                          if (password) {
-                            setPendingImport({ shareId, trip, password });
-                            setLinkPasswordInput("");
-                            setLinkPasswordError(false);
-                            setLinkResult("password");
-                            setLinkImporting(false);
-                            return;
-                          }
-                          addTrip({
-                            title: trip.title, startDate: trip.startDate, endDate: trip.endDate,
-                            description: trip.description, days: trip.days,
-                            packingList: trip.packingList, notes: trip.notes, noteEntries: trip.noteEntries,
-                            color: trip.color, tripIcon: trip.tripIcon,
-                            members: trip.members, participants: trip.participants,
-                            shareId, shareOwner: false,
-                          });
-                          try {
-                            const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[];
-                            if (!done.includes(shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, shareId]));
-                          } catch { /* ignore */ }
-                          if (db && user) updateDoc(doc(db, "shared_trips", shareId), { imports: arrayUnion({ name: user.displayName ?? user.email ?? "名前なし", importedAt: new Date().toISOString() }) }).catch(() => {});
-                          setLinkInput("");
-                          setLinkResult("ok");
-                        } catch {
-                          setLinkResult("error");
-                        } finally {
-                          setLinkImporting(false);
-                        }
-                      }}
-                      className="shrink-0 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-                    >
-                      {linkImporting ? "…" : "追加"}
-                    </button>
-                  </div>
-                  {linkResult === "ok" && <p className="text-xs text-green-500">旅を追加しました ✓</p>}
-                  {linkResult === "already" && <p className="text-xs text-amber-500">この旅はすでにインポート済みです</p>}
-                  {linkResult === "error" && <p className="text-xs text-red-500">リンクが無効か、旅が見つかりません</p>}
-                  {linkResult === "password" && pendingImport && (
-                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-700/50">
-                      <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">🔑 合言葉を入力してください</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={linkPasswordInput}
-                          onChange={(e) => { setLinkPasswordInput(e.target.value); setLinkPasswordError(false); }}
-                          onKeyDown={(e) => {
-                            if (e.key !== "Enter") return;
-                            if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
-                            addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
-                            try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
-                            if (db) updateDoc(doc(db, "shared_trips", pendingImport.shareId), { imports: arrayUnion({ name: user?.displayName ?? "ゲスト", importedAt: new Date().toISOString() }) }).catch(() => {});
-                            setLinkInput(""); setPendingImport(null); setLinkResult("ok");
-                          }}
-                          placeholder="合言葉"
-                          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (linkPasswordInput !== pendingImport.password) { setLinkPasswordError(true); return; }
-                            addTrip({ title: pendingImport.trip.title, startDate: pendingImport.trip.startDate, endDate: pendingImport.trip.endDate, description: pendingImport.trip.description, days: pendingImport.trip.days, packingList: pendingImport.trip.packingList, notes: pendingImport.trip.notes, noteEntries: pendingImport.trip.noteEntries, color: pendingImport.trip.color, tripIcon: pendingImport.trip.tripIcon, members: pendingImport.trip.members, participants: pendingImport.trip.participants, shareId: pendingImport.shareId, shareOwner: false });
-                            try { const done = JSON.parse(localStorage.getItem("imported_shares") ?? "[]") as string[]; if (!done.includes(pendingImport.shareId)) localStorage.setItem("imported_shares", JSON.stringify([...done, pendingImport.shareId])); } catch { /* ignore */ }
-                            if (db) updateDoc(doc(db, "shared_trips", pendingImport.shareId), { imports: arrayUnion({ name: user?.displayName ?? "ゲスト", importedAt: new Date().toISOString() }) }).catch(() => {});
-                            setLinkInput(""); setPendingImport(null); setLinkResult("ok");
-                          }}
-                          className="shrink-0 rounded-xl bg-indigo-500 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-600"
-                        >確認</button>
-                      </div>
-                      {linkPasswordError && <p className="mt-1 text-xs text-red-500">合言葉が違います</p>}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <p className="mb-2 text-sm font-bold text-slate-800 dark:text-white">旅のインポート</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">共有された旅のインポートは、<span className="mx-0.5 font-semibold text-slate-700 dark:text-slate-300">「旅を追加」→「インポート」タブ</span>から行えます。</p>
             </div>
 
             {/* バージョン・アップデート情報 */}

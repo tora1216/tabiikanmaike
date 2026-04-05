@@ -169,7 +169,7 @@ export default function ViewPage() {
             </div>
             <div className="flex items-center gap-2 text-xs">
               <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 font-semibold text-blue-500">既に利用済みの方</span>
-              <span className="text-slate-400">設定の「データの追加」からインポートしてください</span>
+              <span className="text-slate-400">「旅を追加」→「インポート」タブに共有IDを入力してください</span>
             </div>
           </div>
           <button

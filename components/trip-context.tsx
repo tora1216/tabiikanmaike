@@ -177,8 +177,9 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
       },
       syncTripFromRemote: (id, trip) => {
         // リモートからの同期: localStorage は更新するが Firestore への書き戻しはスキップ
+        // shareOwner はローカル専用フラグ（受信者の false を creator の値で上書きしない）
         skipFirestoreRef.current = true;
-        setTrips((prev) => prev.map((t) => (t.id === id ? trip : t)));
+        setTrips((prev) => prev.map((t) => (t.id === id ? { ...trip, id: t.id, shareOwner: t.shareOwner } : t)));
       },
     }),
     [trips, user]
