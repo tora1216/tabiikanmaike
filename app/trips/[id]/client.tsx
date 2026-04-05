@@ -850,6 +850,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [addDay, setAddDay] = useState(0);
   const [editDay, setEditDay] = useState(0);
   const [addReturnTrip, setAddReturnTrip] = useState(false);
+  const [deleteConfirmActivity, setDeleteConfirmActivity] = useState<TripActivity | null>(null);
 
   // DnD state
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
@@ -1300,14 +1301,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 onEdit={() => openEdit(activity)}
                                 onMapsClick={setMapsUrl}
                                 allMembers={tripData.members}
-                                onDelete={() => {
-                                  if (confirm("削除してよろしいですか？")) {
-                                    updateTrip(tripData.id, (c) => ({
-                                      ...c,
-                                      days: c.days.filter((d) => d !== activity),
-                                    }));
-                                  }
-                                }}
+                                onDelete={() => setDeleteConfirmActivity(activity)}
                               />
                             ))}
                           </ul>
@@ -1343,12 +1337,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             onEdit={() => openEdit(activity)}
                             onMapsClick={setMapsUrl}
                             allMembers={tripData.members}
-                            onDelete={() => {
-                              updateTrip(tripData.id, (c) => ({
-                                ...c,
-                                days: c.days.filter((d) => d !== activity),
-                              }));
-                            }}
+                            onDelete={() => setDeleteConfirmActivity(activity)}
                           />
                         ))}
                       </ul>
@@ -2138,6 +2127,39 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           </div>
         </Modal>
       )}
+      {/* Delete Confirm Dialog */}
+      {deleteConfirmActivity && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={() => setDeleteConfirmActivity(null)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+              <TrashIcon className="h-5 w-5 text-red-500" />
+              削除の確認
+            </div>
+            <p className="mb-5 text-sm text-slate-500 dark:text-slate-400">このアクティビティを削除しますか？</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-full border border-slate-200 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                onClick={() => setDeleteConfirmActivity(null)}
+              >キャンセル</button>
+              <button
+                type="button"
+                className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                onClick={() => {
+                  const activity = deleteConfirmActivity;
+                  updateTrip(tripData.id, (c) => ({
+                    ...c,
+                    days: c.days.filter((d) => d !== activity),
+                  }));
+                  setDeleteConfirmActivity(null);
+                }}
+              >削除</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Maps Confirm Dialog */}
       {mapsUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={() => setMapsUrl(null)}>
