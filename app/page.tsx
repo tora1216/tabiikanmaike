@@ -1248,7 +1248,7 @@ export default function Home() {
                   placeholder="例）ラーメン"
                   maxLength={10}
                   autoFocus
-                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-base outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 />
               </div>
             </div>
