@@ -8,6 +8,7 @@ import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "fi
 import { useTrips } from "@/components/trip-context";
 import { useAuth } from "@/components/auth-context";
 import { TripActivity, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
+import { PlaceCategory, DEFAULT_PLACE_CATEGORIES, loadPlaceCategories } from "@/lib/categories";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
@@ -49,16 +50,6 @@ const GRADIENTS = [
   "from-indigo-400 to-blue-600",
 ];
 
-const PLACE_CATEGORIES = [
-  { icon: "🍴", label: "食事" },
-  { icon: "☕", label: "カフェ" },
-  { icon: "🗼", label: "観光" },
-  { icon: "🎡", label: "遊び" },
-  { icon: "🏄", label: "体験" },
-  { icon: "🏨", label: "宿泊" },
-  { icon: "🛍️", label: "買い物" },
-  { icon: "📍", label: "その他" },
-];
 
 const TRANSPORT_CATEGORIES = [
   { icon: "🚃", label: "電車", fromPh: "東京", toPh: "上野", suffix: "駅" },
@@ -66,8 +57,8 @@ const TRANSPORT_CATEGORIES = [
   { icon: "🚗", label: "車", fromPh: "出発地", toPh: "目的地", suffix: "" },
   { icon: "🚕", label: "タクシー", fromPh: "出発地", toPh: "目的地", suffix: "" },
   { icon: "✈️", label: "飛行機", fromPh: "羽田空港", toPh: "新千歳空港", suffix: "" },
-  { icon: "🚶", label: "徒歩", fromPh: "出発地", toPh: "目的地", suffix: "" },
   { icon: "🚢", label: "船", fromPh: "出発港", toPh: "到着港", suffix: "" },
+  { icon: "🚶", label: "徒歩", fromPh: "出発地", toPh: "目的地", suffix: "" },
   { icon: "❓", label: "その他", fromPh: "出発地", toPh: "目的地", suffix: "" },
 ];
 
@@ -414,6 +405,7 @@ type ActivityFormProps = {
   paidBy: string; setPaidBy: (v: string) => void;
   settled: boolean; setSettled: (v: boolean) => void;
   allMembers: string[];
+  placeCategories: PlaceCategory[];
   daySelector?: React.ReactNode;
   onClearError: () => void;
   addReturnTrip?: boolean; setAddReturnTrip?: (v: boolean) => void;
@@ -435,6 +427,7 @@ function ActivityForm({
   settled, setSettled,
   daySelector,
   allMembers,
+  placeCategories,
   onClearError,
   addReturnTrip,
   setAddReturnTrip,
@@ -456,7 +449,7 @@ function ActivityForm({
             type="button"
             onClick={() => {
               setActivityType(t);
-              setDayIcon(t === "place" ? PLACE_CATEGORIES[0].icon : TRANSPORT_CATEGORIES[0].icon);
+              setDayIcon(t === "place" ? (placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon) : TRANSPORT_CATEGORIES[0].icon);
               onClearError();
             }}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-all ${
@@ -474,12 +467,12 @@ function ActivityForm({
       {/* Category grid */}
       {activityType === "place" ? (
         <div className="grid grid-cols-4 gap-2">
-          {PLACE_CATEGORIES.map(({ icon, label }) => (
+          {placeCategories.map(({ icon, label }) => (
             <button
               key={label}
               type="button"
               onClick={() => setDayIcon(icon)}
-              className={`flex flex-col items-center gap-1 rounded-xl py-3 text-sm transition-all ${
+              className={`flex flex-col items-center gap-1 rounded-xl py-2 text-sm transition-all ${
                 dayIcon === icon
                   ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 ring-2 ring-indigo-500"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
@@ -497,7 +490,7 @@ function ActivityForm({
               key={label}
               type="button"
               onClick={() => setDayIcon(icon)}
-              className={`flex flex-col items-center gap-1 rounded-xl py-3 text-sm transition-all ${
+              className={`flex flex-col items-center gap-1 rounded-xl py-2 text-sm transition-all ${
                 dayIcon === icon
                   ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 ring-2 ring-indigo-500"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
@@ -788,6 +781,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     return unsub;
   }, [shareId, tripId, syncTripFromRemote]);
 
+  // Load place categories from localStorage
+  useEffect(() => { setPlaceCategories(loadPlaceCategories()); }, []);
+
   // Tab state
   const [activeTab, setActiveTab] = useState<"itinerary" | "packing" | "expenses" | "notes">("itinerary");
   const [mapsUrl, setMapsUrl] = useState<string | null>(null);
@@ -883,7 +879,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [activityType, setActivityType] = useState<ActivityType>("place");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [dayIcon, setDayIcon] = useState(PLACE_CATEGORIES[0].icon);
+  const [placeCategories, setPlaceCategories] = useState<PlaceCategory[]>(DEFAULT_PLACE_CATEGORIES);
+  const [dayIcon, setDayIcon] = useState(DEFAULT_PLACE_CATEGORIES[0].icon);
   const [dayDestination, setDayDestination] = useState("");
   const [fromPlace, setFromPlace] = useState("");
   const [toPlace, setToPlace] = useState("");
@@ -901,6 +898,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [addReturnTrip, setAddReturnTrip] = useState(false);
   const [deleteConfirmActivity, setDeleteConfirmActivity] = useState<TripActivity | null>(null);
   const [deleteConfirmNoteId, setDeleteConfirmNoteId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<(() => void) | null>(null);
+  const [todoCollapsed, setTodoCollapsed] = useState(false);
+  const [packingCollapsed, setPackingCollapsed] = useState(false);
   const [candidatesCollapsed, setCandidatesCollapsed] = useState(false);
   const [candidateModalOpen, setCandidateModalOpen] = useState(false);
   const [candidateIcon, setCandidateIcon] = useState("🏨");
@@ -921,7 +921,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const resetForm = () => {
     setActivityType("place");
     setStartTime(""); setEndTime("");
-    setDayIcon(PLACE_CATEGORIES[0].icon);
+    setDayIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
     setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
   };
@@ -1069,7 +1069,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     const [s, e] = parseTimeStr(activity.time || "");
     setStartTime(s);
     setEndTime(e);
-    setDayIcon(activity.icon || (type === "place" ? PLACE_CATEGORIES[0].icon : TRANSPORT_CATEGORIES[0].icon));
+    setDayIcon(activity.icon || (type === "place" ? (placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon) : TRANSPORT_CATEGORIES[0].icon));
     setDayDestination(activity.destination || "");
     setFromPlace(activity.from || "");
     setToPlace(activity.to || "");
@@ -1313,7 +1313,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
                 const isCollapsed = collapsedDays.has(dayNum);
                 return (
-                  <div key={dayNum} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                  <div key={dayNum} className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
                       <div className="flex items-center gap-2.5">
                         <span className="flex items-center justify-center rounded-full bg-[#22C55E] px-3 py-0.5 text-xs font-bold text-white">
@@ -1370,7 +1370,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               })}
 
               {/* Unassigned */}
-              <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+              <div className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                 <div className="border-b border-amber-100 bg-amber-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
                   <span className="text-sm font-semibold text-amber-700">📌 未割り当て</span>
                 </div>
@@ -1411,241 +1411,419 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           <main className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
             <div className="space-y-4">
             {/* ── やることリスト ── */}
-            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-              <div className="border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">やることリスト</span>
-              </div>
-
-              {/* Add item */}
-              <div className="flex gap-2 p-4">
-                <input
-                  className={inputCls}
-                  value={todoInput}
-                  onChange={(e) => setTodoInput(e.target.value)}
-                  placeholder="例）航空券の予約、レストラン予約..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && todoInput.trim()) {
-                      const newItem: TodoTask = { id: `todo-${Date.now()}`, label: todoInput.trim(), checked: false };
-                      updateTrip(tripData.id, (c) => ({ ...c, todoList: [...(c.todoList ?? []), newItem] }));
-                      setTodoInput("");
-                    }
-                  }}
-                />
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">✅ やることリスト</span>
                 <button
                   type="button"
-                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
-                  onClick={() => {
-                    if (!todoInput.trim()) return;
-                    const newItem: TodoTask = { id: `todo-${Date.now()}`, label: todoInput.trim(), checked: false };
-                    updateTrip(tripData.id, (c) => ({ ...c, todoList: [...(c.todoList ?? []), newItem] }));
-                    setTodoInput("");
-                  }}
+                  onClick={() => setTodoCollapsed((v) => !v)}
+                  className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
                 >
-                  <PlusIcon className="h-4 w-4" />
-                  追加
+                  <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${todoCollapsed ? "" : "rotate-180"}`} />
                 </button>
               </div>
 
-              {/* Item list */}
-              {(tripData.todoList ?? []).length === 0 ? (
-                <p className="px-4 pb-8 text-center text-xs text-slate-400">
-                  飛行機・ホテルの予約など、やることを追加しましょう。
-                </p>
-              ) : (
-                <ul className="divide-y divide-slate-100 px-4 pb-4 dark:divide-slate-700">
-                  {(tripData.todoList ?? []).map((item) => (
-                    <li key={item.id} className="flex items-center gap-3 py-2.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateTrip(tripData.id, (c) => ({
-                            ...c,
-                            todoList: (c.todoList ?? []).map((t) =>
-                              t.id === item.id ? { ...t, checked: !t.checked } : t
-                            ),
-                          }))
+              {!todoCollapsed && (
+                <>
+                  {/* Add item */}
+                  <div className="flex gap-2 p-4">
+                    <input
+                      className={inputCls}
+                      value={todoInput}
+                      onChange={(e) => setTodoInput(e.target.value)}
+                      placeholder="例）航空券の予約、レストラン予約..."
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && todoInput.trim()) {
+                          const newItem: TodoTask = { id: `todo-${Date.now()}`, label: todoInput.trim(), checked: false };
+                          updateTrip(tripData.id, (c) => ({ ...c, todoList: [...(c.todoList ?? []), newItem] }));
+                          setTodoInput("");
                         }
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                          item.checked
-                            ? "border-indigo-500 bg-[#22C55E] text-white"
-                            : "border-slate-300 hover:border-indigo-500 dark:border-slate-600"
-                        }`}
-                      >
-                        {item.checked && (
-                          <svg viewBox="0 0 12 10" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="1,5 4,8 11,1" />
-                          </svg>
-                        )}
-                      </button>
-                      <span className={`flex-1 text-sm ${item.checked ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}`}>
-                        {item.label}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateTrip(tripData.id, (c) => ({
-                            ...c,
-                            todoList: (c.todoList ?? []).filter((t) => t.id !== item.id),
-                          }))
-                        }
-                        className="rounded-full p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
-                      >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Progress */}
-              {(tripData.todoList ?? []).length > 0 && (() => {
-                const total = (tripData.todoList ?? []).length;
-                const done = (tripData.todoList ?? []).filter((t) => t.checked).length;
-                return (
-                  <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-                    <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                      <span>{done} / {total} 完了</span>
-                      <span>{Math.round((done / total) * 100)}%</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
-                      <div
-                        className="h-full rounded-full bg-[#22C55E] transition-all"
-                        style={{ width: `${(done / total) * 100}%` }}
-                      />
-                    </div>
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
+                      onClick={() => {
+                        if (!todoInput.trim()) return;
+                        const newItem: TodoTask = { id: `todo-${Date.now()}`, label: todoInput.trim(), checked: false };
+                        updateTrip(tripData.id, (c) => ({ ...c, todoList: [...(c.todoList ?? []), newItem] }));
+                        setTodoInput("");
+                      }}
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                      追加
+                    </button>
                   </div>
-                );
-              })()}
+
+                  {/* Item list */}
+                  {(tripData.todoList ?? []).length === 0 ? (
+                    <p className="px-4 pb-8 text-center text-xs text-slate-400">
+                      飛行機・ホテルの予約など、やることを追加しましょう。
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100 px-4 pb-4 dark:divide-slate-700">
+                      {(tripData.todoList ?? []).map((item) => (
+                        <li key={item.id} className="flex items-center gap-3 py-2.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateTrip(tripData.id, (c) => ({
+                                ...c,
+                                todoList: (c.todoList ?? []).map((t) =>
+                                  t.id === item.id ? { ...t, checked: !t.checked } : t
+                                ),
+                              }))
+                            }
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                              item.checked
+                                ? "border-indigo-500 bg-[#22C55E] text-white"
+                                : "border-slate-300 hover:border-indigo-500 dark:border-slate-600"
+                            }`}
+                          >
+                            {item.checked && (
+                              <svg viewBox="0 0 12 10" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="1,5 4,8 11,1" />
+                              </svg>
+                            )}
+                          </button>
+                          <span className={`flex-1 text-sm ${item.checked ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}`}>
+                            {item.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm(() => () =>
+                              updateTrip(tripData.id, (c) => ({
+                                ...c,
+                                todoList: (c.todoList ?? []).filter((t) => t.id !== item.id),
+                              }))
+                            )}
+                            className="rounded-full p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Progress */}
+                  {(tripData.todoList ?? []).length > 0 && (() => {
+                    const total = (tripData.todoList ?? []).length;
+                    const done = (tripData.todoList ?? []).filter((t) => t.checked).length;
+                    return (
+                      <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
+                        <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>{done} / {total} 完了</span>
+                          <span>{Math.round((done / total) * 100)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                          <div
+                            className="h-full rounded-full bg-[#22C55E] transition-all"
+                            style={{ width: `${(done / total) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
             </div>
 
             {/* ── 持ち物リスト ── */}
-            <div className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">持ち物リスト</span>
-                <button
-                  type="button"
-                  onClick={() => setTemplateOpen(true)}
-                  className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
-                >
-                  <PlusIcon className="h-3 w-3" />
-                  テンプレート
-                </button>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🎒 持ち物リスト</span>
+                <div className="flex items-center gap-2">
+                  {!packingCollapsed && (
+                    <button
+                      type="button"
+                      onClick={() => setTemplateOpen(true)}
+                      className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                    >
+                      <PlusIcon className="h-3 w-3" />
+                      テンプレート
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPackingCollapsed((v) => !v)}
+                    className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
+                  >
+                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${packingCollapsed ? "" : "rotate-180"}`} />
+                  </button>
+                </div>
               </div>
 
-              {/* Add item */}
-              <div className="flex gap-2 p-4">
-                <input
-                  className={inputCls}
-                  value={packingInput}
-                  onChange={(e) => setPackingInput(e.target.value)}
-                  placeholder="例）パスポート、充電器..."
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && packingInput.trim()) {
-                      const newItem: PackingItem = {
-                        id: `packing-${Date.now()}`,
-                        label: packingInput.trim(),
-                        checked: false,
-                      };
-                      updateTrip(tripData.id, (c) => ({
-                        ...c,
-                        packingList: [...(c.packingList ?? []), newItem],
-                      }));
-                      setPackingInput("");
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
-                  onClick={() => {
-                    if (!packingInput.trim()) return;
-                    const newItem: PackingItem = {
-                      id: `packing-${Date.now()}`,
-                      label: packingInput.trim(),
-                      checked: false,
-                    };
-                    updateTrip(tripData.id, (c) => ({
-                      ...c,
-                      packingList: [...(c.packingList ?? []), newItem],
-                    }));
-                    setPackingInput("");
-                  }}
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  追加
-                </button>
-              </div>
-
-              {/* Item list */}
-              {(tripData.packingList ?? []).length === 0 ? (
-                <p className="px-4 pb-8 text-center text-xs text-slate-400">
-                  持ち物を追加しましょう。
-                </p>
-              ) : (
-                <ul className="divide-y divide-slate-100 px-4 pb-4 dark:divide-slate-700">
-                  {(tripData.packingList ?? []).map((item) => (
-                    <li key={item.id} className="flex items-center gap-3 py-2.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateTrip(tripData.id, (c) => ({
-                            ...c,
-                            packingList: (c.packingList ?? []).map((p) =>
-                              p.id === item.id ? { ...p, checked: !p.checked } : p
-                            ),
-                          }))
+              {!packingCollapsed && (
+                <>
+                  {/* Add item */}
+                  <div className="flex gap-2 p-4">
+                    <input
+                      className={inputCls}
+                      value={packingInput}
+                      onChange={(e) => setPackingInput(e.target.value)}
+                      placeholder="例）パスポート、充電器..."
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && packingInput.trim()) {
+                          const newItem: PackingItem = { id: `packing-${Date.now()}`, label: packingInput.trim(), checked: false };
+                          updateTrip(tripData.id, (c) => ({ ...c, packingList: [...(c.packingList ?? []), newItem] }));
+                          setPackingInput("");
                         }
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                          item.checked
-                            ? "border-indigo-500 bg-[#22C55E] text-white"
-                            : "border-slate-300 hover:border-indigo-500 dark:border-slate-600"
-                        }`}
-                      >
-                        {item.checked && (
-                          <svg viewBox="0 0 12 10" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="1,5 4,8 11,1" />
-                          </svg>
-                        )}
-                      </button>
-                      <span className={`flex-1 text-sm ${item.checked ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}`}>
-                        {item.label}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateTrip(tripData.id, (c) => ({
-                            ...c,
-                            packingList: (c.packingList ?? []).filter((p) => p.id !== item.id),
-                          }))
-                        }
-                        className="rounded-full p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
-                      >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Progress */}
-              {(tripData.packingList ?? []).length > 0 && (() => {
-                const total = (tripData.packingList ?? []).length;
-                const done = (tripData.packingList ?? []).filter((p) => p.checked).length;
-                return (
-                  <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
-                    <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                      <span>{done} / {total} 準備完了</span>
-                      <span>{Math.round((done / total) * 100)}%</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
-                      <div
-                        className="h-full rounded-full bg-[#22C55E] transition-all"
-                        style={{ width: `${(done / total) * 100}%` }}
-                      />
-                    </div>
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
+                      onClick={() => {
+                        if (!packingInput.trim()) return;
+                        const newItem: PackingItem = { id: `packing-${Date.now()}`, label: packingInput.trim(), checked: false };
+                        updateTrip(tripData.id, (c) => ({ ...c, packingList: [...(c.packingList ?? []), newItem] }));
+                        setPackingInput("");
+                      }}
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                      追加
+                    </button>
                   </div>
-                );
-              })()}
+
+                  {/* Item list */}
+                  {(tripData.packingList ?? []).length === 0 ? (
+                    <p className="px-4 pb-8 text-center text-xs text-slate-400">持ち物を追加しましょう。</p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100 px-4 pb-4 dark:divide-slate-700">
+                      {(tripData.packingList ?? []).map((item) => (
+                        <li key={item.id} className="flex items-center gap-3 py-2.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateTrip(tripData.id, (c) => ({
+                                ...c,
+                                packingList: (c.packingList ?? []).map((p) =>
+                                  p.id === item.id ? { ...p, checked: !p.checked } : p
+                                ),
+                              }))
+                            }
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                              item.checked
+                                ? "border-indigo-500 bg-[#22C55E] text-white"
+                                : "border-slate-300 hover:border-indigo-500 dark:border-slate-600"
+                            }`}
+                          >
+                            {item.checked && (
+                              <svg viewBox="0 0 12 10" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="1,5 4,8 11,1" />
+                              </svg>
+                            )}
+                          </button>
+                          <span className={`flex-1 text-sm ${item.checked ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}`}>
+                            {item.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm(() => () =>
+                              updateTrip(tripData.id, (c) => ({
+                                ...c,
+                                packingList: (c.packingList ?? []).filter((p) => p.id !== item.id),
+                              }))
+                            )}
+                            className="rounded-full p-1 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Progress */}
+                  {(tripData.packingList ?? []).length > 0 && (() => {
+                    const total = (tripData.packingList ?? []).length;
+                    const done = (tripData.packingList ?? []).filter((p) => p.checked).length;
+                    return (
+                      <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-700">
+                        <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>{done} / {total} 準備完了</span>
+                          <span>{Math.round((done / total) * 100)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                          <div
+                            className="h-full rounded-full bg-[#22C55E] transition-all"
+                            style={{ width: `${(done / total) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+
+            {/* 検討リスト */}
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 検討リスト</span>
+                <div className="flex items-center gap-2">
+                  {!candidatesCollapsed && (
+                    <button
+                      type="button"
+                      onClick={() => { setCandidateIcon("🏨"); setCandidateName(""); setCandidateEditId(null); setCandidateModalOpen(true); }}
+                      className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                    >
+                      <PlusIcon className="h-3 w-3" />追加
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCandidatesCollapsed((v) => !v)}
+                    className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
+                  >
+                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${candidatesCollapsed ? "" : "rotate-180"}`} />
+                  </button>
+                </div>
+              </div>
+              {!candidatesCollapsed && (
+                (tripData.candidates ?? []).length === 0 ? (
+                <p className="px-4 py-8 text-center text-xs text-slate-400">ホテル・航空券など検討中の候補を追加しましょう</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {(tripData.candidates ?? []).map((candidate) => (
+                    <div key={candidate.id} className="p-4">
+                      {/* Header */}
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{candidate.icon}</span>
+                          <span className={`text-sm font-semibold ${candidate.decidedSiteId ? "text-green-600 dark:text-green-400" : "text-slate-800 dark:text-slate-200"}`}>
+                            {candidate.name}
+                          </span>
+                          {candidate.decidedSiteId && (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">決定</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => { setCandidateIcon(candidate.icon); setCandidateName(candidate.name); setCandidateEditId(candidate.id); setCandidateModalOpen(true); }}
+                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-blue-50 hover:text-blue-500"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).filter((ca) => ca.id !== candidate.id) })))}
+                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      {/* Site rows */}
+                      {candidate.sites.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                          {candidate.sites.map((site) => {
+                            const isDecided = candidate.decidedSiteId === site.id;
+                            return (
+                              <div key={site.id} className={`flex items-start gap-2 rounded-xl px-3 py-2 ${isDecided ? "bg-green-50 dark:bg-green-900/20" : "bg-slate-50 dark:bg-slate-700/50"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, decidedSiteId: isDecided ? undefined : site.id } : ca) }))}
+                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDecided ? "border-green-500 bg-green-500 text-white" : "border-slate-300 hover:border-green-500 dark:border-slate-600"}`}
+                                >
+                                  {isDecided && <svg viewBox="0 0 12 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1,5 4,8 11,1" /></svg>}
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{site.site}</span>
+                                    {site.price !== undefined && site.price > 0 && (
+                                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">¥{site.price.toLocaleString()}</span>
+                                    )}
+                                  </div>
+                                  {site.memo && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{site.memo}</p>}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={candidateSiteUrl(site.site, candidate.name)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-500"
+                                  >
+                                    <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: ca.sites.filter((s) => s.id !== site.id) } : ca) })))}
+                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                                  >
+                                    <TrashIcon className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Add site */}
+                      {addSiteFor === candidate.id ? (
+                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-800 dark:bg-indigo-900/20">
+                          <div className="mb-2 flex flex-wrap gap-1.5">
+                            {SITE_PRESETS.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setSiteInput((prev) => ({ ...prev, site: s }))}
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${siteInput.site === s ? "bg-indigo-500 text-white" : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"}`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            className={`${inputCls} mb-2`}
+                            type="number"
+                            placeholder="金額（任意）"
+                            value={siteInput.price || ""}
+                            onChange={(e) => setSiteInput((prev) => ({ ...prev, price: Number(e.target.value) }))}
+                          />
+                          <input
+                            className={`${inputCls} mb-2`}
+                            placeholder="メモ（クーポン情報など）"
+                            value={siteInput.memo}
+                            onChange={(e) => setSiteInput((prev) => ({ ...prev, memo: e.target.value }))}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSite: CandidateSite = { id: genId(), site: siteInput.site, price: siteInput.price || undefined, memo: siteInput.memo || undefined };
+                                updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: [...ca.sites, newSite] } : ca) }));
+                                setAddSiteFor(null);
+                                setSiteInput({ site: "じゃらん", price: 0, memo: "" });
+                              }}
+                              className="flex-1 rounded-full bg-indigo-500 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400"
+                            >
+                              追加
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setAddSiteFor(null); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
+                              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { setAddSiteFor(candidate.id); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
+                          className="flex items-center gap-1 text-xs text-indigo-400 transition hover:text-indigo-600"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />サイトを追加
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
 
             </div>
@@ -1693,7 +1871,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   }
                 });
                 return (
-                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                  <div className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-700/50">
                       <p className="text-sm font-bold text-slate-700 dark:text-slate-200">👤 メンバー別負担額</p>
                       <div className="flex gap-1">
@@ -1751,7 +1929,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 if (settlements.length === 0) return null;
 
                 return (
-                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                  <div className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
                       <p className="text-sm font-bold text-slate-700 dark:text-slate-200">💸 精算</p>
                       <button
@@ -1791,7 +1969,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a), 0);
                 if (dayActivities.length === 0) return null;
                 return (
-                  <div key={dayNum} className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                  <div key={dayNum} className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
                       <div className="flex items-center gap-2.5">
                         <span className="flex items-center justify-center rounded-full bg-[#22C55E] px-3 py-0.5 text-xs font-bold text-white">
@@ -1872,7 +2050,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 const items = unassigned.filter((d) => d.cost !== undefined && d.cost > 0);
                 if (items.length === 0) return null;
                 return (
-                  <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                  <div className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                     <div className="border-b border-amber-100 bg-amber-50/80 px-4 py-3 flex items-center justify-between dark:border-slate-700 dark:bg-slate-700/50">
                       <span className="text-sm font-semibold text-amber-700">📌 未割り当て</span>
                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
@@ -1935,174 +2113,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {/* ── Notes tab ── */}
         {activeTab === "notes" && (
           <main className="mx-auto max-w-3xl px-4 pb-32 pt-6 sm:px-6">
-            {/* 検討中リスト */}
-            <div className="mb-4 rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 検討中リスト</span>
-                <div className="flex items-center gap-2">
-                  {!candidatesCollapsed && (
-                    <button
-                      type="button"
-                      onClick={() => { setCandidateIcon("🏨"); setCandidateName(""); setCandidateEditId(null); setCandidateModalOpen(true); }}
-                      className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
-                    >
-                      <PlusIcon className="h-3 w-3" />追加
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setCandidatesCollapsed((v) => !v)}
-                    className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
-                  >
-                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${candidatesCollapsed ? "" : "rotate-180"}`} />
-                  </button>
-                </div>
-              </div>
-              {!candidatesCollapsed && (
-                (tripData.candidates ?? []).length === 0 ? (
-                <p className="px-4 py-8 text-center text-xs text-slate-400">ホテル・航空券など検討中の候補を追加しましょう</p>
-              ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {(tripData.candidates ?? []).map((candidate) => (
-                    <div key={candidate.id} className="p-4">
-                      {/* Header */}
-                      <div className="mb-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{candidate.icon}</span>
-                          <span className={`text-sm font-semibold ${candidate.decidedSiteId ? "text-green-600 dark:text-green-400" : "text-slate-800 dark:text-slate-200"}`}>
-                            {candidate.name}
-                          </span>
-                          {candidate.decidedSiteId && (
-                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">決定</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => { setCandidateIcon(candidate.icon); setCandidateName(candidate.name); setCandidateEditId(candidate.id); setCandidateModalOpen(true); }}
-                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-blue-50 hover:text-blue-500"
-                          >
-                            <PencilIcon className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).filter((ca) => ca.id !== candidate.id) }))}
-                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                      {/* Site rows */}
-                      {candidate.sites.length > 0 && (
-                        <div className="mb-3 space-y-2">
-                          {candidate.sites.map((site) => {
-                            const isDecided = candidate.decidedSiteId === site.id;
-                            return (
-                              <div key={site.id} className={`flex items-start gap-2 rounded-xl px-3 py-2 ${isDecided ? "bg-green-50 dark:bg-green-900/20" : "bg-slate-50 dark:bg-slate-700/50"}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, decidedSiteId: isDecided ? undefined : site.id } : ca) }))}
-                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDecided ? "border-green-500 bg-green-500 text-white" : "border-slate-300 hover:border-green-500 dark:border-slate-600"}`}
-                                >
-                                  {isDecided && <svg viewBox="0 0 12 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1,5 4,8 11,1" /></svg>}
-                                </button>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{site.site}</span>
-                                    {site.price !== undefined && site.price > 0 && (
-                                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">¥{site.price.toLocaleString()}</span>
-                                    )}
-                                  </div>
-                                  {site.memo && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{site.memo}</p>}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <a
-                                    href={candidateSiteUrl(site.site, candidate.name)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-500"
-                                  >
-                                    <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
-                                  </a>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: ca.sites.filter((s) => s.id !== site.id) } : ca) }))}
-                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
-                                  >
-                                    <TrashIcon className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {/* Add site */}
-                      {addSiteFor === candidate.id ? (
-                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-800 dark:bg-indigo-900/20">
-                          <div className="mb-2 flex flex-wrap gap-1.5">
-                            {SITE_PRESETS.map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                onClick={() => setSiteInput((prev) => ({ ...prev, site: s }))}
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${siteInput.site === s ? "bg-indigo-500 text-white" : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"}`}
-                              >
-                                {s}
-                              </button>
-                            ))}
-                          </div>
-                          <input
-                            className={`${inputCls} mb-2`}
-                            type="number"
-                            placeholder="金額（任意）"
-                            value={siteInput.price || ""}
-                            onChange={(e) => setSiteInput((prev) => ({ ...prev, price: Number(e.target.value) }))}
-                          />
-                          <input
-                            className={`${inputCls} mb-2`}
-                            placeholder="メモ（クーポン情報など）"
-                            value={siteInput.memo}
-                            onChange={(e) => setSiteInput((prev) => ({ ...prev, memo: e.target.value }))}
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newSite: CandidateSite = { id: genId(), site: siteInput.site, price: siteInput.price || undefined, memo: siteInput.memo || undefined };
-                                updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: [...ca.sites, newSite] } : ca) }));
-                                setAddSiteFor(null);
-                                setSiteInput({ site: "じゃらん", price: 0, memo: "" });
-                              }}
-                              className="flex-1 rounded-full bg-indigo-500 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400"
-                            >
-                              追加
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setAddSiteFor(null); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
-                              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-                            >
-                              キャンセル
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => { setAddSiteFor(candidate.id); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
-                          className="flex items-center gap-1 text-xs text-indigo-400 transition hover:text-indigo-600"
-                        >
-                          <PlusIcon className="h-3.5 w-3.5" />サイトを追加
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-
             {/* Message list */}
             <div className="space-y-3">
               {(tripData.noteEntries ?? []).length === 0 && (
@@ -2209,6 +2219,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             paidBy={paidBy} setPaidBy={setPaidBy}
             settled={settled} setSettled={setSettled}
             allMembers={tripData.members ?? []}
+            placeCategories={placeCategories}
             daySelector={
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">日程<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
@@ -2370,6 +2381,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             paidBy={paidBy} setPaidBy={setPaidBy}
             settled={settled} setSettled={setSettled}
             allMembers={tripData.members ?? []}
+            placeCategories={placeCategories}
             daySelector={
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">日程<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
@@ -2465,6 +2477,32 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   updateTrip(tripData.id, (c) => ({ ...c, noteEntries: (c.noteEntries ?? []).filter((n) => n.id !== deleteConfirmNoteId) }));
                   setDeleteConfirmNoteId(null);
                 }}
+              >削除</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generic Delete Confirm Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={() => setDeleteConfirm(null)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+              <TrashIcon className="h-5 w-5 text-red-500" />
+              削除の確認
+            </div>
+            <p className="mb-5 text-sm text-slate-500 dark:text-slate-400">削除してよろしいですか？</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-full border border-slate-200 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                onClick={() => setDeleteConfirm(null)}
+              >キャンセル</button>
+              <button
+                type="button"
+                className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                onClick={() => { deleteConfirm(); setDeleteConfirm(null); }}
               >削除</button>
             </div>
           </div>
