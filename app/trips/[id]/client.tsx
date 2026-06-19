@@ -1658,8 +1658,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               )}
             </div>
 
-            {/* 検討リスト */}
-            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+            {/* 検討リスト — 戻すときは false を true に */}
+            {false && <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 検討リスト</span>
                 <div className="flex items-center gap-2">
@@ -1824,7 +1824,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   ))}
                 </div>
               ))}
-            </div>
+            </div>}
 
             </div>
           </main>

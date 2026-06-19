@@ -377,6 +377,9 @@ export default function Home() {
                 <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-red-500" />
               )}
             </button>
+            <Link href="/planning" className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white" aria-label="旅の検討">
+              <PencilSquareIcon className="h-5 w-5" />
+            </Link>
             <Link href="/profile" className="rounded-full p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white">
               <UserCircleIcon className="h-7 w-7" />
             </Link>
