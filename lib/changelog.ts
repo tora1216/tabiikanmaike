@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.9.0";
+export const APP_VERSION = "1.9.1";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,15 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.9.1",
+    date: "2026-06-20",
+    title: "割り勘方法を追加",
+    changes: [
+      "費用の割り勘方法に「均等・比率・金額」を追加",
+      "比率や金額を指定して不均等に分配できるように",
+    ],
+  },
   {
     version: "1.9.0",
     date: "2026-04-09",

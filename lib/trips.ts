@@ -12,6 +12,9 @@ export type TripActivity = {
   costType?: "per_person" | "total";
   activityMembers?: string[]; // subset of trip members this cost applies to
   paidBy?: string;            // who paid for this activity
+  splitMode?: "equal" | "ratio" | "amount"; // 割り勘方法（既定は equal = 均等割り）
+  splitRatios?: Record<string, number>;     // splitMode: "ratio" 用（メンバー→比率）
+  splitAmounts?: Record<string, number>;    // splitMode: "amount" 用（メンバー→金額）
   settled?: boolean;          // true = this expense is already settled, exclude from settlement calc
 };
 

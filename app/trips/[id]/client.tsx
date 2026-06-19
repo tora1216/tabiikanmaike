@@ -104,6 +104,21 @@ function activityId(a: TripActivity) {
   return a.id ?? (a.time + a.destination);
 }
 
+// アクティビティの費用（activityTotal）を割り勘方法に応じてメンバーごとの負担額に分配する
+function memberShareOfActivity(a: TripActivity, member: string, members: string[], activityTotal: number): number {
+  const effectiveMembers = a.activityMembers?.length ? a.activityMembers : members;
+  if (!effectiveMembers.includes(member)) return 0;
+  if (a.splitMode === "amount" && a.splitAmounts) {
+    return a.splitAmounts[member] ?? 0;
+  }
+  if (a.splitMode === "ratio" && a.splitRatios) {
+    const ratioSum = effectiveMembers.reduce((s, m) => s + (a.splitRatios![m] ?? 1), 0);
+    if (ratioSum <= 0) return activityTotal / effectiveMembers.length; // 比率が全員0なら均等にフォールバック
+    return activityTotal * (a.splitRatios![member] ?? 1) / ratioSum;
+  }
+  return a.costType === "per_person" ? (a.cost ?? 0) : activityTotal / effectiveMembers.length;
+}
+
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
@@ -402,6 +417,9 @@ type ActivityFormProps = {
   cost: number; setCost: (v: number) => void;
   costType: "per_person" | "total"; setCostType: (v: "per_person" | "total") => void;
   activityMembers: string[]; setActivityMembers: (v: string[]) => void;
+  splitMode: "equal" | "ratio" | "amount"; setSplitMode: (v: "equal" | "ratio" | "amount") => void;
+  splitRatios: Record<string, number>; setSplitRatios: (v: Record<string, number>) => void;
+  splitAmounts: Record<string, number>; setSplitAmounts: (v: Record<string, number>) => void;
   paidBy: string; setPaidBy: (v: string) => void;
   settled: boolean; setSettled: (v: boolean) => void;
   allMembers: string[];
@@ -423,6 +441,9 @@ function ActivityForm({
   cost, setCost,
   costType, setCostType,
   activityMembers, setActivityMembers,
+  splitMode, setSplitMode,
+  splitRatios, setSplitRatios,
+  splitAmounts, setSplitAmounts,
   paidBy, setPaidBy,
   settled, setSettled,
   daySelector,
@@ -683,7 +704,7 @@ function ActivityForm({
                     精算済
                   </label>
                   <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
-                    {(["per_person", "total"] as const).map((t) => (
+                    {(["total", "per_person"] as const).map((t) => (
                       <button
                         key={t}
                         type="button"
@@ -734,6 +755,123 @@ function ActivityForm({
                 </div>
               </div>
             )}
+
+            {/* 割り勘方法（支払った人を選んでから設定する） */}
+            {(() => {
+              const effectiveMembers = activityMembers.length ? activityMembers : allMembers;
+              if (effectiveMembers.length < 2 || !paidBy) return null;
+              const ratioSum = effectiveMembers.reduce((s, m) => s + (splitRatios[m] ?? 1), 0);
+              const allZeroRatio = ratioSum <= 0;
+              const ratioFor = (m: string) => (allZeroRatio ? 1 : (splitRatios[m] ?? 1));
+              const totalRatio = allZeroRatio ? effectiveMembers.length : ratioSum;
+              return (
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">割り勘方法</label>
+                    <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+                      {(["equal", "ratio", "amount"] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => {
+                            setSplitMode(mode);
+                            if (mode === "equal") {
+                              setSplitRatios({});
+                              setSplitAmounts({});
+                              return;
+                            }
+                            setCostType("total");
+                            if (mode === "ratio" && Object.keys(splitRatios).length === 0) {
+                              const init: Record<string, number> = {};
+                              effectiveMembers.forEach((m) => (init[m] = 1));
+                              setSplitRatios(init);
+                            }
+                            if (mode === "amount" && Object.keys(splitAmounts).length === 0) {
+                              // 端数（割り切れない分）を最初のメンバーから順に1円ずつ割り当て、合計が必ず費用と一致するようにする
+                              const base = cost > 0 ? Math.floor(cost / effectiveMembers.length) : 0;
+                              const remainder = cost > 0 ? cost - base * effectiveMembers.length : 0;
+                              const init: Record<string, number> = {};
+                              effectiveMembers.forEach((m, i) => (init[m] = base + (i < remainder ? 1 : 0)));
+                              setSplitAmounts(init);
+                            }
+                          }}
+                          className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+                            splitMode === mode
+                              ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+                              : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+                          }`}
+                        >
+                          {mode === "equal" ? "均等" : mode === "ratio" ? "比率" : "金額"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {splitMode === "equal" && (
+                    <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
+                      {effectiveMembers.map((m) => (
+                        <div key={m} className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
+                          <span className="text-sm text-slate-500 dark:text-slate-400">
+                            ¥{Math.round(costType === "per_person" ? cost : cost / effectiveMembers.length).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {splitMode === "ratio" && (
+                    <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
+                      {effectiveMembers.map((m) => (
+                        <div key={m} className="flex items-center gap-2">
+                          <span className="flex-1 truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={splitRatios[m] ?? 1}
+                            onChange={(e) => setSplitRatios({ ...splitRatios, [m]: parseInt(e.target.value) || 0 })}
+                            className="w-20 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-sm outline-none ring-green-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                          />
+                        </div>
+                      ))}
+                      <p className="text-right text-[11px] text-slate-400">
+                        {allZeroRatio
+                          ? "比率がすべて0のため均等に分配されます"
+                          : effectiveMembers.map((m) => `${m} ¥${Math.round(cost * ratioFor(m) / totalRatio).toLocaleString()}`).join(" / ")}
+                      </p>
+                    </div>
+                  )}
+                  {splitMode === "amount" && (() => {
+                    const amountSum = effectiveMembers.reduce((s, m) => s + (splitAmounts[m] ?? 0), 0);
+                    const mismatch = amountSum !== cost;
+                    return (
+                      <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
+                        {effectiveMembers.map((m) => (
+                          <div key={m} className="flex items-center gap-2">
+                            <span className="flex-1 truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={splitAmounts[m] ?? 0}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value) || 0;
+                                setSplitAmounts({ ...splitAmounts, [m]: v });
+                              }}
+                              className="w-24 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-sm outline-none ring-green-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                            />
+                          </div>
+                        ))}
+                        {mismatch ? (
+                          <p className="text-right text-[11px] font-semibold text-red-500">
+                            合計が費用と一致していません
+                          </p>
+                        ) : (
+                          <p className="text-right text-[11px] text-slate-400">合計 ¥{amountSum.toLocaleString()}</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            })()}
 
             {/* メモ */}
             <div>
@@ -886,8 +1024,11 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [toPlace, setToPlace] = useState("");
   const [memo, setMemo] = useState("");
   const [cost, setCost] = useState(0);
-  const [costType, setCostType] = useState<"per_person" | "total">("per_person");
+  const [costType, setCostType] = useState<"per_person" | "total">("total");
   const [activityMembers, setActivityMembers] = useState<string[]>([]);
+  const [splitMode, setSplitMode] = useState<"equal" | "ratio" | "amount">("equal");
+  const [splitRatios, setSplitRatios] = useState<Record<string, number>>({});
+  const [splitAmounts, setSplitAmounts] = useState<Record<string, number>>({});
   const [paidBy, setPaidBy] = useState("");
   const [settled, setSettled] = useState(false);
   const [editingActivity, setEditingActivity] = useState<TripActivity | null>(null);
@@ -923,7 +1064,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setCost(0); setCostType("per_person"); setActivityMembers([]); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
+    setMemo(""); setCost(0); setCostType("total"); setActivityMembers([]); setSplitMode("equal"); setSplitRatios({}); setSplitAmounts({}); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -1075,8 +1216,11 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setToPlace(activity.to || "");
     setMemo(activity.memo || "");
     setCost(activity.cost || 0);
-    setCostType(activity.costType ?? "per_person");
+    setCostType(activity.costType ?? "total");
     setActivityMembers(activity.activityMembers ?? []);
+    setSplitMode(activity.splitMode ?? "equal");
+    setSplitRatios(activity.splitRatios ?? {});
+    setSplitAmounts(activity.splitAmounts ?? {});
     setPaidBy(activity.paidBy ?? "");
     setSettled(activity.settled ?? false);
     setEditDay(activity.day ?? 0);
@@ -1089,6 +1233,13 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     } else {
       if (!dayDestination) { setFormError("場所名は必須項目です。"); return; }
     }
+    const effectiveMembers = activityMembers.length ? activityMembers : (tripData.members ?? []);
+    if (splitMode === "amount" && effectiveMembers.length > 1 && effectiveMembers.reduce((s, m) => s + (splitAmounts[m] ?? 0), 0) !== cost) {
+      setFormError("金額指定の合計が費用と一致していません。"); return;
+    }
+    const useSplit = cost > 0 && effectiveMembers.length > 1 && splitMode !== "equal" && !!paidBy;
+    const cleanRatios = Object.fromEntries(Object.entries(splitRatios).filter(([k]) => effectiveMembers.includes(k)));
+    const cleanSplit = Object.fromEntries(Object.entries(splitAmounts).filter(([k]) => effectiveMembers.includes(k)));
     updateTrip(tripData.id, (current) => ({
       ...current,
       days: current.days.map((d) =>
@@ -1106,6 +1257,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               cost: cost > 0 ? cost : undefined,
               costType: cost > 0 ? costType : undefined,
               activityMembers: activityMembers.length > 0 ? activityMembers : undefined,
+              splitMode: useSplit ? splitMode : undefined,
+              splitRatios: useSplit && splitMode === "ratio" && Object.keys(cleanRatios).length > 0 ? cleanRatios : undefined,
+              splitAmounts: useSplit && splitMode === "amount" && Object.keys(cleanSplit).length > 0 ? cleanSplit : undefined,
               paidBy: cost > 0 && paidBy ? paidBy : undefined,
               settled: cost > 0 && settled ? true : undefined,
             }
@@ -1123,6 +1277,13 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     } else {
       if (!dayDestination) { setFormError("場所名は必須項目です。"); return; }
     }
+    const effectiveMembers = activityMembers.length ? activityMembers : (tripData.members ?? []);
+    if (splitMode === "amount" && effectiveMembers.length > 1 && effectiveMembers.reduce((s, m) => s + (splitAmounts[m] ?? 0), 0) !== cost) {
+      setFormError("金額指定の合計が費用と一致していません。"); return;
+    }
+    const useSplit = cost > 0 && effectiveMembers.length > 1 && splitMode !== "equal" && !!paidBy;
+    const cleanRatios = Object.fromEntries(Object.entries(splitRatios).filter(([k]) => effectiveMembers.includes(k)));
+    const cleanSplit = Object.fromEntries(Object.entries(splitAmounts).filter(([k]) => effectiveMembers.includes(k)));
     updateTrip(tripData.id, (current) => ({
       ...current,
       days: [
@@ -1140,6 +1301,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           cost: cost > 0 ? cost : undefined,
           costType: cost > 0 ? costType : undefined,
           activityMembers: activityMembers.length > 0 ? activityMembers : undefined,
+          splitMode: useSplit ? splitMode : undefined,
+          splitRatios: useSplit && splitMode === "ratio" && Object.keys(cleanRatios).length > 0 ? cleanRatios : undefined,
+          splitAmounts: useSplit && splitMode === "amount" && Object.keys(cleanSplit).length > 0 ? cleanSplit : undefined,
           paidBy: cost > 0 && paidBy ? paidBy : undefined,
           settled: cost > 0 && settled ? true : undefined,
         },
@@ -1860,14 +2024,12 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   const effectiveMembers = a.activityMembers?.length
                     ? a.activityMembers
                     : members;
-                  const share = a.costType === "per_person"
-                    ? a.cost
-                    : a.cost / effectiveMembers.length;
+                  const total = activityTotalCost(a);
                   effectiveMembers.forEach((m) => {
-                    if (m in memberSpending) memberSpending[m] += share;
+                    if (m in memberSpending) memberSpending[m] += memberShareOfActivity(a, m, members, total);
                   });
                   if (a.paidBy && a.paidBy in memberPaid) {
-                    memberPaid[a.paidBy] += activityTotalCost(a);
+                    memberPaid[a.paidBy] += total;
                   }
                 });
                 return (
@@ -1908,9 +2070,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   if (!a.cost || !a.paidBy || !(a.paidBy in balance) || a.settled) return;
                   const total = activityTotalCost(a);
                   const beneficiaries = a.activityMembers?.length ? a.activityMembers : members;
-                  const share = total / beneficiaries.length;
                   balance[a.paidBy] += total;
-                  beneficiaries.forEach((m) => { if (m in balance) balance[m] -= share; });
+                  beneficiaries.forEach((m) => { if (m in balance) balance[m] -= memberShareOfActivity(a, m, members, total); });
                 });
 
                 // Greedy settlement: pair max creditor with max debtor
@@ -2004,35 +2165,43 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                               const isAll = !a.activityMembers?.length ||
                                 (allMembers.length > 0 && a.activityMembers!.length === allMembers.length && a.activityMembers!.every(m => allMembers.includes(m)));
                               const count = isAll ? allMembers.length : a.activityMembers!.length;
+                              const hasCustomSplit = a.splitMode === "ratio" || a.splitMode === "amount";
                               if (!a.paidBy && !allMembers.length) return null;
                               return (
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    {a.paidBy && (
-                                      <>
-                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
-                                        <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
-                                      </>
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      {a.paidBy && (
+                                        <>
+                                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
+                                          <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
+                                        </>
+                                      )}
+                                      {isAll ? (
+                                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
+                                      ) : (
+                                        a.activityMembers!.map((m) => (
+                                          <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                            {m}
+                                          </span>
+                                        ))
+                                      )}
+                                    </div>
+                                    {!hasCustomSplit && a.costType === "per_person" && (
+                                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                                        ¥{(a.cost ?? 0).toLocaleString()} × {count || participants}人
+                                      </span>
                                     )}
-                                    {isAll ? (
-                                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
-                                    ) : (
-                                      a.activityMembers!.map((m) => (
-                                        <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                          {m}
-                                        </span>
-                                      ))
+                                    {!hasCustomSplit && a.costType === "total" && (count || participants) > 0 && (
+                                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                                        ¥{Math.round((a.cost ?? 0) / (count || participants)).toLocaleString()}<span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
+                                      </span>
                                     )}
                                   </div>
-                                  {a.costType === "per_person" && (
-                                    <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
-                                      ¥{(a.cost ?? 0).toLocaleString()} × {count || participants}人
-                                    </span>
-                                  )}
-                                  {a.costType === "total" && (count || participants) > 0 && (
-                                    <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
-                                      ¥{Math.round((a.cost ?? 0) / (count || participants)).toLocaleString()}<span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
-                                    </span>
+                                  {hasCustomSplit && (
+                                    <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
+                                      {(isAll ? allMembers : a.activityMembers!).map((m) => `${m} ¥${Math.round(memberShareOfActivity(a, m, allMembers, activityTotalCost(a))).toLocaleString()}`).join("・")}
+                                    </p>
                                   )}
                                 </div>
                               );
@@ -2067,17 +2236,31 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                               const allMembers2 = tripData.members ?? [];
                               const isAll = !a.activityMembers?.length ||
                                 (allMembers2.length > 0 && a.activityMembers!.length === allMembers2.length && a.activityMembers!.every(m => allMembers2.includes(m)));
+                              const hasCustomSplit = a.splitMode === "ratio" || a.splitMode === "amount";
                               if (isAll && allMembers2.length === 0) return null;
                               return (
-                                <div className="mt-0.5 flex flex-wrap gap-1">
-                                  {isAll ? (
-                                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
-                                  ) : (
-                                    a.activityMembers!.map((m) => (
-                                      <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                        {m}
-                                      </span>
-                                    ))
+                                <div className="mt-0.5 space-y-0.5">
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    {a.paidBy && (
+                                      <>
+                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
+                                        <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
+                                      </>
+                                    )}
+                                    {isAll ? (
+                                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
+                                    ) : (
+                                      a.activityMembers!.map((m) => (
+                                        <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                          {m}
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
+                                  {hasCustomSplit && (
+                                    <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
+                                      {(isAll ? allMembers2 : a.activityMembers!).map((m) => `${m} ¥${Math.round(memberShareOfActivity(a, m, allMembers2, activityTotalCost(a))).toLocaleString()}`).join("・")}
+                                    </p>
                                   )}
                                 </div>
                               );
@@ -2216,6 +2399,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
+            splitMode={splitMode} setSplitMode={setSplitMode}
+            splitRatios={splitRatios} setSplitRatios={setSplitRatios}
+            splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
             paidBy={paidBy} setPaidBy={setPaidBy}
             settled={settled} setSettled={setSettled}
             allMembers={tripData.members ?? []}
@@ -2378,6 +2564,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
+            splitMode={splitMode} setSplitMode={setSplitMode}
+            splitRatios={splitRatios} setSplitRatios={setSplitRatios}
+            splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
             paidBy={paidBy} setPaidBy={setPaidBy}
             settled={settled} setSettled={setSettled}
             allMembers={tripData.members ?? []}
