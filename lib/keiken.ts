@@ -204,3 +204,154 @@ export const COUNTRY_ISO: Record<string, string> = {
 export const ISO_TO_COUNTRY: Record<string, string> = Object.fromEntries(
   Object.entries(COUNTRY_ISO).map(([k, v]) => [v, k])
 );
+
+// ─── 水族館・動物園データ ───────────────────────────────────────────────────────
+
+export type SpotType = "aquarium" | "zoo";
+export type SpotDef = { id: string; name: string; pref: string; type: SpotType };
+
+export const SPOT_TYPE_LABEL: Record<SpotType, string> = {
+  aquarium: "水族館",
+  zoo: "動物園",
+};
+
+export const SPOTS: SpotDef[] = [
+  // 水族館
+  { id: "churaumi",      name: "沖縄美ら海水族館",       pref: "okinawa",   type: "aquarium" },
+  { id: "hakkeijima",    name: "八景島シーパラダイス",   pref: "kanagawa",  type: "aquarium" },
+  { id: "enoshima",      name: "新江ノ島水族館",         pref: "kanagawa",  type: "aquarium" },
+  { id: "sumida",        name: "すみだ水族館",           pref: "tokyo",     type: "aquarium" },
+  { id: "sunshine",      name: "サンシャイン水族館",     pref: "tokyo",     type: "aquarium" },
+  { id: "kasai",         name: "葛西臨海水族園",         pref: "tokyo",     type: "aquarium" },
+  { id: "kamogawa",      name: "鴨川シーワールド",       pref: "chiba",     type: "aquarium" },
+  { id: "nagoyako",      name: "名古屋港水族館",         pref: "aichi",     type: "aquarium" },
+  { id: "toba",          name: "鳥羽水族館",             pref: "mie",       type: "aquarium" },
+  { id: "kaiyukan",      name: "海遊館",                 pref: "osaka",     type: "aquarium" },
+  { id: "kyoto_aqua",    name: "京都水族館",             pref: "kyoto",     type: "aquarium" },
+  { id: "suma",          name: "神戸須磨海浜水族園",     pref: "hyogo",     type: "aquarium" },
+  { id: "aquas",         name: "しまね海洋館アクアス",   pref: "shimane",   type: "aquarium" },
+  { id: "uminonakamichi",name: "マリンワールド海の中道", pref: "fukuoka",   type: "aquarium" },
+  { id: "uminomori",     name: "仙台うみの杜水族館",     pref: "miyagi",    type: "aquarium" },
+  { id: "aquamarine",    name: "アクアマリンふくしま",   pref: "fukushima", type: "aquarium" },
+  { id: "kamo",          name: "鶴岡市立加茂水族館",     pref: "yamagata",  type: "aquarium" },
+  { id: "kaikyokan",     name: "海響館",                 pref: "yamaguchi", type: "aquarium" },
+  { id: "umigatari",     name: "上越市立水族博物館うみがたり", pref: "niigata", type: "aquarium" },
+  { id: "katsurahama",   name: "桂浜水族館",             pref: "kochi",     type: "aquarium" },
+  // 動物園
+  { id: "ueno",          name: "上野動物園",             pref: "tokyo",     type: "zoo" },
+  { id: "tama",          name: "多摩動物公園",           pref: "tokyo",     type: "zoo" },
+  { id: "zoorasia",      name: "よこはま動物園ズーラシア", pref: "kanagawa", type: "zoo" },
+  { id: "chiba_zoo",     name: "千葉市動物公園",         pref: "chiba",     type: "zoo" },
+  { id: "tobu",          name: "東武動物公園",           pref: "saitama",   type: "zoo" },
+  { id: "higashiyama",   name: "東山動植物園",           pref: "aichi",     type: "zoo" },
+  { id: "kyoto_zoo",     name: "京都市動物園",           pref: "kyoto",     type: "zoo" },
+  { id: "tennoji",       name: "天王寺動物園",           pref: "osaka",     type: "zoo" },
+  { id: "oji",           name: "王子動物園",             pref: "hyogo",     type: "zoo" },
+  { id: "fukuoka_zoo",   name: "福岡市動物園",           pref: "fukuoka",   type: "zoo" },
+  { id: "itozu",         name: "到津の森公園",           pref: "fukuoka",   type: "zoo" },
+  { id: "asa",           name: "安佐動物公園",           pref: "hiroshima", type: "zoo" },
+  { id: "asahiyama",     name: "旭山動物園",             pref: "hokkaido",  type: "zoo" },
+  { id: "maruyama",      name: "円山動物園",             pref: "hokkaido",  type: "zoo" },
+  { id: "yagiyama",      name: "八木山動物公園",         pref: "miyagi",    type: "zoo" },
+  { id: "nasu",          name: "那須どうぶつ王国",       pref: "tochigi",   type: "zoo" },
+  { id: "fuji_safari",   name: "富士サファリパーク",     pref: "shizuoka",  type: "zoo" },
+  { id: "nihondaira",    name: "日本平動物園",           pref: "shizuoka",  type: "zoo" },
+  { id: "ishikawa_zoo",  name: "いしかわ動物園",         pref: "ishikawa",  type: "zoo" },
+  { id: "gunma_safari",  name: "群馬サファリパーク",     pref: "gunma",     type: "zoo" },
+];
+
+export const MAX_SCORE_SPOTS = SPOTS.length;
+
+// ─── 世界遺産（国内）データ ─────────────────────────────────────────────────────
+
+export type HeritageDef = { id: string; name: string; pref: string; natural?: boolean };
+
+export const HERITAGE_SITES: HeritageDef[] = [
+  { id: "horyuji",       name: "法隆寺地域の仏教建造物",                 pref: "nara" },
+  { id: "himeji",        name: "姫路城",                                 pref: "hyogo" },
+  { id: "kyoto_heritage",name: "古都京都の文化財",                       pref: "kyoto" },
+  { id: "shirakawago",   name: "白川郷・五箇山の合掌造り集落",           pref: "gifu" },
+  { id: "genbaku_dome",  name: "原爆ドーム",                             pref: "hiroshima" },
+  { id: "itsukushima",   name: "厳島神社",                               pref: "hiroshima" },
+  { id: "nara_heritage", name: "古都奈良の文化財",                       pref: "nara" },
+  { id: "nikko",         name: "日光の社寺",                             pref: "tochigi" },
+  { id: "ryukyu_gusuku", name: "琉球王国のグスク及び関連遺産群",         pref: "okinawa" },
+  { id: "kii_sanchi",    name: "紀伊山地の霊場と参詣道",                 pref: "wakayama" },
+  { id: "iwami_ginzan",  name: "石見銀山遺跡とその文化的景観",           pref: "shimane" },
+  { id: "hiraizumi",     name: "平泉の文化遺産",                         pref: "iwate" },
+  { id: "fujisan",       name: "富士山-信仰の対象と芸術の源泉",          pref: "yamanashi" },
+  { id: "tomioka",       name: "富岡製糸場と絹産業遺産群",               pref: "gunma" },
+  { id: "meiji_industry",name: "明治日本の産業革命遺産",                 pref: "fukuoka" },
+  { id: "corbusier",     name: "ル・コルビュジエの建築作品（国立西洋美術館）", pref: "tokyo" },
+  { id: "okinoshima",    name: "「神宿る島」宗像・沖ノ島と関連遺産群",   pref: "fukuoka" },
+  { id: "amakusa",       name: "長崎と天草地方の潜伏キリシタン関連遺産", pref: "nagasaki" },
+  { id: "mozu_furuichi", name: "百舌鳥・古市古墳群",                     pref: "osaka" },
+  { id: "jomon",         name: "北海道・北東北の縄文遺跡群",             pref: "aomori" },
+  { id: "sado_kinzan",   name: "佐渡島の金山",                           pref: "niigata" },
+  { id: "yakushima",     name: "屋久島",                                 pref: "kagoshima", natural: true },
+  { id: "shirakami",     name: "白神山地",                               pref: "aomori",    natural: true },
+  { id: "shiretoko",     name: "知床",                                   pref: "hokkaido",  natural: true },
+  { id: "ogasawara",     name: "小笠原諸島",                             pref: "tokyo",      natural: true },
+  { id: "amami_okinawa", name: "奄美大島、徳之島、沖縄島北部及び西表島", pref: "kagoshima", natural: true },
+];
+
+export const MAX_SCORE_HERITAGE = HERITAGE_SITES.length;
+
+// ─── 実績（バッジ） ─────────────────────────────────────────────────────────────
+
+export type BadgeData = {
+  scores: Record<string, number>;
+  worldScores: Record<string, number>;
+  spotVisited: Record<string, boolean>;
+  heritageVisited: Record<string, boolean>;
+};
+
+export type BadgeDef = {
+  id: string;
+  emoji: string;
+  label: string;
+  description: string;
+  check: (data: BadgeData) => boolean;
+};
+
+const prefVisitedCount = (scores: Record<string, number>) =>
+  PREFECTURES.filter((p) => (scores[p.id] ?? 0) > 0).length;
+
+const countryVisitedCount = (worldScores: Record<string, number>) =>
+  COUNTRIES.filter((c) => (worldScores[c.id] ?? 0) > 0).length;
+
+export const BADGES: BadgeDef[] = [
+  // 都道府県
+  { id: "pref_10", emoji: "🚶", label: "旅好き", description: "10都道府県を訪問", check: (d) => prefVisitedCount(d.scores) >= 10 },
+  { id: "pref_25", emoji: "🧳", label: "旅人", description: "25都道府県を訪問", check: (d) => prefVisitedCount(d.scores) >= 25 },
+  { id: "pref_47", emoji: "🏆", label: "47都道府県制覇", description: "すべての都道府県を訪問", check: (d) => prefVisitedCount(d.scores) >= 47 },
+  // 地方制覇
+  ...REGIONS.map((region) => ({
+    id: `region_${region.name}`,
+    emoji: "🗺️",
+    label: `${region.name}制覇`,
+    description: `${region.name}地方の都道府県をすべて訪問`,
+    check: (d: BadgeData) => region.ids.every((id) => (d.scores[id] ?? 0) > 0),
+  })),
+  // 海外
+  { id: "country_1", emoji: "🌏", label: "初めての海外", description: "1か国以上を訪問", check: (d) => countryVisitedCount(d.worldScores) >= 1 },
+  { id: "country_10", emoji: "✈️", label: "世界を旅する人", description: "10か国を訪問", check: (d) => countryVisitedCount(d.worldScores) >= 10 },
+  // 大陸制覇
+  ...CONTINENTS.map((cont) => {
+    const ids = COUNTRIES.filter((c) => c.continent === cont.id).map((c) => c.id);
+    return {
+      id: `continent_${cont.id}`,
+      emoji: cont.emoji,
+      label: `${cont.name}制覇`,
+      description: `${cont.name}の国をすべて訪問`,
+      check: (d: BadgeData) => ids.every((id) => (d.worldScores[id] ?? 0) > 0),
+    };
+  }),
+  // 施設
+  { id: "spot_aquarium_all", emoji: "🐠", label: "水族館マスター", description: "主要な水族館をすべて訪問", check: (d) => SPOTS.filter((s) => s.type === "aquarium").every((s) => d.spotVisited[s.id]) },
+  { id: "spot_zoo_all", emoji: "🦁", label: "動物園マスター", description: "主要な動物園をすべて訪問", check: (d) => SPOTS.filter((s) => s.type === "zoo").every((s) => d.spotVisited[s.id]) },
+  { id: "spot_all", emoji: "🏅", label: "施設コンプリート", description: "水族館・動物園をすべて訪問", check: (d) => SPOTS.every((s) => d.spotVisited[s.id]) },
+  // 世界遺産
+  { id: "heritage_5", emoji: "🏛️", label: "世界遺産めぐり", description: "5件の世界遺産を訪問", check: (d) => HERITAGE_SITES.filter((h) => d.heritageVisited[h.id]).length >= 5 },
+  { id: "heritage_all", emoji: "🌟", label: "世界遺産コンプリート", description: "国内の世界遺産をすべて訪問", check: (d) => HERITAGE_SITES.every((h) => d.heritageVisited[h.id]) },
+];

@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.9.1";
+export const APP_VERSION = "1.10.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,16 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.10.0",
+    date: "2026-06-20",
+    title: "水族館・動物園・世界遺産の実績を追加",
+    changes: [
+      "マイページに「施設」タブを追加",
+      "国内の水族館・動物園・世界遺産チェックリストを追加",
+      "経験値の記録から自動で判定される称号・実績バッジを追加",
+    ],
+  },
   {
     version: "1.9.1",
     date: "2026-06-20",

@@ -9,6 +9,8 @@ import worldMap from "@svg-maps/world";
 import {
   LEVELS, PREFECTURES, PREF_ORDER, MAX_SCORE, REGIONS,
   CONTINENTS, COUNTRIES, ISO_TO_COUNTRY, MAX_SCORE_WORLD,
+  SPOTS,
+  HERITAGE_SITES, BADGES,
 } from "@/lib/keiken";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -16,7 +18,9 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 // ─── メインコンポーネント ──────────────────────────────────────────────────────
 
 export default function ProfilePage() {
-  const [tab, setTab] = useState<"japan" | "world">("japan");
+  const [tab, setTab] = useState<"japan" | "world" | "spots">("japan");
+  const [badgesExpanded, setBadgesExpanded] = useState(false);
+  const [spotsCategory, setSpotsCategory] = useState<"aquarium" | "zoo" | "heritage">("aquarium");
   const [japanEditOpen, setJapanEditOpen] = useState(false);
 
   // 日本
@@ -26,6 +30,12 @@ export default function ProfilePage() {
   // 海外
   const [worldScores, setWorldScores] = useState<Record<string, number>>({});
   const [worldEditOpen, setWorldEditOpen] = useState(false);
+
+  // 水族館・動物園
+  const [spotVisited, setSpotVisited] = useState<Record<string, boolean>>({});
+
+  // 世界遺産
+  const [heritageVisited, setHeritageVisited] = useState<Record<string, boolean>>({});
 
   // 共通：レベル選択ダイアログ
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -52,6 +62,10 @@ export default function ProfilePage() {
       if (saved) setScores(JSON.parse(saved));
       const savedW = localStorage.getItem("keiken_world");
       if (savedW) setWorldScores(JSON.parse(savedW));
+      const savedSpots = localStorage.getItem("keiken_spots");
+      if (savedSpots) setSpotVisited(JSON.parse(savedSpots));
+      const savedHeritage = localStorage.getItem("keiken_heritage");
+      if (savedHeritage) setHeritageVisited(JSON.parse(savedHeritage));
       const savedName = localStorage.getItem("profile_username");
       if (savedName) setUsername(savedName);
     } catch {/* ignore */}
@@ -71,7 +85,7 @@ export default function ProfilePage() {
       const ref = doc(db, "users", targetUid, "keiken", "data");
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        const data = snap.data() as { japan?: Record<string, number>; world?: Record<string, number> };
+        const data = snap.data() as { japan?: Record<string, number>; world?: Record<string, number>; spots?: Record<string, boolean>; heritage?: Record<string, boolean> };
         setScores(prev => {
           const merged: Record<string, number> = { ...prev };
           for (const [k, v] of Object.entries(data.japan ?? {})) {
@@ -88,10 +102,28 @@ export default function ProfilePage() {
           localStorage.setItem("keiken_world", JSON.stringify(merged));
           return merged;
         });
+        setSpotVisited(prev => {
+          const merged: Record<string, boolean> = { ...prev };
+          for (const [k, v] of Object.entries(data.spots ?? {})) {
+            merged[k] = (merged[k] ?? false) || v;
+          }
+          localStorage.setItem("keiken_spots", JSON.stringify(merged));
+          return merged;
+        });
+        setHeritageVisited(prev => {
+          const merged: Record<string, boolean> = { ...prev };
+          for (const [k, v] of Object.entries(data.heritage ?? {})) {
+            merged[k] = (merged[k] ?? false) || v;
+          }
+          localStorage.setItem("keiken_heritage", JSON.stringify(merged));
+          return merged;
+        });
       } else {
         const localJapan = JSON.parse(localStorage.getItem("keiken") || "{}");
         const localWorld = JSON.parse(localStorage.getItem("keiken_world") || "{}");
-        await setDoc(ref, { japan: localJapan, world: localWorld });
+        const localSpots = JSON.parse(localStorage.getItem("keiken_spots") || "{}");
+        const localHeritage = JSON.parse(localStorage.getItem("keiken_heritage") || "{}");
+        await setDoc(ref, { japan: localJapan, world: localWorld, spots: localSpots, heritage: localHeritage });
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -117,11 +149,13 @@ export default function ProfilePage() {
     if (!hydrated || syncingRef.current) return;
     localStorage.setItem("keiken", JSON.stringify(scores));
     localStorage.setItem("keiken_world", JSON.stringify(worldScores));
+    localStorage.setItem("keiken_spots", JSON.stringify(spotVisited));
+    localStorage.setItem("keiken_heritage", JSON.stringify(heritageVisited));
     if (db && user && prevUserId.current === user.uid) {
       const ref = doc(db, "users", user.uid, "keiken", "data");
-      setDoc(ref, { japan: scores, world: worldScores }).catch(() => {});
+      setDoc(ref, { japan: scores, world: worldScores, spots: spotVisited, heritage: heritageVisited }).catch(() => {});
     }
-  }, [scores, worldScores, hydrated, user, syncingUI]);
+  }, [scores, worldScores, spotVisited, heritageVisited, hydrated, user, syncingUI]);
 
   const saveUsername = (name: string) => {
     const trimmed = name.trim();
@@ -150,11 +184,23 @@ export default function ProfilePage() {
     setSelectedId(null);
   };
 
+  const toggleSpot = (id: string) => setSpotVisited((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleHeritage = (id: string) => setHeritageVisited((prev) => ({ ...prev, [id]: !prev[id] }));
+
   const totalScore = PREFECTURES.reduce((sum, p) => sum + (scores[p.id] ?? 0), 0);
   const visitedCount = PREFECTURES.filter((p) => (scores[p.id] ?? 0) > 0).length;
 
   const totalWorldScore = COUNTRIES.reduce((sum, c) => sum + (worldScores[c.id] ?? 0), 0);
   const visitedCountries = COUNTRIES.filter((c) => (worldScores[c.id] ?? 0) > 0).length;
+
+  const visitedHeritage = HERITAGE_SITES.filter((h) => heritageVisited[h.id]).length;
+  const aquariumTotal = SPOTS.filter((s) => s.type === "aquarium").length;
+  const zooTotal = SPOTS.filter((s) => s.type === "zoo").length;
+  const visitedAquarium = SPOTS.filter((s) => s.type === "aquarium" && spotVisited[s.id]).length;
+  const visitedZoo = SPOTS.filter((s) => s.type === "zoo" && spotVisited[s.id]).length;
+
+  const badgeData = { scores, worldScores, spotVisited, heritageVisited };
+  const unlockedBadgeIds = new Set(BADGES.filter((b) => b.check(badgeData)).map((b) => b.id));
 
   const selectedPref = !isWorldDialog && selectedId ? PREFECTURES.find((p) => p.id === selectedId) : null;
   const selectedCountry = isWorldDialog && selectedId ? COUNTRIES.find((c) => c.id === selectedId) : null;
@@ -270,6 +316,51 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* 実績（常時表示・折りたたみ） */}
+        <div className="mb-5 rounded-2xl bg-white shadow-sm dark:bg-slate-800">
+          <button
+            type="button"
+            onClick={() => setBadgesExpanded((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 p-4"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🏆</span>
+              <div className="text-left">
+                <p className="text-sm font-bold text-slate-800 dark:text-white">実績</p>
+                <p className="text-xs text-slate-400">{unlockedBadgeIds.size} / {BADGES.length} 達成</p>
+              </div>
+            </div>
+            <svg
+              className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${badgesExpanded ? "rotate-180" : ""}`}
+              viewBox="0 0 20 20" fill="currentColor"
+            >
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {badgesExpanded && (
+            <div className="border-t border-slate-100 p-4 dark:border-slate-700">
+              <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                <div className="h-full rounded-full bg-indigo-400 transition-all" style={{ width: `${(unlockedBadgeIds.size / BADGES.length) * 100}%` }} />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {BADGES.map((badge) => {
+                  const unlocked = unlockedBadgeIds.has(badge.id);
+                  return (
+                    <div
+                      key={badge.id}
+                      className={`rounded-xl p-2 text-center ${unlocked ? "bg-slate-50 dark:bg-slate-700/50" : "bg-slate-50/50 dark:bg-slate-800/50"}`}
+                    >
+                      <span className={`block text-xl ${unlocked ? "" : "opacity-25 grayscale"}`}>{badge.emoji}</span>
+                      <p className={`mt-1 text-[10px] font-bold leading-tight ${unlocked ? "text-slate-800 dark:text-white" : "text-slate-400 dark:text-slate-500"}`}>{badge.label}</p>
+                      <p className="mt-0.5 text-[9px] leading-tight text-slate-400 dark:text-slate-500">{badge.description}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* タブ */}
         <div className="mb-5 flex rounded-2xl bg-white p-1 shadow-sm dark:bg-slate-800">
           <button
@@ -294,18 +385,30 @@ export default function ProfilePage() {
           >
             🌍 海外
           </button>
+          <button
+            type="button"
+            onClick={() => setTab("spots")}
+            className={`flex-1 rounded-xl py-2 text-sm font-bold transition ${
+              tab === "spots"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+            }`}
+          >
+            🐬 施設
+          </button>
         </div>
 
         {/* ─── 日本タブ ─── */}
         {tab === "japan" && (
           <>
             <div className="mb-6 rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">国内経験値</p>
-              <div className="mt-2 flex items-end gap-3">
-                <span className="text-5xl font-black text-slate-900 dark:text-white">{totalScore}</span>
-                <span className="mb-1 text-sm text-slate-400">/ {MAX_SCORE} 点</span>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">国内経験値</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{visitedCount} 都道府県を訪問済み</p>
+                </div>
+                <p className="text-4xl font-black text-slate-900 dark:text-white">{totalScore}<span className="text-sm font-normal text-slate-400"> / {MAX_SCORE} 点</span></p>
               </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{visitedCount} 都道府県を訪問済み</p>
               <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                 <div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${(totalScore / MAX_SCORE) * 100}%` }} />
               </div>
@@ -365,12 +468,13 @@ export default function ProfilePage() {
         {tab === "world" && (
           <>
             <div className="mb-6 rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">海外経験値</p>
-              <div className="mt-2 flex items-end gap-3">
-                <span className="text-5xl font-black text-slate-900 dark:text-white">{totalWorldScore}</span>
-                <span className="mb-1 text-sm text-slate-400">/ {MAX_SCORE_WORLD} 点</span>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-widest text-slate-400">海外経験値</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{visitedCountries} か国を訪問済み</p>
+                </div>
+                <p className="text-4xl font-black text-slate-900 dark:text-white">{totalWorldScore}<span className="text-sm font-normal text-slate-400"> / {MAX_SCORE_WORLD} 点</span></p>
               </div>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{visitedCountries} か国を訪問済み</p>
               <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                 <div className="h-full rounded-full bg-indigo-400 transition-all" style={{ width: `${(totalWorldScore / MAX_SCORE_WORLD) * 100}%` }} />
               </div>
@@ -427,6 +531,75 @@ export default function ProfilePage() {
             </div>
           </>
         )}
+
+        {/* ─── 施設タブ ─── */}
+        {tab === "spots" && (
+          <>
+            <div className="mb-4 overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-slate-800">
+              <div className="flex border-b border-slate-100 dark:border-slate-700">
+                {(["aquarium", "zoo", "heritage"] as const).map((cat) => {
+                  const count = cat === "aquarium" ? visitedAquarium : cat === "zoo" ? visitedZoo : visitedHeritage;
+                  const total = cat === "aquarium" ? aquariumTotal : cat === "zoo" ? zooTotal : HERITAGE_SITES.length;
+                  const label = cat === "aquarium" ? "🐠 水族館" : cat === "zoo" ? "🦁 動物園" : "🏛 世界遺産";
+                  const selected = spotsCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSpotsCategory(cat)}
+                      className={`flex-1 border-b-2 px-2 py-3 text-center transition ${
+                        selected ? "border-slate-900 dark:border-white" : "border-transparent"
+                      }`}
+                    >
+                      <p className={`text-xs font-bold ${selected ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>{label}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-400">{count} / {total}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {(() => {
+                const cat = spotsCategory;
+                const dotColor = cat === "heritage" ? "amber" : "emerald";
+                const items: { id: string; name: string; pref: string; natural?: boolean }[] =
+                  cat === "heritage" ? HERITAGE_SITES : SPOTS.filter((s) => s.type === cat);
+                const isVisited = (id: string) => (cat === "heritage" ? !!heritageVisited[id] : !!spotVisited[id]);
+                const toggleItem = (id: string) => (cat === "heritage" ? toggleHeritage(id) : toggleSpot(id));
+                return (
+                  <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
+                    {items.map((item) => {
+                      const visited = isVisited(item.id);
+                      const prefName = PREFECTURES.find((p) => p.id === item.pref)?.name ?? "";
+                      return (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            onClick={() => toggleItem(item.id)}
+                            className="flex w-full items-center justify-between gap-3 py-2.5 text-left"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className={`truncate text-sm font-semibold ${visited ? "text-slate-800 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>{item.name}</p>
+                              <p className="text-xs text-slate-400 dark:text-slate-500">{prefName}{item.natural !== undefined ? `・${item.natural ? "自然遺産" : "文化遺産"}` : ""}</p>
+                            </div>
+                            <span
+                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
+                                visited
+                                  ? dotColor === "amber" ? "border-amber-400 bg-amber-400" : "border-emerald-400 bg-emerald-400"
+                                  : "border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-700"
+                              }`}
+                            >
+                              {visited && <span className="text-xs font-black text-white">✓</span>}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+              })()}
+            </div>
+          </>
+        )}
+
       </div>
 
       {/* ─── 日本 編集モーダル ───────────────────────────────────────────────── */}

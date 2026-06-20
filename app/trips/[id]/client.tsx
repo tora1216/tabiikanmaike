@@ -928,6 +928,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [collapsedDays, setCollapsedDays] = useState<Set<number>>(new Set());
   const toggleDay = (n: number) => setCollapsedDays(prev => { const s = new Set(prev); s.has(n) ? s.delete(n) : s.add(n); return s; });
   const [isEditMode, setIsEditMode] = useState(false);
+  const [expandedSplitIds, setExpandedSplitIds] = useState<Set<string>>(new Set());
+  const toggleSplitDetail = (id: string) => setExpandedSplitIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
   // Share modal
   const [shareModal, setShareModal] = useState(false);
@@ -2197,8 +2199,17 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                         ¥{Math.round((a.cost ?? 0) / (count || participants)).toLocaleString()}<span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
                                       </span>
                                     )}
+                                    {hasCustomSplit && (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleSplitDetail(activityId(a))}
+                                        className="shrink-0 text-[10px] font-semibold text-indigo-400 hover:text-indigo-500 dark:text-indigo-500 dark:hover:text-indigo-400"
+                                      >
+                                        {expandedSplitIds.has(activityId(a)) ? "詳細を閉じる" : "詳細を表示"}
+                                      </button>
+                                    )}
                                   </div>
-                                  {hasCustomSplit && (
+                                  {hasCustomSplit && expandedSplitIds.has(activityId(a)) && (
                                     <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
                                       {(isAll ? allMembers : a.activityMembers!).map((m) => `${m} ¥${Math.round(memberShareOfActivity(a, m, allMembers, activityTotalCost(a))).toLocaleString()}`).join("・")}
                                     </p>
@@ -2228,36 +2239,61 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
                       {items.map((a) => (
-                        <li key={activityId(a)} className="flex items-center gap-3 py-2.5">
-                          <span className="text-lg">{a.icon}</span>
-                          <div className="flex flex-1 flex-col min-w-0">
-                            <span className="text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
+                        <li key={activityId(a)} className="flex items-start gap-3 py-2.5">
+                          <span className="mt-0.5 text-lg">{a.icon}</span>
+                          <div className="flex flex-1 flex-col gap-0.5 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                {a.settled && (
+                                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
+                                )}
+                                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">¥{activityTotalCost(a).toLocaleString()}</span>
+                              </div>
+                            </div>
                             {(() => {
                               const allMembers2 = tripData.members ?? [];
                               const isAll = !a.activityMembers?.length ||
                                 (allMembers2.length > 0 && a.activityMembers!.length === allMembers2.length && a.activityMembers!.every(m => allMembers2.includes(m)));
+                              const count = isAll ? allMembers2.length : a.activityMembers!.length;
                               const hasCustomSplit = a.splitMode === "ratio" || a.splitMode === "amount";
                               if (isAll && allMembers2.length === 0) return null;
                               return (
-                                <div className="mt-0.5 space-y-0.5">
-                                  <div className="flex flex-wrap items-center gap-1">
-                                    {a.paidBy && (
-                                      <>
-                                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
-                                        <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
-                                      </>
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-1">
+                                      {a.paidBy && (
+                                        <>
+                                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
+                                          <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
+                                        </>
+                                      )}
+                                      {isAll ? (
+                                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
+                                      ) : (
+                                        a.activityMembers!.map((m) => (
+                                          <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                                            {m}
+                                          </span>
+                                        ))
+                                      )}
+                                    </div>
+                                    {!hasCustomSplit && a.costType === "per_person" && (
+                                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                                        ¥{(a.cost ?? 0).toLocaleString()} × {count || participants}人
+                                      </span>
                                     )}
-                                    {isAll ? (
-                                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
-                                    ) : (
-                                      a.activityMembers!.map((m) => (
-                                        <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                          {m}
-                                        </span>
-                                      ))
+                                    {hasCustomSplit && (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleSplitDetail(activityId(a))}
+                                        className="shrink-0 text-[10px] font-semibold text-indigo-400 hover:text-indigo-500 dark:text-indigo-500 dark:hover:text-indigo-400"
+                                      >
+                                        {expandedSplitIds.has(activityId(a)) ? "詳細を閉じる" : "詳細を表示"}
+                                      </button>
                                     )}
                                   </div>
-                                  {hasCustomSplit && (
+                                  {hasCustomSplit && expandedSplitIds.has(activityId(a)) && (
                                     <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
                                       {(isAll ? allMembers2 : a.activityMembers!).map((m) => `${m} ¥${Math.round(memberShareOfActivity(a, m, allMembers2, activityTotalCost(a))).toLocaleString()}`).join("・")}
                                     </p>
@@ -2265,22 +2301,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 </div>
                               );
                             })()}
-                          </div>
-                          <div className="text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {a.settled && (
-                                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
-                              )}
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                                ¥{activityTotalCost(a).toLocaleString()}
-                              </p>
-                            </div>
-                            {a.costType === "per_person" && (
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                                ¥{(a.cost ?? 0).toLocaleString()} ×{" "}
-                                {`${a.activityMembers?.length || participants}人`}
-                              </p>
-                            )}
                           </div>
                         </li>
                       ))}
