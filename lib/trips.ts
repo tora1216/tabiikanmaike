@@ -1,3 +1,10 @@
+export type SubActivity = {
+  id: string;
+  icon?: string;
+  label: string;
+  memo?: string;
+};
+
 export type TripActivity = {
   id?: string;
   day: number;
@@ -16,6 +23,7 @@ export type TripActivity = {
   splitRatios?: Record<string, number>;     // splitMode: "ratio" 用（メンバー→比率）
   splitAmounts?: Record<string, number>;    // splitMode: "amount" 用（メンバー→金額）
   settled?: boolean;          // true = this expense is already settled, exclude from settlement calc
+  subItems?: SubActivity[];   // このカードの中に入れ子にした小さな予定（例: 明洞の中のお昼ご飯・ショッピング）
 };
 
 export type PackingItem = {

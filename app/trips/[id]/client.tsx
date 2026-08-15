@@ -7,7 +7,7 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
 import { useAuth } from "@/components/auth-context";
-import { TripActivity, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
+import { TripActivity, SubActivity, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
 import { PlaceCategory, DEFAULT_PLACE_CATEGORIES, loadPlaceCategories } from "@/lib/categories";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
 import {
@@ -154,6 +154,9 @@ function ActivityCard({
   overlay = false,
   dragHandle,
   allMembers,
+  onAddSub,
+  onEditSub,
+  onDeleteSub,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
@@ -162,8 +165,12 @@ function ActivityCard({
   overlay?: boolean;
   dragHandle?: React.ReactNode;
   allMembers?: string[];
+  onAddSub?: () => void;
+  onEditSub?: (sub: SubActivity) => void;
+  onDeleteSub?: (sub: SubActivity) => void;
 }) {
   const isTransport = activity.type === "transport";
+  const hasSubItems = !!activity.subItems?.length;
 
   return (
     <div
@@ -174,8 +181,18 @@ function ActivityCard({
       }`}
     >
       {/* Action buttons - absolute top-right */}
-      {!overlay && !dragHandle && (onEdit || onDelete) && (
+      {!overlay && !dragHandle && (onEdit || onDelete || onAddSub) && (
         <div className="absolute right-2 top-2 flex items-center gap-1">
+          {onAddSub && (
+            <button
+              type="button"
+              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-indigo-50 hover:text-indigo-500"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAddSub(); }}
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
           {(() => {
             const mapsQuery = activity.type === "transport"
               ? activity.to
@@ -225,13 +242,13 @@ function ActivityCard({
         {/* Content */}
         <div className="min-w-0 flex-1">
           {isTransport && activity.from && activity.to ? (
-            <div className={`flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-20" : ""}`}>
+            <div className={`flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-24" : ""}`}>
               <span>{activity.from}</span>
               <span className="text-slate-300 dark:text-slate-600">→</span>
               <span>{activity.to}</span>
             </div>
           ) : (
-            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-20" : ""}`}>{activity.destination}</p>
+            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-24" : ""}`}>{activity.destination}</p>
           )}
           {activity.time && (
             <p className="mt-0.5 text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
@@ -268,6 +285,58 @@ function ActivityCard({
               </div>
             );
           })()}
+
+          {/* Sub items (nested plans, e.g. lunch / shopping within a bigger stop) */}
+          {hasSubItems && (
+            <div className="mt-2 space-y-1.5 border-t border-slate-100 pt-2 dark:border-slate-700">
+              {activity.subItems?.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-700/50"
+                >
+                  <span className="text-sm">{sub.icon || "📍"}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">{sub.label}</p>
+                    {sub.memo && (
+                      <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{sub.memo}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {onMapsClick && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onMapsClick(`https://www.google.com/maps/search/${encodeURIComponent(sub.label)}`); }}
+                        className="rounded-full p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
+                      >
+                        <MapPinIcon className="h-3 w-3" />
+                      </button>
+                    )}
+                    {onEditSub && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onEditSub(sub); }}
+                        className="rounded-full p-1 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-500"
+                      >
+                        <PencilIcon className="h-3 w-3" />
+                      </button>
+                    )}
+                    {onDeleteSub && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); onDeleteSub(sub); }}
+                        className="rounded-full p-1 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                      >
+                        <TrashIcon className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Drag handle */}
@@ -286,6 +355,9 @@ function SortableItem({
   onMapsClick,
   isEditMode,
   allMembers,
+  onAddSub,
+  onEditSub,
+  onDeleteSub,
 }: {
   activity: TripActivity;
   onEdit: () => void;
@@ -293,6 +365,9 @@ function SortableItem({
   onMapsClick: (url: string) => void;
   isEditMode: boolean;
   allMembers?: string[];
+  onAddSub: () => void;
+  onEditSub: (sub: SubActivity) => void;
+  onDeleteSub: (sub: SubActivity) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
@@ -359,6 +434,9 @@ function SortableItem({
         onMapsClick={isEditMode ? undefined : onMapsClick}
         dragHandle={dragHandleNode}
         allMembers={allMembers}
+        onAddSub={isEditMode ? undefined : onAddSub}
+        onEditSub={isEditMode ? undefined : onEditSub}
+        onDeleteSub={isEditMode ? undefined : onDeleteSub}
       />
     </li>
   );
@@ -1052,6 +1130,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [addSiteFor, setAddSiteFor] = useState<string | null>(null);
   const [siteInput, setSiteInput] = useState({ site: "じゃらん", price: 0, memo: "" });
 
+  // Sub item (nested plan) modal state
+  const [subParentActivity, setSubParentActivity] = useState<TripActivity | null>(null);
+  const [editingSub, setEditingSub] = useState<SubActivity | null>(null);
+  const [subIcon, setSubIcon] = useState(DEFAULT_PLACE_CATEGORIES[0].icon);
+  const [subLabel, setSubLabel] = useState("");
+  const [subMemo, setSubMemo] = useState("");
+  const [subFormError, setSubFormError] = useState("");
+
   // DnD state
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
 
@@ -1325,6 +1411,53 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     resetForm();
   }
 
+  function openAddSub(activity: TripActivity) {
+    setSubParentActivity(activity);
+    setEditingSub(null);
+    setSubIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
+    setSubLabel("");
+    setSubMemo("");
+    setSubFormError("");
+  }
+
+  function openEditSub(activity: TripActivity, sub: SubActivity) {
+    setSubParentActivity(activity);
+    setEditingSub(sub);
+    setSubIcon(sub.icon || placeCategories[0]?.icon || DEFAULT_PLACE_CATEGORIES[0].icon);
+    setSubLabel(sub.label);
+    setSubMemo(sub.memo || "");
+    setSubFormError("");
+  }
+
+  function saveSub() {
+    if (!subLabel.trim()) { setSubFormError("名前を入力してください。"); return; }
+    if (!subParentActivity) return;
+    updateTrip(tripData.id, (current) => ({
+      ...current,
+      days: current.days.map((d) => {
+        if (d !== subParentActivity) return d;
+        const existing = d.subItems ?? [];
+        const subItems = editingSub
+          ? existing.map((s) => s.id === editingSub.id
+              ? { ...s, icon: subIcon, label: subLabel.trim(), memo: subMemo.trim() || undefined }
+              : s)
+          : [...existing, { id: genId(), icon: subIcon, label: subLabel.trim(), memo: subMemo.trim() || undefined }];
+        return { ...d, subItems };
+      }),
+    }));
+    setSubParentActivity(null);
+    setEditingSub(null);
+  }
+
+  function deleteSub(activity: TripActivity, sub: SubActivity) {
+    updateTrip(tripData.id, (current) => ({
+      ...current,
+      days: current.days.map((d) =>
+        d !== activity ? d : { ...d, subItems: (d.subItems ?? []).filter((s) => s.id !== sub.id) }
+      ),
+    }));
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -1525,6 +1658,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 onMapsClick={setMapsUrl}
                                 allMembers={tripData.members}
                                 onDelete={() => setDeleteConfirmActivity(activity)}
+                                onAddSub={() => openAddSub(activity)}
+                                onEditSub={(sub) => openEditSub(activity, sub)}
+                                onDeleteSub={(sub) => setDeleteConfirm(() => () => deleteSub(activity, sub))}
                               />
                             ))}
                           </ul>
@@ -1561,6 +1697,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             onMapsClick={setMapsUrl}
                             allMembers={tripData.members}
                             onDelete={() => setDeleteConfirmActivity(activity)}
+                            onAddSub={() => openAddSub(activity)}
+                            onEditSub={(sub) => openEditSub(activity, sub)}
+                            onDeleteSub={(sub) => setDeleteConfirm(() => () => deleteSub(activity, sub))}
                           />
                         ))}
                       </ul>
@@ -2630,6 +2769,72 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           </div>
         </Modal>
       )}
+
+      {/* Sub Item (nested plan) Modal */}
+      {subParentActivity && (
+        <Modal
+          title={editingSub ? "予定を編集" : `${subParentActivity.destination} に予定を追加`}
+          onClose={() => { setSubParentActivity(null); setEditingSub(null); }}
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-4 gap-2">
+              {placeCategories.map(({ icon, label }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setSubIcon(icon)}
+                  className={`flex flex-col items-center gap-1 rounded-xl py-2 text-sm transition-all ${
+                    subIcon === icon
+                      ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500 ring-2 ring-indigo-500"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  <span className="text-2xl">{icon}</span>
+                  <span className="text-[11px] font-semibold">{label}</span>
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">名前</label>
+              <input
+                className={inputCls}
+                value={subLabel}
+                onChange={(e) => { setSubLabel(e.target.value); setSubFormError(""); }}
+                placeholder="ランチ"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+              <textarea
+                className={`${inputCls} min-h-[72px] resize-none`}
+                value={subMemo}
+                onChange={(e) => setSubMemo(e.target.value)}
+                placeholder="営業時間やおすすめメニューなど"
+              />
+            </div>
+            {subFormError && (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-500">{subFormError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-full bg-[#22C55E] py-2.5 text-sm font-semibold text-white transition hover:bg-green-400"
+                onClick={saveSub}
+              >
+                {editingSub ? "保存" : "追加"}
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                onClick={() => { setSubParentActivity(null); setEditingSub(null); }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Delete Confirm Dialog */}
       {deleteConfirmActivity && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={() => setDeleteConfirmActivity(null)}>
