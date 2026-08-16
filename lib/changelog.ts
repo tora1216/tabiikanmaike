@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.11.0";
+export const APP_VERSION = "1.11.2";
 
 export type ChangelogEntry = {
   version: string;
@@ -15,6 +15,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       "アクティビティ内にサブ予定を追加できるように",
       "サブ予定はカテゴリアイコン・名前・メモを設定可能",
+      "サブ予定にもメイン予定と同様に費用を追加できるように",
+      "予定・サブ予定のメモの下にURLを入力できるように",
     ],
   },
   {

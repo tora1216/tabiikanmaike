@@ -1,11 +1,23 @@
-export type SubActivity = {
+export type CostFields = {
+  cost?: number;
+  costType?: "per_person" | "total";
+  activityMembers?: string[]; // subset of trip members this cost applies to
+  paidBy?: string;            // who paid for this
+  splitMode?: "equal" | "ratio" | "amount"; // 割り勘方法（既定は equal = 均等割り）
+  splitRatios?: Record<string, number>;     // splitMode: "ratio" 用（メンバー→比率）
+  splitAmounts?: Record<string, number>;    // splitMode: "amount" 用（メンバー→金額）
+  settled?: boolean;          // true = this expense is already settled, exclude from settlement calc
+};
+
+export type SubActivity = CostFields & {
   id: string;
   icon?: string;
   label: string;
   memo?: string;
+  url?: string; // 公式サイト・予約ページなどへのリンク
 };
 
-export type TripActivity = {
+export type TripActivity = CostFields & {
   id?: string;
   day: number;
   time: string;
@@ -15,14 +27,7 @@ export type TripActivity = {
   from?: string; // transport: departure
   to?: string;   // transport: arrival
   memo?: string;
-  cost?: number;
-  costType?: "per_person" | "total";
-  activityMembers?: string[]; // subset of trip members this cost applies to
-  paidBy?: string;            // who paid for this activity
-  splitMode?: "equal" | "ratio" | "amount"; // 割り勘方法（既定は equal = 均等割り）
-  splitRatios?: Record<string, number>;     // splitMode: "ratio" 用（メンバー→比率）
-  splitAmounts?: Record<string, number>;    // splitMode: "amount" 用（メンバー→金額）
-  settled?: boolean;          // true = this expense is already settled, exclude from settlement calc
+  url?: string; // 公式サイト・予約ページなどへのリンク
   subItems?: SubActivity[];   // このカードの中に入れ子にした小さな予定（例: 明洞の中のお昼ご飯・ショッピング）
 };
 

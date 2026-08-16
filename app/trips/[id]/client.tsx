@@ -7,7 +7,7 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
 import { useAuth } from "@/components/auth-context";
-import { TripActivity, SubActivity, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
+import { TripActivity, SubActivity, CostFields, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
 import { PlaceCategory, DEFAULT_PLACE_CATEGORIES, loadPlaceCategories } from "@/lib/categories";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
 import {
@@ -104,8 +104,8 @@ function activityId(a: TripActivity) {
   return a.id ?? (a.time + a.destination);
 }
 
-// アクティビティの費用（activityTotal）を割り勘方法に応じてメンバーごとの負担額に分配する
-function memberShareOfActivity(a: TripActivity, member: string, members: string[], activityTotal: number): number {
+// アクティビティ（またはサブ予定）の費用（activityTotal）を割り勘方法に応じてメンバーごとの負担額に分配する
+function memberShareOfActivity(a: CostFields, member: string, members: string[], activityTotal: number): number {
   const effectiveMembers = a.activityMembers?.length ? a.activityMembers : members;
   if (!effectiveMembers.includes(member)) return 0;
   if (a.splitMode === "amount" && a.splitAmounts) {
@@ -140,6 +140,103 @@ function DroppableArea({ id, children }: { id: string; children: React.ReactNode
     >
       {children}
     </div>
+  );
+}
+
+// ─── ExpenseItemRow ───────────────────────────────────────────────────────────
+// 費用タブの1行表示。メイン予定・サブ予定どちらの費用エントリも同じ見た目で表示する
+
+function ExpenseItemRow({
+  icon,
+  label,
+  parentLabel,
+  data,
+  total,
+  allMembers,
+  participants,
+  expanded,
+  onToggleExpand,
+}: {
+  icon: string;
+  label: string;
+  parentLabel?: string;
+  data: CostFields;
+  total: number;
+  allMembers: string[];
+  participants: number;
+  expanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  const isAll = !data.activityMembers?.length ||
+    (allMembers.length > 0 && data.activityMembers!.length === allMembers.length && data.activityMembers!.every((m) => allMembers.includes(m)));
+  const count = isAll ? allMembers.length : data.activityMembers!.length;
+  const hasCustomSplit = data.splitMode === "ratio" || data.splitMode === "amount";
+  const showMeta = !!data.paidBy || allMembers.length > 0;
+  return (
+    <li className="flex items-start gap-3 py-2.5">
+      <span className="mt-0.5 text-lg">{icon}</span>
+      <div className="flex flex-1 flex-col gap-0.5 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-sm text-slate-700 dark:text-slate-300">
+            {parentLabel && <span className="mr-1 text-[10px] font-normal text-slate-400 dark:text-slate-500">{parentLabel} ›</span>}
+            {label}
+          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {data.settled && (
+              <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
+            )}
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">¥{total.toLocaleString()}</span>
+          </div>
+        </div>
+        {showMeta && (
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1">
+                {data.paidBy && (
+                  <>
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{data.paidBy}</span>
+                    <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
+                  </>
+                )}
+                {isAll ? (
+                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
+                ) : (
+                  data.activityMembers!.map((m) => (
+                    <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
+                      {m}
+                    </span>
+                  ))
+                )}
+              </div>
+              {!hasCustomSplit && data.costType === "per_person" && (
+                <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                  ¥{(data.cost ?? 0).toLocaleString()} × {count || participants}人
+                </span>
+              )}
+              {!hasCustomSplit && data.costType === "total" && (count || participants) > 0 && (
+                <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
+                  ¥{Math.round((data.cost ?? 0) / (count || participants)).toLocaleString()}<span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
+                </span>
+              )}
+              {hasCustomSplit && (
+                <button
+                  type="button"
+                  onClick={onToggleExpand}
+                  className="shrink-0 text-[10px] font-semibold text-indigo-400 hover:text-indigo-500 dark:text-indigo-500 dark:hover:text-indigo-400"
+                >
+                  {expanded ? "詳細を閉じる" : "詳細を表示"}
+                </button>
+              )}
+            </div>
+            {hasCustomSplit && expanded && (
+              <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
+                {(isAll ? allMembers : data.activityMembers!).map((m) => `${m} ¥${Math.round(memberShareOfActivity(data, m, allMembers, total)).toLocaleString()}`).join("・")}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -256,6 +353,19 @@ function ActivityCard({
           {activity.memo && (
             <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-500 dark:text-slate-400">{activity.memo}</p>
           )}
+          {activity.url && (
+            <a
+              href={activity.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-1 flex items-center gap-1 text-xs font-semibold text-indigo-500 hover:text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+            >
+              <ArrowTopRightOnSquareIcon className="h-3 w-3 shrink-0" />
+              <span className="truncate">{activity.url}</span>
+            </a>
+          )}
           {(() => {
             const hasCost = activity.cost !== undefined && activity.cost > 0;
             const partialMembers = (() => {
@@ -299,6 +409,27 @@ function ActivityCard({
                     <p className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">{sub.label}</p>
                     {sub.memo && (
                       <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{sub.memo}</p>
+                    )}
+                    {sub.url && (
+                      <a
+                        href={sub.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500 hover:text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                      >
+                        <ArrowTopRightOnSquareIcon className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{sub.url}</span>
+                      </a>
+                    )}
+                    {sub.cost !== undefined && sub.cost > 0 && (
+                      <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+                        ¥{sub.cost.toLocaleString()}
+                        {sub.costType === "per_person" && (
+                          <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
+                        )}
+                      </p>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-0.5">
@@ -492,6 +623,7 @@ type ActivityFormProps = {
   startTime: string; setStartTime: (v: string) => void;
   endTime: string; setEndTime: (v: string) => void;
   memo: string; setMemo: (v: string) => void;
+  url: string; setUrl: (v: string) => void;
   cost: number; setCost: (v: number) => void;
   costType: "per_person" | "total"; setCostType: (v: "per_person" | "total") => void;
   activityMembers: string[]; setActivityMembers: (v: string[]) => void;
@@ -507,6 +639,288 @@ type ActivityFormProps = {
   addReturnTrip?: boolean; setAddReturnTrip?: (v: boolean) => void;
 };
 
+// 1行分の高さから始まり、改行や折り返しに合わせて自動で伸びるメモ入力欄
+function AutoGrowTextarea({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      className={className}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={1}
+    />
+  );
+}
+
+type CostSectionProps = {
+  cost: number; setCost: (v: number) => void;
+  costType: "per_person" | "total"; setCostType: (v: "per_person" | "total") => void;
+  activityMembers: string[]; setActivityMembers: (v: string[]) => void;
+  splitMode: "equal" | "ratio" | "amount"; setSplitMode: (v: "equal" | "ratio" | "amount") => void;
+  splitRatios: Record<string, number>; setSplitRatios: (v: Record<string, number>) => void;
+  splitAmounts: Record<string, number>; setSplitAmounts: (v: Record<string, number>) => void;
+  paidBy: string; setPaidBy: (v: string) => void;
+  settled: boolean; setSettled: (v: boolean) => void;
+  allMembers: string[];
+};
+
+// 参加メンバー・費用・支払った人・割り勘方法 ── メイン予定・サブ予定の両方のフォームで使う共通ブロック
+function CostSection({
+  cost, setCost,
+  costType, setCostType,
+  activityMembers, setActivityMembers,
+  splitMode, setSplitMode,
+  splitRatios, setSplitRatios,
+  splitAmounts, setSplitAmounts,
+  paidBy, setPaidBy,
+  settled, setSettled,
+  allMembers,
+}: CostSectionProps) {
+  return (
+    <>
+      {/* 参加メンバー */}
+      {allMembers.length > 0 && (
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+            参加メンバー
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {allMembers.map((m) => {
+              const isAll = activityMembers.length === 0;
+              const selected = isAll || activityMembers.includes(m);
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    if (isAll) {
+                      setActivityMembers(allMembers.filter((x) => x !== m));
+                    } else {
+                      const next = selected
+                        ? activityMembers.filter((x) => x !== m)
+                        : [...activityMembers, m];
+                      setActivityMembers(next.length === allMembers.length ? [] : next);
+                    }
+                  }}
+                  className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
+                    selected
+                      ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
+                      : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                  }`}
+                >
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 費用 */}
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+          <div className="flex items-center gap-2">
+            <label className="flex cursor-pointer items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+              <input
+                type="checkbox"
+                checked={settled}
+                onChange={(e) => setSettled(e.target.checked)}
+                className="h-3.5 w-3.5 accent-green-500"
+              />
+              精算済
+            </label>
+            <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+              {(["total", "per_person"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setCostType(t)}
+                  className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+                    costType === t
+                      ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+                      : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+                  }`}
+                >
+                  {t === "per_person" ? "1人分" : "全員分"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <input
+          type="number"
+          className={inputCls}
+          value={cost || ""}
+          onChange={(e) => setCost(parseInt(e.target.value) || 0)}
+          placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
+          min={0}
+        />
+      </div>
+
+      {/* 支払った人 */}
+      {allMembers.length > 0 && (
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+            支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
+          </label>
+          <div className="flex flex-wrap gap-1.5">
+            {allMembers.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setPaidBy(paidBy === m ? "" : m)}
+                className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
+                  paidBy === m
+                    ? "border-emerald-400 bg-emerald-50 text-emerald-600 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
+                    : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 割り勘方法（支払った人を選んでから設定する） */}
+      {(() => {
+        const effectiveMembers = activityMembers.length ? activityMembers : allMembers;
+        if (effectiveMembers.length < 2 || !paidBy) return null;
+        const ratioSum = effectiveMembers.reduce((s, m) => s + (splitRatios[m] ?? 1), 0);
+        const allZeroRatio = ratioSum <= 0;
+        const ratioFor = (m: string) => (allZeroRatio ? 1 : (splitRatios[m] ?? 1));
+        const totalRatio = allZeroRatio ? effectiveMembers.length : ratioSum;
+        return (
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">割り勘方法</label>
+              <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+                {(["equal", "ratio", "amount"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setSplitMode(mode);
+                      if (mode === "equal") {
+                        setSplitRatios({});
+                        setSplitAmounts({});
+                        return;
+                      }
+                      setCostType("total");
+                      if (mode === "ratio" && Object.keys(splitRatios).length === 0) {
+                        const init: Record<string, number> = {};
+                        effectiveMembers.forEach((m) => (init[m] = 1));
+                        setSplitRatios(init);
+                      }
+                      if (mode === "amount" && Object.keys(splitAmounts).length === 0) {
+                        // 端数（割り切れない分）を最初のメンバーから順に1円ずつ割り当て、合計が必ず費用と一致するようにする
+                        const base = cost > 0 ? Math.floor(cost / effectiveMembers.length) : 0;
+                        const remainder = cost > 0 ? cost - base * effectiveMembers.length : 0;
+                        const init: Record<string, number> = {};
+                        effectiveMembers.forEach((m, i) => (init[m] = base + (i < remainder ? 1 : 0)));
+                        setSplitAmounts(init);
+                      }
+                    }}
+                    className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+                      splitMode === mode
+                        ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+                        : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+                    }`}
+                  >
+                    {mode === "equal" ? "均等" : mode === "ratio" ? "比率" : "金額"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {splitMode === "equal" && (
+              <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
+                {effectiveMembers.map((m) => (
+                  <div key={m} className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      ¥{Math.round(costType === "per_person" ? cost : cost / effectiveMembers.length).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {splitMode === "ratio" && (
+              <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
+                {effectiveMembers.map((m) => (
+                  <div key={m} className="flex items-center gap-2">
+                    <span className="flex-1 truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={splitRatios[m] ?? 1}
+                      onChange={(e) => setSplitRatios({ ...splitRatios, [m]: parseInt(e.target.value) || 0 })}
+                      className="w-20 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-sm outline-none ring-green-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                    />
+                  </div>
+                ))}
+                <p className="text-right text-[11px] text-slate-400">
+                  {allZeroRatio
+                    ? "比率がすべて0のため均等に分配されます"
+                    : effectiveMembers.map((m) => `${m} ¥${Math.round(cost * ratioFor(m) / totalRatio).toLocaleString()}`).join(" / ")}
+                </p>
+              </div>
+            )}
+            {splitMode === "amount" && (() => {
+              const amountSum = effectiveMembers.reduce((s, m) => s + (splitAmounts[m] ?? 0), 0);
+              const mismatch = amountSum !== cost;
+              return (
+                <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
+                  {effectiveMembers.map((m) => (
+                    <div key={m} className="flex items-center gap-2">
+                      <span className="flex-1 truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={splitAmounts[m] ?? 0}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value) || 0;
+                          setSplitAmounts({ ...splitAmounts, [m]: v });
+                        }}
+                        className="w-24 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-sm outline-none ring-green-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                      />
+                    </div>
+                  ))}
+                  {mismatch ? (
+                    <p className="text-right text-[11px] font-semibold text-red-500">
+                      合計が費用と一致していません
+                    </p>
+                  ) : (
+                    <p className="text-right text-[11px] text-slate-400">合計 ¥{amountSum.toLocaleString()}</p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
+    </>
+  );
+}
+
 function ActivityForm({
   activityType, setActivityType,
   dayIcon, setDayIcon,
@@ -516,6 +930,7 @@ function ActivityForm({
   startTime, setStartTime,
   endTime, setEndTime,
   memo, setMemo,
+  url, setUrl,
   cost, setCost,
   costType, setCostType,
   activityMembers, setActivityMembers,
@@ -535,7 +950,7 @@ function ActivityForm({
   const suffix = activityType === "transport" ? (transport?.suffix ?? "") : "";
   const fromPh = transport?.fromPh ?? "出発地";
   const toPh = transport?.toPh ?? "目的地";
-  const hasOptionalValues = !!(memo || cost || activityMembers.length || paidBy);
+  const hasOptionalValues = !!(memo || url || cost || activityMembers.length || paidBy);
   const [showOptional, setShowOptional] = useState(hasOptionalValues);
 
   return (
@@ -729,237 +1144,38 @@ function ActivityForm({
 
         {showOptional && (
           <div className="space-y-4 border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
-            {/* 参加メンバー */}
-            {allMembers.length > 0 && (
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  参加メンバー
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {allMembers.map((m) => {
-                    const isAll = activityMembers.length === 0;
-                    const selected = isAll || activityMembers.includes(m);
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => {
-                          if (isAll) {
-                            setActivityMembers(allMembers.filter((x) => x !== m));
-                          } else {
-                            const next = selected
-                              ? activityMembers.filter((x) => x !== m)
-                              : [...activityMembers, m];
-                            setActivityMembers(next.length === allMembers.length ? [] : next);
-                          }
-                        }}
-                        className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
-                          selected
-                            ? "border-indigo-400 bg-indigo-50 text-indigo-600 dark:border-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-300"
-                            : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                        }`}
-                      >
-                        {m}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* 費用 */}
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">費用 (円)<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-                <div className="flex items-center gap-2">
-                  <label className="flex cursor-pointer items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                    <input
-                      type="checkbox"
-                      checked={settled}
-                      onChange={(e) => setSettled(e.target.checked)}
-                      className="h-3.5 w-3.5 accent-green-500"
-                    />
-                    精算済
-                  </label>
-                  <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
-                    {(["total", "per_person"] as const).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setCostType(t)}
-                        className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
-                          costType === t
-                            ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
-                            : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
-                        }`}
-                      >
-                        {t === "per_person" ? "1人分" : "全員分"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <input
-                type="number"
-                className={inputCls}
-                value={cost || ""}
-                onChange={(e) => setCost(parseInt(e.target.value) || 0)}
-                placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
-                min={0}
-              />
-            </div>
-
-            {/* 支払った人 */}
-            {allMembers.length > 0 && (
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  支払った人<span className="ml-1 font-normal text-slate-400">（任意）</span>
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {allMembers.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setPaidBy(paidBy === m ? "" : m)}
-                      className={`rounded-full border px-3 py-0.5 text-xs font-semibold transition-all ${
-                        paidBy === m
-                          ? "border-emerald-400 bg-emerald-50 text-emerald-600 dark:border-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300"
-                          : "border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 割り勘方法（支払った人を選んでから設定する） */}
-            {(() => {
-              const effectiveMembers = activityMembers.length ? activityMembers : allMembers;
-              if (effectiveMembers.length < 2 || !paidBy) return null;
-              const ratioSum = effectiveMembers.reduce((s, m) => s + (splitRatios[m] ?? 1), 0);
-              const allZeroRatio = ratioSum <= 0;
-              const ratioFor = (m: string) => (allZeroRatio ? 1 : (splitRatios[m] ?? 1));
-              const totalRatio = allZeroRatio ? effectiveMembers.length : ratioSum;
-              return (
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">割り勘方法</label>
-                    <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
-                      {(["equal", "ratio", "amount"] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => {
-                            setSplitMode(mode);
-                            if (mode === "equal") {
-                              setSplitRatios({});
-                              setSplitAmounts({});
-                              return;
-                            }
-                            setCostType("total");
-                            if (mode === "ratio" && Object.keys(splitRatios).length === 0) {
-                              const init: Record<string, number> = {};
-                              effectiveMembers.forEach((m) => (init[m] = 1));
-                              setSplitRatios(init);
-                            }
-                            if (mode === "amount" && Object.keys(splitAmounts).length === 0) {
-                              // 端数（割り切れない分）を最初のメンバーから順に1円ずつ割り当て、合計が必ず費用と一致するようにする
-                              const base = cost > 0 ? Math.floor(cost / effectiveMembers.length) : 0;
-                              const remainder = cost > 0 ? cost - base * effectiveMembers.length : 0;
-                              const init: Record<string, number> = {};
-                              effectiveMembers.forEach((m, i) => (init[m] = base + (i < remainder ? 1 : 0)));
-                              setSplitAmounts(init);
-                            }
-                          }}
-                          className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
-                            splitMode === mode
-                              ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
-                              : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
-                          }`}
-                        >
-                          {mode === "equal" ? "均等" : mode === "ratio" ? "比率" : "金額"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {splitMode === "equal" && (
-                    <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
-                      {effectiveMembers.map((m) => (
-                        <div key={m} className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
-                          <span className="text-sm text-slate-500 dark:text-slate-400">
-                            ¥{Math.round(costType === "per_person" ? cost : cost / effectiveMembers.length).toLocaleString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {splitMode === "ratio" && (
-                    <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
-                      {effectiveMembers.map((m) => (
-                        <div key={m} className="flex items-center gap-2">
-                          <span className="flex-1 truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={splitRatios[m] ?? 1}
-                            onChange={(e) => setSplitRatios({ ...splitRatios, [m]: parseInt(e.target.value) || 0 })}
-                            className="w-20 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-sm outline-none ring-green-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                          />
-                        </div>
-                      ))}
-                      <p className="text-right text-[11px] text-slate-400">
-                        {allZeroRatio
-                          ? "比率がすべて0のため均等に分配されます"
-                          : effectiveMembers.map((m) => `${m} ¥${Math.round(cost * ratioFor(m) / totalRatio).toLocaleString()}`).join(" / ")}
-                      </p>
-                    </div>
-                  )}
-                  {splitMode === "amount" && (() => {
-                    const amountSum = effectiveMembers.reduce((s, m) => s + (splitAmounts[m] ?? 0), 0);
-                    const mismatch = amountSum !== cost;
-                    return (
-                      <div className="space-y-1.5 rounded-lg bg-slate-50 p-2.5 dark:bg-slate-700/50">
-                        {effectiveMembers.map((m) => (
-                          <div key={m} className="flex items-center gap-2">
-                            <span className="flex-1 truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{m}</span>
-                            <input
-                              type="number"
-                              min={0}
-                              value={splitAmounts[m] ?? 0}
-                              onChange={(e) => {
-                                const v = parseInt(e.target.value) || 0;
-                                setSplitAmounts({ ...splitAmounts, [m]: v });
-                              }}
-                              className="w-24 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right text-sm outline-none ring-green-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                            />
-                          </div>
-                        ))}
-                        {mismatch ? (
-                          <p className="text-right text-[11px] font-semibold text-red-500">
-                            合計が費用と一致していません
-                          </p>
-                        ) : (
-                          <p className="text-right text-[11px] text-slate-400">合計 ¥{amountSum.toLocaleString()}</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })()}
+            <CostSection
+              cost={cost} setCost={setCost}
+              costType={costType} setCostType={setCostType}
+              activityMembers={activityMembers} setActivityMembers={setActivityMembers}
+              splitMode={splitMode} setSplitMode={setSplitMode}
+              splitRatios={splitRatios} setSplitRatios={setSplitRatios}
+              splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
+              paidBy={paidBy} setPaidBy={setPaidBy}
+              settled={settled} setSettled={setSettled}
+              allMembers={allMembers}
+            />
 
             {/* メモ */}
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-              <textarea
-                className={`${inputCls} resize-none`}
+              <AutoGrowTextarea
+                className={`${inputCls} resize-none overflow-hidden`}
                 value={memo}
-                onChange={(e) => setMemo(e.target.value)}
+                onChange={setMemo}
                 placeholder="例）朝早めに出発して混雑を避ける"
-                rows={2}
+              />
+            </div>
+
+            {/* URL */}
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">URL<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+              <input
+                type="url"
+                className={inputCls}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="例）https://www.example.com"
               />
             </div>
           </div>
@@ -1103,6 +1319,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [fromPlace, setFromPlace] = useState("");
   const [toPlace, setToPlace] = useState("");
   const [memo, setMemo] = useState("");
+  const [url, setUrl] = useState("");
   const [cost, setCost] = useState(0);
   const [costType, setCostType] = useState<"per_person" | "total">("total");
   const [activityMembers, setActivityMembers] = useState<string[]>([]);
@@ -1136,7 +1353,17 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [subIcon, setSubIcon] = useState(DEFAULT_PLACE_CATEGORIES[0].icon);
   const [subLabel, setSubLabel] = useState("");
   const [subMemo, setSubMemo] = useState("");
+  const [subUrl, setSubUrl] = useState("");
+  const [subCost, setSubCost] = useState(0);
+  const [subCostType, setSubCostType] = useState<"per_person" | "total">("total");
+  const [subActivityMembers, setSubActivityMembers] = useState<string[]>([]);
+  const [subSplitMode, setSubSplitMode] = useState<"equal" | "ratio" | "amount">("equal");
+  const [subSplitRatios, setSubSplitRatios] = useState<Record<string, number>>({});
+  const [subSplitAmounts, setSubSplitAmounts] = useState<Record<string, number>>({});
+  const [subPaidBy, setSubPaidBy] = useState("");
+  const [subSettled, setSubSettled] = useState(false);
   const [subFormError, setSubFormError] = useState("");
+  const [subShowOptional, setSubShowOptional] = useState(false);
 
   // DnD state
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
@@ -1152,7 +1379,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setCost(0); setCostType("total"); setActivityMembers([]); setSplitMode("equal"); setSplitRatios({}); setSplitAmounts({}); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
+    setMemo(""); setUrl(""); setCost(0); setCostType("total"); setActivityMembers([]); setSplitMode("equal"); setSplitRatios({}); setSplitAmounts({}); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -1215,7 +1442,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const allDayNumbers = Array.from({ length: tripDayCount }, (_, i) => i + 1);
   const bannerColor = tripData.color ?? "#6366F1";
   const participants = tripData.members?.length || tripData.participants || 2;
-  const activityTotalCost = (a: TripActivity) => {
+  const activityTotalCost = (a: CostFields) => {
     if (!a.cost || a.cost <= 0) return 0;
     if (a.costType === "per_person") {
       const count = a.activityMembers?.length || participants;
@@ -1223,7 +1450,34 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     }
     return a.cost;
   };
-  const totalCost = tripData.days.reduce((s, a) => s + activityTotalCost(a), 0);
+  const subItemsTotalCost = (a: TripActivity) => (a.subItems ?? []).reduce((s, sub) => s + activityTotalCost(sub), 0);
+  // 費用タブ・合計金額に使う、メイン予定＋サブ予定の費用をフラットにした一覧
+  const costItems: { key: string; day: number; icon: string; label: string; parentLabel?: string; data: CostFields }[] = tripData.days.flatMap((a) => {
+    const items: { key: string; day: number; icon: string; label: string; parentLabel?: string; data: CostFields }[] = [];
+    if (a.cost && a.cost > 0) {
+      items.push({
+        key: activityId(a),
+        day: a.day,
+        icon: a.icon,
+        label: a.type === "transport" && a.from && a.to ? `${a.from} → ${a.to}` : a.destination,
+        data: a,
+      });
+    }
+    (a.subItems ?? []).forEach((sub) => {
+      if (sub.cost && sub.cost > 0) {
+        items.push({
+          key: `${activityId(a)}::${sub.id}`,
+          day: a.day,
+          icon: sub.icon || "📍",
+          label: sub.label,
+          parentLabel: a.destination,
+          data: sub,
+        });
+      }
+    });
+    return items;
+  });
+  const totalCost = costItems.reduce((s, c) => s + activityTotalCost(c.data), 0);
 
   // Countdown
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1303,6 +1557,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setFromPlace(activity.from || "");
     setToPlace(activity.to || "");
     setMemo(activity.memo || "");
+    setUrl(activity.url || "");
     setCost(activity.cost || 0);
     setCostType(activity.costType ?? "total");
     setActivityMembers(activity.activityMembers ?? []);
@@ -1342,6 +1597,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               from: activityType === "transport" ? fromPlace : undefined,
               to: activityType === "transport" ? toPlace : undefined,
               memo: memo || undefined,
+              url: url.trim() || undefined,
               cost: cost > 0 ? cost : undefined,
               costType: cost > 0 ? costType : undefined,
               activityMembers: activityMembers.length > 0 ? activityMembers : undefined,
@@ -1386,6 +1642,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           from: activityType === "transport" ? fromPlace : undefined,
           to: activityType === "transport" ? toPlace : undefined,
           memo: memo || undefined,
+          url: url.trim() || undefined,
           cost: cost > 0 ? cost : undefined,
           costType: cost > 0 ? costType : undefined,
           activityMembers: activityMembers.length > 0 ? activityMembers : undefined,
@@ -1417,7 +1674,17 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSubIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
     setSubLabel("");
     setSubMemo("");
+    setSubUrl("");
+    setSubCost(0);
+    setSubCostType("total");
+    setSubActivityMembers([]);
+    setSubSplitMode("equal");
+    setSubSplitRatios({});
+    setSubSplitAmounts({});
+    setSubPaidBy("");
+    setSubSettled(false);
     setSubFormError("");
+    setSubShowOptional(false);
   }
 
   function openEditSub(activity: TripActivity, sub: SubActivity) {
@@ -1426,22 +1693,52 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSubIcon(sub.icon || placeCategories[0]?.icon || DEFAULT_PLACE_CATEGORIES[0].icon);
     setSubLabel(sub.label);
     setSubMemo(sub.memo || "");
+    setSubUrl(sub.url || "");
+    setSubCost(sub.cost || 0);
+    setSubCostType(sub.costType ?? "total");
+    setSubActivityMembers(sub.activityMembers ?? []);
+    setSubSplitMode(sub.splitMode ?? "equal");
+    setSubSplitRatios(sub.splitRatios ?? {});
+    setSubSplitAmounts(sub.splitAmounts ?? {});
+    setSubPaidBy(sub.paidBy ?? "");
+    setSubSettled(sub.settled ?? false);
     setSubFormError("");
+    setSubShowOptional(!!(sub.memo || sub.url || sub.cost || sub.activityMembers?.length || sub.paidBy));
   }
 
   function saveSub() {
     if (!subLabel.trim()) { setSubFormError("名前を入力してください。"); return; }
     if (!subParentActivity) return;
+    const effectiveMembers = subActivityMembers.length ? subActivityMembers : (tripData.members ?? []);
+    if (subSplitMode === "amount" && effectiveMembers.length > 1 && effectiveMembers.reduce((s, m) => s + (subSplitAmounts[m] ?? 0), 0) !== subCost) {
+      setSubFormError("金額指定の合計が費用と一致していません。"); return;
+    }
+    const useSplit = subCost > 0 && effectiveMembers.length > 1 && subSplitMode !== "equal" && !!subPaidBy;
+    const cleanRatios = Object.fromEntries(Object.entries(subSplitRatios).filter(([k]) => effectiveMembers.includes(k)));
+    const cleanAmounts = Object.fromEntries(Object.entries(subSplitAmounts).filter(([k]) => effectiveMembers.includes(k)));
+    const subData: SubActivity = {
+      id: editingSub?.id ?? genId(),
+      icon: subIcon,
+      label: subLabel.trim(),
+      memo: subMemo.trim() || undefined,
+      url: subUrl.trim() || undefined,
+      cost: subCost > 0 ? subCost : undefined,
+      costType: subCost > 0 ? subCostType : undefined,
+      activityMembers: subActivityMembers.length > 0 ? subActivityMembers : undefined,
+      splitMode: useSplit ? subSplitMode : undefined,
+      splitRatios: useSplit && subSplitMode === "ratio" && Object.keys(cleanRatios).length > 0 ? cleanRatios : undefined,
+      splitAmounts: useSplit && subSplitMode === "amount" && Object.keys(cleanAmounts).length > 0 ? cleanAmounts : undefined,
+      paidBy: subCost > 0 && subPaidBy ? subPaidBy : undefined,
+      settled: subCost > 0 && subSettled ? true : undefined,
+    };
     updateTrip(tripData.id, (current) => ({
       ...current,
       days: current.days.map((d) => {
         if (d !== subParentActivity) return d;
         const existing = d.subItems ?? [];
         const subItems = editingSub
-          ? existing.map((s) => s.id === editingSub.id
-              ? { ...s, icon: subIcon, label: subLabel.trim(), memo: subMemo.trim() || undefined }
-              : s)
-          : [...existing, { id: genId(), icon: subIcon, label: subLabel.trim(), memo: subMemo.trim() || undefined }];
+          ? existing.map((s) => s.id === editingSub.id ? subData : s)
+          : [...existing, subData];
         return { ...d, subItems };
       }),
     }));
@@ -1607,7 +1904,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="space-y-4">
               {allDayNumbers.map((dayNum) => {
                 const dayActivities = tripData.days.filter((d) => d.day === dayNum);
-                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a), 0);
+                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a) + subItemsTotalCost(a), 0);
                 const containerId = `day-${dayNum}`;
 
                 const isCollapsed = collapsedDays.has(dayNum);
@@ -2160,8 +2457,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 const memberSpending: Record<string, number> = {};
                 const memberPaid: Record<string, number> = {};
                 members.forEach((m) => { memberSpending[m] = 0; memberPaid[m] = 0; });
-                tripData.days.forEach((a) => {
-                  if (!a.cost || a.cost <= 0) return;
+                costItems.forEach((c) => {
+                  const a = c.data;
                   const effectiveMembers = a.activityMembers?.length
                     ? a.activityMembers
                     : members;
@@ -2201,14 +2498,15 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               {(() => {
                 const members = tripData.members ?? [];
                 if (members.length < 2) return null;
-                const hasPaidBy = tripData.days.some((a) => a.cost && a.paidBy);
+                const hasPaidBy = costItems.some((c) => c.data.paidBy);
                 if (!hasPaidBy) return null;
 
                 // Calculate net balance per member (positive = owed money, negative = owes money)
                 const balance: Record<string, number> = {};
                 members.forEach((m) => (balance[m] = 0));
-                tripData.days.forEach((a) => {
-                  if (!a.cost || !a.paidBy || !(a.paidBy in balance) || a.settled) return;
+                costItems.forEach((c) => {
+                  const a = c.data;
+                  if (!a.paidBy || !(a.paidBy in balance) || a.settled) return;
                   const total = activityTotalCost(a);
                   const beneficiaries = a.activityMembers?.length ? a.activityMembers : members;
                   balance[a.paidBy] += total;
@@ -2265,11 +2563,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
               {/* Per day breakdown */}
               {allDayNumbers.map((dayNum) => {
-                const dayActivities = tripData.days.filter(
-                  (d) => d.day === dayNum && d.cost !== undefined && d.cost > 0
-                );
-                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a), 0);
-                if (dayActivities.length === 0) return null;
+                const dayItems = costItems.filter((c) => c.day === dayNum);
+                const dayCost = dayItems.reduce((s, c) => s + activityTotalCost(c.data), 0);
+                if (dayItems.length === 0) return null;
                 return (
                   <div key={dayNum} className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                     <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
@@ -2284,80 +2580,19 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">¥{dayCost.toLocaleString()}</span>
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
-                      {dayActivities.map((a) => (
-                        <li key={activityId(a)} className="flex items-start gap-3 py-2.5">
-                          <span className="mt-0.5 text-lg">{a.icon}</span>
-                          <div className="flex flex-1 flex-col gap-0.5 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-sm text-slate-700 dark:text-slate-300">
-                                {a.type === "transport" && a.from && a.to
-                                  ? `${a.from} → ${a.to}`
-                                  : a.destination}
-                              </span>
-                              <div className="flex shrink-0 items-center gap-1.5">
-                                {a.settled && (
-                                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
-                                )}
-                                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">¥{activityTotalCost(a).toLocaleString()}</span>
-                              </div>
-                            </div>
-                            {(() => {
-                              const allMembers = tripData.members ?? [];
-                              const isAll = !a.activityMembers?.length ||
-                                (allMembers.length > 0 && a.activityMembers!.length === allMembers.length && a.activityMembers!.every(m => allMembers.includes(m)));
-                              const count = isAll ? allMembers.length : a.activityMembers!.length;
-                              const hasCustomSplit = a.splitMode === "ratio" || a.splitMode === "amount";
-                              if (!a.paidBy && !allMembers.length) return null;
-                              return (
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex flex-wrap items-center gap-1">
-                                      {a.paidBy && (
-                                        <>
-                                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
-                                          <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
-                                        </>
-                                      )}
-                                      {isAll ? (
-                                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
-                                      ) : (
-                                        a.activityMembers!.map((m) => (
-                                          <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                            {m}
-                                          </span>
-                                        ))
-                                      )}
-                                    </div>
-                                    {!hasCustomSplit && a.costType === "per_person" && (
-                                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
-                                        ¥{(a.cost ?? 0).toLocaleString()} × {count || participants}人
-                                      </span>
-                                    )}
-                                    {!hasCustomSplit && a.costType === "total" && (count || participants) > 0 && (
-                                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
-                                        ¥{Math.round((a.cost ?? 0) / (count || participants)).toLocaleString()}<span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
-                                      </span>
-                                    )}
-                                    {hasCustomSplit && (
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleSplitDetail(activityId(a))}
-                                        className="shrink-0 text-[10px] font-semibold text-indigo-400 hover:text-indigo-500 dark:text-indigo-500 dark:hover:text-indigo-400"
-                                      >
-                                        {expandedSplitIds.has(activityId(a)) ? "詳細を閉じる" : "詳細を表示"}
-                                      </button>
-                                    )}
-                                  </div>
-                                  {hasCustomSplit && expandedSplitIds.has(activityId(a)) && (
-                                    <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-                                      {(isAll ? allMembers : a.activityMembers!).map((m) => `${m} ¥${Math.round(memberShareOfActivity(a, m, allMembers, activityTotalCost(a))).toLocaleString()}`).join("・")}
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </li>
+                      {dayItems.map((c) => (
+                        <ExpenseItemRow
+                          key={c.key}
+                          icon={c.icon}
+                          label={c.label}
+                          parentLabel={c.parentLabel}
+                          data={c.data}
+                          total={activityTotalCost(c.data)}
+                          allMembers={tripData.members ?? []}
+                          participants={participants}
+                          expanded={expandedSplitIds.has(c.key)}
+                          onToggleExpand={() => toggleSplitDetail(c.key)}
+                        />
                       ))}
                     </ul>
                   </div>
@@ -2366,82 +2601,30 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
               {/* Unassigned with cost */}
               {(() => {
-                const items = unassigned.filter((d) => d.cost !== undefined && d.cost > 0);
+                const items = costItems.filter((c) => c.day === 0);
                 if (items.length === 0) return null;
                 return (
                   <div className="overflow-hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
                     <div className="border-b border-amber-100 bg-amber-50/80 px-4 py-3 flex items-center justify-between dark:border-slate-700 dark:bg-slate-700/50">
                       <span className="text-sm font-semibold text-amber-700">📌 未割り当て</span>
                       <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                        ¥{items.reduce((s, a) => s + activityTotalCost(a), 0).toLocaleString()}
+                        ¥{items.reduce((s, c) => s + activityTotalCost(c.data), 0).toLocaleString()}
                       </span>
                     </div>
                     <ul className="divide-y divide-slate-100 px-4 dark:divide-slate-700">
-                      {items.map((a) => (
-                        <li key={activityId(a)} className="flex items-start gap-3 py-2.5">
-                          <span className="mt-0.5 text-lg">{a.icon}</span>
-                          <div className="flex flex-1 flex-col gap-0.5 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate text-sm text-slate-700 dark:text-slate-300">{a.destination}</span>
-                              <div className="flex shrink-0 items-center gap-1.5">
-                                {a.settled && (
-                                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">精算済</span>
-                                )}
-                                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">¥{activityTotalCost(a).toLocaleString()}</span>
-                              </div>
-                            </div>
-                            {(() => {
-                              const allMembers2 = tripData.members ?? [];
-                              const isAll = !a.activityMembers?.length ||
-                                (allMembers2.length > 0 && a.activityMembers!.length === allMembers2.length && a.activityMembers!.every(m => allMembers2.includes(m)));
-                              const count = isAll ? allMembers2.length : a.activityMembers!.length;
-                              const hasCustomSplit = a.splitMode === "ratio" || a.splitMode === "amount";
-                              if (isAll && allMembers2.length === 0) return null;
-                              return (
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex flex-wrap items-center gap-1">
-                                      {a.paidBy && (
-                                        <>
-                                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">{a.paidBy}</span>
-                                          <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
-                                        </>
-                                      )}
-                                      {isAll ? (
-                                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">全員</span>
-                                      ) : (
-                                        a.activityMembers!.map((m) => (
-                                          <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">
-                                            {m}
-                                          </span>
-                                        ))
-                                      )}
-                                    </div>
-                                    {!hasCustomSplit && a.costType === "per_person" && (
-                                      <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">
-                                        ¥{(a.cost ?? 0).toLocaleString()} × {count || participants}人
-                                      </span>
-                                    )}
-                                    {hasCustomSplit && (
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleSplitDetail(activityId(a))}
-                                        className="shrink-0 text-[10px] font-semibold text-indigo-400 hover:text-indigo-500 dark:text-indigo-500 dark:hover:text-indigo-400"
-                                      >
-                                        {expandedSplitIds.has(activityId(a)) ? "詳細を閉じる" : "詳細を表示"}
-                                      </button>
-                                    )}
-                                  </div>
-                                  {hasCustomSplit && expandedSplitIds.has(activityId(a)) && (
-                                    <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
-                                      {(isAll ? allMembers2 : a.activityMembers!).map((m) => `${m} ¥${Math.round(memberShareOfActivity(a, m, allMembers2, activityTotalCost(a))).toLocaleString()}`).join("・")}
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </li>
+                      {items.map((c) => (
+                        <ExpenseItemRow
+                          key={c.key}
+                          icon={c.icon}
+                          label={c.label}
+                          parentLabel={c.parentLabel}
+                          data={c.data}
+                          total={activityTotalCost(c.data)}
+                          allMembers={tripData.members ?? []}
+                          participants={participants}
+                          expanded={expandedSplitIds.has(c.key)}
+                          onToggleExpand={() => toggleSplitDetail(c.key)}
+                        />
                       ))}
                     </ul>
                   </div>
@@ -2555,6 +2738,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             startTime={startTime} setStartTime={setStartTime}
             endTime={endTime} setEndTime={setEndTime}
             memo={memo} setMemo={setMemo}
+            url={url} setUrl={setUrl}
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
@@ -2575,7 +2759,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 >
                   <option value={0}></option>
                   {allDayNumbers.map((n) => (
-                    <option key={n} value={n}>Day {n}  {fmtDayDate(tripData.startDate, n)}</option>
+                    <option key={n} value={n}>{fmtDayDate(tripData.startDate, n)}【{n}日目】</option>
                   ))}
                 </select>
               </div>
@@ -2720,6 +2904,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             startTime={startTime} setStartTime={setStartTime}
             endTime={endTime} setEndTime={setEndTime}
             memo={memo} setMemo={setMemo}
+            url={url} setUrl={setUrl}
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
             activityMembers={activityMembers} setActivityMembers={setActivityMembers}
@@ -2740,7 +2925,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 >
                   <option value={0}></option>
                   {allDayNumbers.map((n) => (
-                    <option key={n} value={n}>Day {n}  {fmtDayDate(tripData.startDate, n)}</option>
+                    <option key={n} value={n}>{fmtDayDate(tripData.startDate, n)}【{n}日目】</option>
                   ))}
                 </select>
               </div>
@@ -2803,14 +2988,54 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 placeholder="ランチ"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
-              <textarea
-                className={`${inputCls} min-h-[72px] resize-none`}
-                value={subMemo}
-                onChange={(e) => setSubMemo(e.target.value)}
-                placeholder="営業時間やおすすめメニューなど"
-              />
+            <div className="rounded-xl border border-dashed border-slate-300 transition-colors dark:border-slate-600">
+              <button
+                type="button"
+                onClick={() => setSubShowOptional((v) => !v)}
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                <span>{subShowOptional ? "詳細を閉じる" : "メモ・費用を追加"}</span>
+                <ChevronDownIcon className={`h-4 w-4 transition-transform ${subShowOptional ? "rotate-180" : ""}`} />
+              </button>
+
+              {subShowOptional && (
+                <div className="space-y-4 border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
+                  <CostSection
+                    cost={subCost} setCost={setSubCost}
+                    costType={subCostType} setCostType={setSubCostType}
+                    activityMembers={subActivityMembers} setActivityMembers={setSubActivityMembers}
+                    splitMode={subSplitMode} setSplitMode={setSubSplitMode}
+                    splitRatios={subSplitRatios} setSplitRatios={setSubSplitRatios}
+                    splitAmounts={subSplitAmounts} setSplitAmounts={setSubSplitAmounts}
+                    paidBy={subPaidBy} setPaidBy={setSubPaidBy}
+                    settled={subSettled} setSettled={setSubSettled}
+                    allMembers={tripData.members ?? []}
+                  />
+
+                  {/* メモ */}
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                    <AutoGrowTextarea
+                      className={`${inputCls} resize-none overflow-hidden`}
+                      value={subMemo}
+                      onChange={setSubMemo}
+                      placeholder="営業時間やおすすめメニューなど"
+                    />
+                  </div>
+
+                  {/* URL */}
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">URL<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                    <input
+                      type="url"
+                      className={inputCls}
+                      value={subUrl}
+                      onChange={(e) => setSubUrl(e.target.value)}
+                      placeholder="例）https://www.example.com"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             {subFormError && (
               <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-500">{subFormError}</p>
