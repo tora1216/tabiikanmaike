@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
@@ -684,6 +685,7 @@ function Modal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
         className="relative max-h-[90vh] w-full overflow-x-hidden overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl dark:bg-slate-800"
+        style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -1191,7 +1193,8 @@ function ActivityForm({
               type="time"
               className={`${inputCls} appearance-none ${startTime ? "pr-8" : ""}`}
               value={startTime}
-              onFocus={() => { if (!startTime) setStartTime("00:00"); }}
+              onMouseDown={() => { if (!startTime) flushSync(() => setStartTime("00:00")); }}
+              onFocus={() => { if (!startTime) flushSync(() => setStartTime("00:00")); }}
               onChange={(e) => setStartTime(e.target.value)}
             />
             {startTime && (
@@ -1212,7 +1215,8 @@ function ActivityForm({
               type="time"
               className={`${inputCls} appearance-none ${endTime ? "pr-8" : ""}`}
               value={endTime}
-              onFocus={() => { if (!endTime) setEndTime("00:00"); }}
+              onMouseDown={() => { if (!endTime) flushSync(() => setEndTime("00:00")); }}
+              onFocus={() => { if (!endTime) flushSync(() => setEndTime("00:00")); }}
               onChange={(e) => setEndTime(e.target.value)}
             />
             {endTime && (
