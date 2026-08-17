@@ -145,6 +145,23 @@ export const initialTrips: Trip[] = [
         destination: "富岩運河環水公園",
         memo: "運河沿いの美しい公園。世界一美しいスタバがある。散策にちょうどいい",
         cost: 0,
+        subItems: [
+          {
+            id: "toyama-sub-starbucks",
+            icon: "☕",
+            label: "世界一美しいスタバ",
+            memo: "運河を望むガラス張りの店内。ラテがおすすめ",
+            cost: 500,
+            costType: "total",
+            activityMembers: ["ダッキー", "バニー"], // ロッツォはコーヒー苦手
+          },
+          {
+            id: "toyama-sub-tenmonkyo",
+            icon: "🌉",
+            label: "天門橋",
+            memo: "夜はライトアップされる。運河越しの夜景が綺麗",
+          },
+        ],
       },
       {
         day: 1,
@@ -266,6 +283,25 @@ export const initialTrips: Trip[] = [
         destination: "新高岡駅 お土産タイム",
         memo: "白えびせんべい・ますのすし・高岡銅器小物など",
         costType: "per_person",
+        subItems: [
+          {
+            id: "toyama-sub-shiroebi",
+            icon: "🍘",
+            label: "白えびせんべい 六大",
+            memo: "富山名物。パッケージもおしゃれ",
+            cost: 800,
+            costType: "total",
+            url: "https://shiroebi.co.jp/",
+          },
+          {
+            id: "toyama-sub-masunosushi",
+            icon: "🍶",
+            label: "ますのすし",
+            memo: "駅弁の定番。冷めても美味しい",
+            cost: 1500,
+            costType: "total",
+          },
+        ],
       },
       {
         day: 2,

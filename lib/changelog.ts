@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.11.2";
+export const APP_VERSION = "1.12.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,16 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.12.0",
+    date: "2026-08-18",
+    title: "予定編集・サブ予定の使い勝手を改善",
+    changes: [
+      "メモと費用の入力を別々の開閉トグルに分離",
+      "削除ボタンをカードから編集画面のヘッダーへ移動",
+      "予定の複製ボタンを追加",
+    ],
+  },
   {
     version: "1.11.0",
     date: "2026-08-15",

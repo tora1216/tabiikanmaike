@@ -14,7 +14,7 @@ import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
   DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
-  ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon,
+  ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon, DocumentDuplicateIcon,
 
 } from "@heroicons/react/24/outline";
 import {
@@ -240,34 +240,182 @@ function ExpenseItemRow({
   );
 }
 
+// ─── SubItemRow ───────────────────────────────────────────────────────────────
+// Pure visual — used directly (view mode) or wrapped by SortableSubItemRow (edit mode)
+
+function SubItemRow({
+  sub,
+  onMapsClick,
+  onEditSub,
+  dragHandle,
+  isDragging = false,
+  allMembers,
+}: {
+  sub: SubActivity;
+  onMapsClick?: (url: string) => void;
+  onEditSub?: (sub: SubActivity) => void;
+  dragHandle?: React.ReactNode;
+  isDragging?: boolean;
+  allMembers?: string[];
+}) {
+  const hasActions = !!(dragHandle || onMapsClick || onEditSub);
+  return (
+    <div className={`relative rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-700/50 ${isDragging ? "opacity-0" : ""}`}>
+      {/* Action buttons - absolute top-right */}
+      {hasActions && (
+        <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
+          {dragHandle ? dragHandle : (
+            <>
+              {onMapsClick && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onMapsClick(`https://www.google.com/maps/search/${encodeURIComponent(sub.label)}`); }}
+                  className="rounded-full p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
+                >
+                  <MapPinIcon className="h-3 w-3" />
+                </button>
+              )}
+              {onEditSub && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); onEditSub(sub); }}
+                  className="rounded-full p-1 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-500"
+                >
+                  <PencilIcon className="h-3 w-3" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-start gap-2">
+        <span className="text-sm">{sub.icon || "📍"}</span>
+        <div className="min-w-0 flex-1">
+          <p className={`truncate text-xs font-medium text-slate-700 dark:text-slate-200 ${hasActions ? "pr-11" : ""}`}>{sub.label}</p>
+          {sub.memo && (
+            <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{sub.memo}</p>
+          )}
+          {sub.url && (
+            <a
+              href={sub.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500 hover:text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+            >
+              <ArrowTopRightOnSquareIcon className="h-3 w-3 shrink-0" />
+              <span className="truncate">{sub.url}</span>
+            </a>
+          )}
+          {(() => {
+            const hasCost = sub.cost !== undefined && sub.cost > 0;
+            const partialMembers = (() => {
+              if (!allMembers || allMembers.length === 0) return null;
+              const members = sub.activityMembers;
+              if (!members || members.length === 0 || members.length === allMembers.length) return null;
+              return members;
+            })();
+            if (!hasCost && !partialMembers) return null;
+            return (
+              <div className="mt-0.5 flex items-center justify-between gap-2">
+                {hasCost ? (
+                  <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
+                    ¥{sub.cost!.toLocaleString()}
+                    {sub.costType === "per_person" && (
+                      <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
+                    )}
+                  </p>
+                ) : <span />}
+                {partialMembers && (
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {partialMembers.map((m) => (
+                      <span key={m} className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">{m}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SortableSubItemRow({ sub, allMembers }: { sub: SubActivity; allMembers?: string[] }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: sub.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const handle = (
+    <div
+      {...attributes}
+      {...listeners}
+      className="flex h-6 w-6 shrink-0 cursor-grab touch-none select-none items-center justify-center text-slate-300 active:cursor-grabbing dark:text-slate-600"
+    >
+      <svg viewBox="0 0 20 20" className="h-4 w-4 fill-current">
+        <rect x="3" y="4.5" width="14" height="2" rx="1"/>
+        <rect x="3" y="9" width="14" height="2" rx="1"/>
+        <rect x="3" y="13.5" width="14" height="2" rx="1"/>
+      </svg>
+    </div>
+  );
+  return (
+    <div ref={setNodeRef} style={style}>
+      <SubItemRow sub={sub} dragHandle={handle} isDragging={isDragging} allMembers={allMembers} />
+    </div>
+  );
+}
+
 // ─── ActivityCard ─────────────────────────────────────────────────────────────
 // Pure visual — used both in SortableItem and DragOverlay
 
 function ActivityCard({
   activity,
   onEdit,
-  onDelete,
   onMapsClick,
   overlay = false,
   dragHandle,
   allMembers,
   onAddSub,
   onEditSub,
-  onDeleteSub,
+  onReorderSub,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
-  onDelete?: () => void;
   onMapsClick?: (url: string) => void;
   overlay?: boolean;
   dragHandle?: React.ReactNode;
   allMembers?: string[];
   onAddSub?: () => void;
   onEditSub?: (sub: SubActivity) => void;
-  onDeleteSub?: (sub: SubActivity) => void;
+  onReorderSub?: (subItems: SubActivity[]) => void;
 }) {
   const isTransport = activity.type === "transport";
   const hasSubItems = !!activity.subItems?.length;
+  const isEditMode = !overlay && !!dragHandle;
+
+  const subSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const [subDragActiveId, setSubDragActiveId] = useState<string | null>(null);
+  const draggedSub = subDragActiveId ? activity.subItems?.find((s) => s.id === subDragActiveId) : null;
+
+  function handleSubDragEnd(event: DragEndEvent) {
+    setSubDragActiveId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id || !onReorderSub) return;
+    const subItems = activity.subItems ?? [];
+    const oldIndex = subItems.findIndex((s) => s.id === active.id);
+    const newIndex = subItems.findIndex((s) => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    onReorderSub(arrayMove(subItems, oldIndex, newIndex));
+  }
 
   return (
     <div
@@ -278,7 +426,7 @@ function ActivityCard({
       }`}
     >
       {/* Action buttons - absolute top-right */}
-      {!overlay && !dragHandle && (onEdit || onDelete || onAddSub) && (
+      {!overlay && !dragHandle && (onEdit || onAddSub) && (
         <div className="absolute right-2 top-2 flex items-center gap-1">
           {onAddSub && (
             <button
@@ -315,16 +463,6 @@ function ActivityCard({
               <PencilIcon className="h-3.5 w-3.5" />
             </button>
           )}
-          {onDelete && (
-            <button
-              type="button"
-              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            >
-              <TrashIcon className="h-3.5 w-3.5" />
-            </button>
-          )}
         </div>
       )}
 
@@ -339,13 +477,13 @@ function ActivityCard({
         {/* Content */}
         <div className="min-w-0 flex-1">
           {isTransport && activity.from && activity.to ? (
-            <div className={`flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-24" : ""}`}>
+            <div className={`flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>
               <span>{activity.from}</span>
               <span className="text-slate-300 dark:text-slate-600">→</span>
               <span>{activity.to}</span>
             </div>
           ) : (
-            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onDelete) ? "pr-24" : ""}`}>{activity.destination}</p>
+            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>{activity.destination}</p>
           )}
           {activity.time && (
             <p className="mt-0.5 text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
@@ -399,73 +537,28 @@ function ActivityCard({
           {/* Sub items (nested plans, e.g. lunch / shopping within a bigger stop) */}
           {hasSubItems && (
             <div className="mt-2 space-y-1.5 border-t border-slate-100 pt-2 dark:border-slate-700">
-              {activity.subItems?.map((sub) => (
-                <div
-                  key={sub.id}
-                  className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-700/50"
+              {isEditMode && onReorderSub ? (
+                <DndContext
+                  sensors={subSensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={(event) => setSubDragActiveId(event.active.id as string)}
+                  onDragEnd={handleSubDragEnd}
+                  onDragCancel={() => setSubDragActiveId(null)}
                 >
-                  <span className="text-sm">{sub.icon || "📍"}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">{sub.label}</p>
-                    {sub.memo && (
-                      <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{sub.memo}</p>
-                    )}
-                    {sub.url && (
-                      <a
-                        href={sub.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-indigo-500 hover:text-indigo-600 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-                      >
-                        <ArrowTopRightOnSquareIcon className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{sub.url}</span>
-                      </a>
-                    )}
-                    {sub.cost !== undefined && sub.cost > 0 && (
-                      <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
-                        ¥{sub.cost.toLocaleString()}
-                        {sub.costType === "per_person" && (
-                          <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    {onMapsClick && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); onMapsClick(`https://www.google.com/maps/search/${encodeURIComponent(sub.label)}`); }}
-                        className="rounded-full p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
-                      >
-                        <MapPinIcon className="h-3 w-3" />
-                      </button>
-                    )}
-                    {onEditSub && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); onEditSub(sub); }}
-                        className="rounded-full p-1 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-500"
-                      >
-                        <PencilIcon className="h-3 w-3" />
-                      </button>
-                    )}
-                    {onDeleteSub && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => { e.stopPropagation(); onDeleteSub(sub); }}
-                        className="rounded-full p-1 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                      >
-                        <TrashIcon className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                  <SortableContext items={activity.subItems!.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                    {activity.subItems!.map((sub) => (
+                      <SortableSubItemRow key={sub.id} sub={sub} allMembers={allMembers} />
+                    ))}
+                  </SortableContext>
+                  <DragOverlay dropAnimation={null}>
+                    {draggedSub ? <SubItemRow sub={draggedSub} allMembers={allMembers} /> : null}
+                  </DragOverlay>
+                </DndContext>
+              ) : (
+                activity.subItems!.map((sub) => (
+                  <SubItemRow key={sub.id} sub={sub} onMapsClick={onMapsClick} onEditSub={onEditSub} allMembers={allMembers} />
+                ))
+              )}
             </div>
           )}
         </div>
@@ -482,23 +575,21 @@ function ActivityCard({
 function SortableItem({
   activity,
   onEdit,
-  onDelete,
   onMapsClick,
   isEditMode,
   allMembers,
   onAddSub,
   onEditSub,
-  onDeleteSub,
+  onReorderSub,
 }: {
   activity: TripActivity;
   onEdit: () => void;
-  onDelete: () => void;
   onMapsClick: (url: string) => void;
   isEditMode: boolean;
   allMembers?: string[];
   onAddSub: () => void;
   onEditSub: (sub: SubActivity) => void;
-  onDeleteSub: (sub: SubActivity) => void;
+  onReorderSub: (subItems: SubActivity[]) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
@@ -561,13 +652,12 @@ function SortableItem({
       <ActivityCard
         activity={activity}
         onEdit={isEditMode ? undefined : onEdit}
-        onDelete={isEditMode ? undefined : onDelete}
         onMapsClick={isEditMode ? undefined : onMapsClick}
         dragHandle={dragHandleNode}
         allMembers={allMembers}
         onAddSub={isEditMode ? undefined : onAddSub}
         onEditSub={isEditMode ? undefined : onEditSub}
-        onDeleteSub={isEditMode ? undefined : onDeleteSub}
+        onReorderSub={onReorderSub}
       />
     </li>
   );
@@ -579,10 +669,12 @@ function Modal({
   title,
   onClose,
   children,
+  headerExtra,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  headerExtra?: React.ReactNode;
 }) {
   return (
     <div
@@ -596,13 +688,16 @@ function Modal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {headerExtra}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
         {children}
       </div>
@@ -950,8 +1045,10 @@ function ActivityForm({
   const suffix = activityType === "transport" ? (transport?.suffix ?? "") : "";
   const fromPh = transport?.fromPh ?? "出発地";
   const toPh = transport?.toPh ?? "目的地";
-  const hasOptionalValues = !!(memo || url || cost || activityMembers.length || paidBy);
-  const [showOptional, setShowOptional] = useState(hasOptionalValues);
+  const hasCostValues = !!(cost || activityMembers.length || paidBy);
+  const hasMemoValues = !!(memo || url);
+  const [showCostOptional, setShowCostOptional] = useState(hasCostValues);
+  const [showMemoOptional, setShowMemoOptional] = useState(hasMemoValues);
 
   return (
     <div className="space-y-4">
@@ -1131,31 +1228,19 @@ function ActivityForm({
         </div>
       </div>
 
-      {/* 任意項目トグル */}
-      <div className={`rounded-xl border border-dashed transition-colors ${showOptional ? "border-slate-300 dark:border-slate-600" : "border-slate-300 dark:border-slate-600"}`}>
+      {/* メモトグル */}
+      <div className="rounded-xl border border-dashed border-slate-300 transition-colors dark:border-slate-600">
         <button
           type="button"
-          onClick={() => setShowOptional((v) => !v)}
+          onClick={() => setShowMemoOptional((v) => !v)}
           className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
         >
-          <span>{showOptional ? "詳細を閉じる" : "メモ・費用を追加"}</span>
-          <ChevronDownIcon className={`h-4 w-4 transition-transform ${showOptional ? "rotate-180" : ""}`} />
+          <span>{showMemoOptional ? "メモを閉じる" : "メモを追加"}</span>
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${showMemoOptional ? "rotate-180" : ""}`} />
         </button>
 
-        {showOptional && (
+        {showMemoOptional && (
           <div className="space-y-4 border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
-            <CostSection
-              cost={cost} setCost={setCost}
-              costType={costType} setCostType={setCostType}
-              activityMembers={activityMembers} setActivityMembers={setActivityMembers}
-              splitMode={splitMode} setSplitMode={setSplitMode}
-              splitRatios={splitRatios} setSplitRatios={setSplitRatios}
-              splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
-              paidBy={paidBy} setPaidBy={setPaidBy}
-              settled={settled} setSettled={setSettled}
-              allMembers={allMembers}
-            />
-
             {/* メモ */}
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
@@ -1179,7 +1264,35 @@ function ActivityForm({
               />
             </div>
           </div>
-      )}
+        )}
+      </div>
+
+      {/* 費用トグル */}
+      <div className="rounded-xl border border-dashed border-slate-300 transition-colors dark:border-slate-600">
+        <button
+          type="button"
+          onClick={() => setShowCostOptional((v) => !v)}
+          className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        >
+          <span>{showCostOptional ? "費用を閉じる" : "費用を追加"}</span>
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${showCostOptional ? "rotate-180" : ""}`} />
+        </button>
+
+        {showCostOptional && (
+          <div className="border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
+            <CostSection
+              cost={cost} setCost={setCost}
+              costType={costType} setCostType={setCostType}
+              activityMembers={activityMembers} setActivityMembers={setActivityMembers}
+              splitMode={splitMode} setSplitMode={setSplitMode}
+              splitRatios={splitRatios} setSplitRatios={setSplitRatios}
+              splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
+              paidBy={paidBy} setPaidBy={setPaidBy}
+              settled={settled} setSettled={setSettled}
+              allMembers={allMembers}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1363,7 +1476,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [subPaidBy, setSubPaidBy] = useState("");
   const [subSettled, setSubSettled] = useState(false);
   const [subFormError, setSubFormError] = useState("");
-  const [subShowOptional, setSubShowOptional] = useState(false);
+  const [subShowCostOptional, setSubShowCostOptional] = useState(false);
+  const [subShowMemoOptional, setSubShowMemoOptional] = useState(false);
 
   // DnD state
   const [dragActiveId, setDragActiveId] = useState<string | null>(null);
@@ -1684,7 +1798,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSubPaidBy("");
     setSubSettled(false);
     setSubFormError("");
-    setSubShowOptional(false);
+    setSubShowCostOptional(false);
+    setSubShowMemoOptional(false);
   }
 
   function openEditSub(activity: TripActivity, sub: SubActivity) {
@@ -1703,7 +1818,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSubPaidBy(sub.paidBy ?? "");
     setSubSettled(sub.settled ?? false);
     setSubFormError("");
-    setSubShowOptional(!!(sub.memo || sub.url || sub.cost || sub.activityMembers?.length || sub.paidBy));
+    setSubShowCostOptional(!!(sub.cost || sub.activityMembers?.length || sub.paidBy));
+    setSubShowMemoOptional(!!(sub.memo || sub.url));
   }
 
   function saveSub() {
@@ -1753,6 +1869,27 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         d !== activity ? d : { ...d, subItems: (d.subItems ?? []).filter((s) => s.id !== sub.id) }
       ),
     }));
+  }
+
+  function reorderSubItems(activity: TripActivity, subItems: SubActivity[]) {
+    updateTrip(tripData.id, (current) => ({
+      ...current,
+      days: current.days.map((d) => (d !== activity ? d : { ...d, subItems })),
+    }));
+  }
+
+  function openDuplicateAdd(activity: TripActivity) {
+    resetForm();
+    const type: ActivityType = activity.type === "transport" ? "transport" : "place";
+    setActivityType(type);
+    setDayIcon(activity.icon || (type === "place" ? (placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon) : TRANSPORT_CATEGORIES[0].icon));
+    if (type === "transport") {
+      setFromPlace(activity.from || "");
+      setToPlace(activity.to || "");
+    } else {
+      setDayDestination(activity.destination || "");
+    }
+    setIsAddOpen(true);
   }
 
   return (
@@ -1954,10 +2091,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 onEdit={() => openEdit(activity)}
                                 onMapsClick={setMapsUrl}
                                 allMembers={tripData.members}
-                                onDelete={() => setDeleteConfirmActivity(activity)}
                                 onAddSub={() => openAddSub(activity)}
                                 onEditSub={(sub) => openEditSub(activity, sub)}
-                                onDeleteSub={(sub) => setDeleteConfirm(() => () => deleteSub(activity, sub))}
+                                onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
                               />
                             ))}
                           </ul>
@@ -1993,10 +2129,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             onEdit={() => openEdit(activity)}
                             onMapsClick={setMapsUrl}
                             allMembers={tripData.members}
-                            onDelete={() => setDeleteConfirmActivity(activity)}
                             onAddSub={() => openAddSub(activity)}
                             onEditSub={(sub) => openEditSub(activity, sub)}
-                            onDeleteSub={(sub) => setDeleteConfirm(() => () => deleteSub(activity, sub))}
+                            onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
                           />
                         ))}
                       </ul>
@@ -2728,6 +2863,35 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         <Modal
           title="アクティビティを編集"
           onClose={() => { setIsEditOpen(false); setEditingActivity(null); resetForm(); }}
+          headerExtra={
+            <>
+              <button
+                type="button"
+                className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                onClick={() => {
+                  const activity = editingActivity;
+                  setIsEditOpen(false);
+                  setEditingActivity(null);
+                  if (activity) openDuplicateAdd(activity);
+                }}
+              >
+                <DocumentDuplicateIcon className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="rounded-full p-1.5 text-red-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                onClick={() => {
+                  const activity = editingActivity;
+                  setIsEditOpen(false);
+                  setEditingActivity(null);
+                  resetForm();
+                  if (activity) setDeleteConfirmActivity(activity);
+                }}
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </>
+          }
         >
           <ActivityForm
             activityType={activityType} setActivityType={setActivityType}
@@ -2960,6 +3124,21 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         <Modal
           title={editingSub ? "予定を編集" : `${subParentActivity.destination} に予定を追加`}
           onClose={() => { setSubParentActivity(null); setEditingSub(null); }}
+          headerExtra={editingSub ? (
+            <button
+              type="button"
+              className="rounded-full p-1.5 text-red-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+              onClick={() => {
+                const parent = subParentActivity;
+                const sub = editingSub;
+                setSubParentActivity(null);
+                setEditingSub(null);
+                if (parent && sub) setDeleteConfirm(() => () => deleteSub(parent, sub));
+              }}
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          ) : undefined}
         >
           <div className="space-y-4">
             <div className="grid grid-cols-4 gap-2">
@@ -2991,27 +3170,15 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="rounded-xl border border-dashed border-slate-300 transition-colors dark:border-slate-600">
               <button
                 type="button"
-                onClick={() => setSubShowOptional((v) => !v)}
+                onClick={() => setSubShowMemoOptional((v) => !v)}
                 className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               >
-                <span>{subShowOptional ? "詳細を閉じる" : "メモ・費用を追加"}</span>
-                <ChevronDownIcon className={`h-4 w-4 transition-transform ${subShowOptional ? "rotate-180" : ""}`} />
+                <span>{subShowMemoOptional ? "メモを閉じる" : "メモを追加"}</span>
+                <ChevronDownIcon className={`h-4 w-4 transition-transform ${subShowMemoOptional ? "rotate-180" : ""}`} />
               </button>
 
-              {subShowOptional && (
+              {subShowMemoOptional && (
                 <div className="space-y-4 border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
-                  <CostSection
-                    cost={subCost} setCost={setSubCost}
-                    costType={subCostType} setCostType={setSubCostType}
-                    activityMembers={subActivityMembers} setActivityMembers={setSubActivityMembers}
-                    splitMode={subSplitMode} setSplitMode={setSubSplitMode}
-                    splitRatios={subSplitRatios} setSplitRatios={setSubSplitRatios}
-                    splitAmounts={subSplitAmounts} setSplitAmounts={setSubSplitAmounts}
-                    paidBy={subPaidBy} setPaidBy={setSubPaidBy}
-                    settled={subSettled} setSettled={setSubSettled}
-                    allMembers={tripData.members ?? []}
-                  />
-
                   {/* メモ */}
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">メモ<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
@@ -3034,6 +3201,33 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                       placeholder="例）https://www.example.com"
                     />
                   </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-dashed border-slate-300 transition-colors dark:border-slate-600">
+              <button
+                type="button"
+                onClick={() => setSubShowCostOptional((v) => !v)}
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                <span>{subShowCostOptional ? "費用を閉じる" : "費用を追加"}</span>
+                <ChevronDownIcon className={`h-4 w-4 transition-transform ${subShowCostOptional ? "rotate-180" : ""}`} />
+              </button>
+
+              {subShowCostOptional && (
+                <div className="border-t border-slate-200 px-3 pb-3 pt-3 dark:border-slate-600">
+                  <CostSection
+                    cost={subCost} setCost={setSubCost}
+                    costType={subCostType} setCostType={setSubCostType}
+                    activityMembers={subActivityMembers} setActivityMembers={setSubActivityMembers}
+                    splitMode={subSplitMode} setSplitMode={setSubSplitMode}
+                    splitRatios={subSplitRatios} setSplitRatios={setSubSplitRatios}
+                    splitAmounts={subSplitAmounts} setSplitAmounts={setSubSplitAmounts}
+                    paidBy={subPaidBy} setPaidBy={setSubPaidBy}
+                    settled={subSettled} setSettled={setSubSettled}
+                    allMembers={tripData.members ?? []}
+                  />
                 </div>
               )}
             </div>
