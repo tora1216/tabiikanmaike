@@ -684,7 +684,7 @@ function Modal({
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative max-h-[90dvh] w-full overflow-x-hidden overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-w-md sm:rounded-2xl dark:bg-slate-800"
+        className="relative max-h-[calc(100dvh-0.5rem)] w-full overflow-x-hidden overflow-y-auto rounded-t-2xl bg-white p-6 shadow-2xl sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl dark:bg-slate-800"
         style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
         onClick={(e) => e.stopPropagation()}
       >
