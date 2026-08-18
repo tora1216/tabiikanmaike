@@ -498,11 +498,9 @@ function ActivityCard({
         {/* Content */}
         <div className="min-w-0 flex-1">
           {isTransport && activity.from && activity.to ? (
-            <div className={`flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>
-              <span className="min-w-0 shrink truncate">{activity.from}</span>
-              <span className="shrink-0 text-slate-300 dark:text-slate-600">→</span>
-              <span className="min-w-0 shrink truncate">{activity.to}</span>
-            </div>
+            <p className={`truncate font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>
+              {activity.from} <span className="text-slate-300 dark:text-slate-600">→</span> {activity.to}
+            </p>
           ) : (
             <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>{activity.destination}</p>
           )}
