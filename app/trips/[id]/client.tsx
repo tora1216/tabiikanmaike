@@ -16,7 +16,7 @@ import {
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
   DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
   ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon, DocumentDuplicateIcon,
-
+  LinkIcon,
 } from "@heroicons/react/24/outline";
 import {
   DndContext,
@@ -1356,6 +1356,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [activeShareId, setActiveShareId] = useState("");
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedSettlement, setCopiedSettlement] = useState(false);
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
 
@@ -3440,6 +3441,22 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       {shareModal && (
         <Modal title="旅を共有" onClose={() => setShareModal(false)}>
           <div className="space-y-4">
+            {/* App URL */}
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  const url = typeof window !== "undefined" ? window.location.origin : "";
+                  navigator.clipboard.writeText(url);
+                  setCopiedUrl(true);
+                  setTimeout(() => setCopiedUrl(false), 2000);
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                {copiedUrl ? "URLをコピーしました" : "アプリのURLをコピー"}
+              </button>
+            </div>
             {/* Share link */}
             <div>
               <p className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">共有ID</p>

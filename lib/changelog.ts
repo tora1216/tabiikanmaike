@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.12.0";
+export const APP_VERSION = "1.13.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,15 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.13.0",
+    date: "2026-08-18",
+    title: "オフライン対応・共有機能の改善",
+    changes: [
+      "一度開いたページはオフラインでも再表示できるように（Service Worker対応）",
+      "旅を共有モーダルに「アプリのURLをコピー」ボタンを追加",
+    ],
+  },
   {
     version: "1.12.0",
     date: "2026-08-18",
