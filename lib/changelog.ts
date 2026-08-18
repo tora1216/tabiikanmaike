@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.13.0";
+export const APP_VERSION = "1.14.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -15,6 +15,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       "一度開いたページはオフラインでも再表示できるように（Service Worker対応）",
       "旅を共有モーダルに「アプリのURLをコピー」ボタンを追加",
+      "メイン予定を編集画面から他の予定のサブ予定に移動できるように",
+      "サブ予定を編集画面からメイン予定に戻せるように",
     ],
   },
   {

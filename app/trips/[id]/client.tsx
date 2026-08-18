@@ -16,7 +16,7 @@ import {
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
   DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
   ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon, DocumentDuplicateIcon,
-  LinkIcon,
+  LinkIcon, ArrowDownOnSquareStackIcon, ArrowUpOnSquareStackIcon,
 } from "@heroicons/react/24/outline";
 import {
   DndContext,
@@ -122,6 +122,26 @@ function memberShareOfActivity(a: CostFields, member: string, members: string[],
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+// メイン予定をサブ予定化する際のフィールド変換
+// day / time / from / to / type / subItems はサブ予定側に存在しないため失われる
+function activityToSubActivity(a: TripActivity): SubActivity {
+  return {
+    id: a.id ?? genId(),
+    icon: a.icon,
+    label: a.destination,
+    memo: a.memo,
+    url: a.url,
+    cost: a.cost,
+    costType: a.costType,
+    activityMembers: a.activityMembers,
+    paidBy: a.paidBy,
+    splitMode: a.splitMode,
+    splitRatios: a.splitRatios,
+    splitAmounts: a.splitAmounts,
+    settled: a.settled,
+  };
 }
 
 function containerDayNumber(containerId: string): number {
@@ -295,9 +315,9 @@ function SubItemRow({
       <div className="flex items-start gap-2">
         <span className="text-sm">{sub.icon || "📍"}</span>
         <div className="min-w-0 flex-1">
-          <p className={`truncate text-xs font-medium text-slate-700 dark:text-slate-200 ${hasActions ? "pr-11" : ""}`}>{sub.label}</p>
+          <p className={`truncate text-[13px] font-medium text-slate-700 dark:text-slate-200 ${hasActions ? "pr-11" : ""}`}>{sub.label}</p>
           {sub.memo && (
-            <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">{sub.memo}</p>
+            <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">{sub.memo}</p>
           )}
           {sub.url && (
             <a
@@ -478,11 +498,9 @@ function ActivityCard({
         {/* Content */}
         <div className="min-w-0 flex-1">
           {isTransport && activity.from && activity.to ? (
-            <div className={`flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>
-              <span>{activity.from}</span>
-              <span className="text-slate-300 dark:text-slate-600">→</span>
-              <span>{activity.to}</span>
-            </div>
+            <p className={`truncate font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>
+              {activity.from} <span className="text-slate-300 dark:text-slate-600">→</span> {activity.to}
+            </p>
           ) : (
             <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>{activity.destination}</p>
           )}
@@ -1453,6 +1471,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [editDay, setEditDay] = useState(0);
   const [addReturnTrip, setAddReturnTrip] = useState(false);
   const [deleteConfirmActivity, setDeleteConfirmActivity] = useState<TripActivity | null>(null);
+  const [moveSubActivity, setMoveSubActivity] = useState<TripActivity | null>(null);
   const [deleteConfirmNoteId, setDeleteConfirmNoteId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<(() => void) | null>(null);
   const [todoCollapsed, setTodoCollapsed] = useState(false);
@@ -1881,6 +1900,58 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       ...current,
       days: current.days.map((d) => (d !== activity ? d : { ...d, subItems })),
     }));
+  }
+
+  function moveActivityToSub(activity: TripActivity, target: TripActivity) {
+    updateTrip(tripData.id, (current) => {
+      const activeAct = current.days.find((d) => d === activity);
+      const targetAct = current.days.find((d) => d === target);
+      if (!activeAct || !targetAct || activeAct === targetAct || activeAct.subItems?.length) return current;
+      const subData = activityToSubActivity(activeAct);
+      return {
+        ...current,
+        days: current.days
+          .filter((d) => d !== activeAct)
+          .map((d) => (d === targetAct ? { ...d, subItems: [...(d.subItems ?? []), subData] } : d)),
+      };
+    });
+    setMoveSubActivity(null);
+  }
+
+  function promoteSubToActivity(parent: TripActivity, sub: SubActivity) {
+    updateTrip(tripData.id, (current) => {
+      const parentAct = current.days.find((d) => d === parent);
+      if (!parentAct || !parentAct.subItems?.some((s) => s.id === sub.id)) return current;
+      const newActivity: TripActivity = {
+        id: genId(),
+        day: parentAct.day,
+        time: "",
+        icon: sub.icon || placeCategories[0]?.icon || DEFAULT_PLACE_CATEGORIES[0].icon,
+        type: "place",
+        destination: sub.label,
+        memo: sub.memo,
+        url: sub.url,
+        cost: sub.cost,
+        costType: sub.costType,
+        activityMembers: sub.activityMembers,
+        paidBy: sub.paidBy,
+        splitMode: sub.splitMode,
+        splitRatios: sub.splitRatios,
+        splitAmounts: sub.splitAmounts,
+        settled: sub.settled,
+      };
+      return {
+        ...current,
+        days: [
+          ...current.days.map((d) =>
+            d === parentAct ? { ...d, subItems: d.subItems!.filter((s) => s.id !== sub.id) } : d
+          ),
+          newActivity,
+        ],
+      };
+    });
+    setSubParentActivity(null);
+    setEditingSub(null);
   }
 
   function openDuplicateAdd(activity: TripActivity) {
@@ -2870,6 +2941,29 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           onClose={() => { setIsEditOpen(false); setEditingActivity(null); resetForm(); }}
           headerExtra={
             <>
+              {(() => {
+                const activity = editingActivity;
+                const hasOwnSub = !!activity?.subItems?.length;
+                const hasCandidates = !!activity && tripData.days.some((d) => d.day === activity.day && d !== activity);
+                const disabled = !activity || hasOwnSub || !hasCandidates;
+                return (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    title={hasOwnSub ? "サブ予定を持つ予定は移動できません" : !hasCandidates ? "同じ日に他の予定がありません" : "サブ予定にする"}
+                    className={`rounded-full p-1.5 transition ${disabled ? "text-slate-200 dark:text-slate-600" : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 dark:hover:bg-indigo-900/20"}`}
+                    onClick={() => {
+                      if (disabled || !activity) return;
+                      setIsEditOpen(false);
+                      setEditingActivity(null);
+                      resetForm();
+                      setMoveSubActivity(activity);
+                    }}
+                  >
+                    <ArrowDownOnSquareStackIcon className="h-4 w-4" />
+                  </button>
+                );
+              })()}
               <button
                 type="button"
                 className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
@@ -3130,19 +3224,33 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           title={editingSub ? "予定を編集" : `${subParentActivity.destination} に予定を追加`}
           onClose={() => { setSubParentActivity(null); setEditingSub(null); }}
           headerExtra={editingSub ? (
-            <button
-              type="button"
-              className="rounded-full p-1.5 text-red-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
-              onClick={() => {
-                const parent = subParentActivity;
-                const sub = editingSub;
-                setSubParentActivity(null);
-                setEditingSub(null);
-                if (parent && sub) setDeleteConfirm(() => () => deleteSub(parent, sub));
-              }}
-            >
-              <TrashIcon className="h-4 w-4" />
-            </button>
+            <>
+              <button
+                type="button"
+                title="メイン予定にする"
+                className="rounded-full p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-500 dark:hover:bg-indigo-900/20"
+                onClick={() => {
+                  const parent = subParentActivity;
+                  const sub = editingSub;
+                  if (parent && sub) promoteSubToActivity(parent, sub);
+                }}
+              >
+                <ArrowUpOnSquareStackIcon className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="rounded-full p-1.5 text-red-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                onClick={() => {
+                  const parent = subParentActivity;
+                  const sub = editingSub;
+                  setSubParentActivity(null);
+                  setEditingSub(null);
+                  if (parent && sub) setDeleteConfirm(() => () => deleteSub(parent, sub));
+                }}
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            </>
           ) : undefined}
         >
           <div className="space-y-4">
@@ -3290,6 +3398,39 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Move to Sub Modal */}
+      {moveSubActivity && (
+        <Modal title="サブ予定にする" onClose={() => setMoveSubActivity(null)}>
+          <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+            「{moveSubActivity.destination}」をどの予定のサブ予定にしますか？
+          </p>
+          <div className="max-h-80 space-y-1.5 overflow-y-auto">
+            {tripData.days
+              .filter((d) => d.day === moveSubActivity.day && d !== moveSubActivity)
+              .map((candidate) => (
+                <button
+                  key={activityId(candidate)}
+                  type="button"
+                  onClick={() => moveActivityToSub(moveSubActivity, candidate)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-slate-600 dark:hover:bg-indigo-900/20"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-lg dark:bg-slate-700">
+                    {candidate.icon || "📍"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                      {candidate.type === "transport" && candidate.from && candidate.to
+                        ? `${candidate.from} → ${candidate.to}`
+                        : candidate.destination}
+                    </p>
+                    {candidate.time && <p className="text-xs text-indigo-500">⏰ {candidate.time}</p>}
+                  </div>
+                </button>
+              ))}
+          </div>
+        </Modal>
       )}
 
       {/* Note Delete Confirm Dialog */}
