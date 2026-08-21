@@ -16,7 +16,7 @@ import {
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
   DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
   ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon, DocumentDuplicateIcon,
-  LinkIcon, ArrowDownOnSquareStackIcon, ArrowUpOnSquareStackIcon,
+  ArrowDownOnSquareStackIcon, ArrowUpOnSquareStackIcon,
 } from "@heroicons/react/24/outline";
 import {
   DndContext,
@@ -1374,7 +1374,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [activeShareId, setActiveShareId] = useState("");
   const [copiedText, setCopiedText] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedSettlement, setCopiedSettlement] = useState(false);
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
 
@@ -1415,6 +1414,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           trip: JSON.parse(JSON.stringify(tripData)),
           password: sharePasswordInput || null,
           createdAt: serverTimestamp(),
+          ownerUid: user?.uid ?? null,
         });
         shareId = docRef.id;
         updateTrip(tripData.id, (c) => ({ ...c, shareId, sharePassword: sharePasswordInput || undefined }));
@@ -3582,25 +3582,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       {shareModal && (
         <Modal title="旅を共有" onClose={() => setShareModal(false)}>
           <div className="space-y-4">
-            {/* App URL */}
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  const url = typeof window !== "undefined" ? window.location.origin : "";
-                  navigator.clipboard.writeText(url);
-                  setCopiedUrl(true);
-                  setTimeout(() => setCopiedUrl(false), 2000);
-                }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
-              >
-                <LinkIcon className="h-3.5 w-3.5" />
-                {copiedUrl ? "URLをコピーしました" : "アプリのURLをコピー"}
-              </button>
-            </div>
             {/* Share link */}
             <div>
-              <p className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">共有ID</p>
+              <p className="mb-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">共有リンク</p>
               {shareLinkLoading ? (
                 <div className="flex h-9 items-center gap-2 text-xs text-slate-400">
                   <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -3613,13 +3597,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 <div className="flex gap-2">
                   <input
                     readOnly
-                    value={shareLink}
+                    value={shareLink ? `${typeof window !== "undefined" ? window.location.origin : ""}/view/${shareLink}` : ""}
                     className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
                   />
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(shareLink);
+                      const url = `${typeof window !== "undefined" ? window.location.origin : ""}/view/${shareLink}`;
+                      navigator.clipboard.writeText(url);
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
                     }}
@@ -3629,7 +3614,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   </button>
                 </div>
               )}
-              <p className="mt-1 text-[11px] text-slate-400">IDを知っている人のみ閲覧できます</p>
+              <p className="mt-1 text-[11px] text-slate-400">リンクを知っている人のみ閲覧できます。開くとそのまま旅程を確認・追加できます</p>
               {shareLink && (
                 <div className="mt-2">
                   <button

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useTrips } from "@/components/trip-context";
-import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon, PencilSquareIcon, ChevronUpIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon, PencilSquareIcon, ChevronUpIcon, ChevronDownIcon, LinkIcon } from "@heroicons/react/24/outline";
 import { APP_VERSION, CHANGELOG } from "@/lib/changelog";
 import { PlaceCategory, DEFAULT_PLACE_CATEGORIES, MAX_PLACE_CATEGORIES, loadPlaceCategories, savePlaceCategories } from "@/lib/categories";
 import { db } from "@/lib/firebase";
@@ -129,6 +129,7 @@ export default function Home() {
   };
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [copiedAppUrl, setCopiedAppUrl] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -565,13 +566,13 @@ export default function Home() {
                 <span className="text-2xl">🔗</span>
                 <div>
                   <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">友だちの旅をインポート</p>
-                  <p className="mt-0.5 text-[11px] text-indigo-500 dark:text-indigo-400">共有IDを入力すると旅程・持ち物リスト・メモをまとめて取り込めます</p>
+                  <p className="mt-0.5 text-[11px] text-indigo-500 dark:text-indigo-400">共有リンクまたはIDを入力すると旅程・持ち物リスト・メモをまとめて取り込めます</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="共有IDを入力"
+                  placeholder="共有リンクまたはIDを入力"
                   value={linkInput}
                   onChange={(e) => { setLinkInput(e.target.value); setLinkResult(null); }}
                   className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[16px] leading-tight text-slate-700 outline-none focus:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
@@ -1068,6 +1069,21 @@ export default function Home() {
       {settingsOpen && (
         <Modal title="設定" onClose={() => setSettingsOpen(false)}>
           <div className="mt-5 space-y-5">
+            {/* アプリのURLをコピー */}
+            <button
+              type="button"
+              onClick={() => {
+                const url = typeof window !== "undefined" ? window.location.origin : "";
+                navigator.clipboard.writeText(url);
+                setCopiedAppUrl(true);
+                setTimeout(() => setCopiedAppUrl(false), 2000);
+              }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 py-2.5 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
+            >
+              <LinkIcon className="h-4 w-4" />
+              {copiedAppUrl ? "URLをコピーしました" : "アプリのURLをコピー"}
+            </button>
+
             {/* Add to Home Screen - only show when not installed and supported */}
             {!isInstalled && (isIOS || deferredPrompt) && (
             <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
