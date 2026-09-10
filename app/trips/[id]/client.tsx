@@ -1418,6 +1418,20 @@ function ActivityForm({
   );
 }
 
+// 1分ごとに自分だけ再レンダリングする現地時間バッジ（親の旅程ページ全体は再レンダリングしない）
+function LocalTimeBadge({ timezone }: { timezone: string }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+      現地時間 {new Intl.DateTimeFormat("ja-JP", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false }).format(now)}
+    </span>
+  );
+}
+
 // ─── TripDetailClient ─────────────────────────────────────────────────────────
 
 export function TripDetailClient({ tripId }: { tripId: string }) {
@@ -2177,6 +2191,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             {(tripData.startDate || tripData.endDate) && (
               <p className="text-xs font-medium text-white/70">
                 {fmtDateLong(tripData.startDate)} 〜 {fmtDateLong(tripData.endDate)}
+                {tripData.startDate && tripData.endDate && `（${tripDayCount}日間）`}
               </p>
             )}
             <h1 className="mt-1 text-xl font-black tracking-tight sm:text-3xl">{tripData.title}</h1>
@@ -2188,8 +2203,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 <span className="text-sm font-bold text-white/90">{countdownLabel}</span>
               </div>
             )}
+            {tripData.destinationCountry && COUNTRY_INFO[tripData.destinationCountry] && (
             <div className="mt-2 flex flex-wrap gap-2 sm:mt-3">
-              {tripData.destinationCountry && COUNTRY_INFO[tripData.destinationCountry] && (() => {
+              {(() => {
                 const country = getCountryDef(tripData.destinationCountry!);
                 const info = COUNTRY_INFO[tripData.destinationCountry!];
                 const rate = jpyRates?.rates[info.currency];
@@ -2204,6 +2220,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                       時差：{formatTimeDiff(getTimeDiffMinutes(info.timezone))}
                     </span>
+                    <LocalTimeBadge timezone={info.timezone} />
                     {rate != null && (
                       <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                         {formatCurrencyRate(info.currency, rate)}{staleSuffix}
@@ -2212,13 +2229,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   </>
                 );
               })()}
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-                {tripDayCount}日間
-              </span>
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-                {participants}人
-              </span>
             </div>
+            )}
           </div>
         </div>
 

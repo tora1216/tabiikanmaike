@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.14.0";
+export const APP_VERSION = "1.15.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,19 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.14.0",
+    date: "2026-09-11",
+    title: "海外旅行サポート・旅行中の自動遷移",
+    changes: [
+      "旅の作成・編集に旅行先の国選択を追加（主要64カ国）",
+      "旅程ページに日本との時差を表示",
+      "旅程ページに為替レートを表示",
+      "旅行日が1週間以内に近づくと、その日の天気予報を表示",
+      "旅行中の旅があれば、アプリ起動時に自動でその旅程ページへ遷移",
+      "スマホ表示のバナー余白を調整",
+    ],
+  },
   {
     version: "1.13.0",
     date: "2026-08-18",
