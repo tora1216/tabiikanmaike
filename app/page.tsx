@@ -122,6 +122,7 @@ function Modal({
           </div>
           <button
             type="button"
+            aria-label="閉じる"
             onClick={onClose}
             className="ml-2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
           >
@@ -282,6 +283,7 @@ export default function Home() {
   const [editParticipants, setEditParticipants] = useState(2);
   const [showEditMembers, setShowEditMembers] = useState(false);
   const [editError, setEditError] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // inline member name editing (shared across both modals — only one open at a time)
   const [renamingIdx, setRenamingIdx] = useState<number | null>(null);
@@ -1087,17 +1089,8 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <button
                 className="flex items-center gap-1.5 rounded-full border border-red-200 px-3 py-2 text-sm text-red-500 transition hover:bg-red-50"
-                onClick={() => {
-                  const trip = trips.find((t) => t.id === editId);
-                  const msg = trip?.shareId
-                    ? "この旅を削除すると共有リンクも無効になります。\n本当に削除してもよろしいですか？"
-                    : "この旅を削除してもよろしいですか？";
-                  if (window.confirm(msg)) {
-                    removeTrip(editId);
-                    setEditOpen(false);
-                    setEditId(null);
-                  }
-                }}
+                onClick={() => setDeleteConfirmOpen(true)}
+                aria-label="旅を削除"
               >
                 <TrashIcon className="h-4 w-4" />
                 削除
@@ -1119,6 +1112,45 @@ export default function Home() {
           </div>
         </Modal>
       )}
+
+      {/* Delete Trip Confirm Dialog */}
+      {deleteConfirmOpen && editId && (() => {
+        const trip = trips.find((t) => t.id === editId);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-6" onClick={() => setDeleteConfirmOpen(false)}>
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-800" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-1 flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+                <TrashIcon className="h-5 w-5 text-red-500" />
+                削除の確認
+              </div>
+              <p className="mb-5 text-sm text-slate-500 dark:text-slate-400">
+                {trip?.shareId
+                  ? "この旅を削除すると共有リンクも無効になります。本当に削除してもよろしいですか？"
+                  : "この旅を削除してもよろしいですか？"}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-full border border-slate-200 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  onClick={() => setDeleteConfirmOpen(false)}
+                >キャンセル</button>
+                <button
+                  type="button"
+                  className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
+                  onClick={() => {
+                    if (!editId) return;
+                    removeTrip(editId);
+                    setDeleteConfirmOpen(false);
+                    setEditOpen(false);
+                    setEditId(null);
+                  }}
+                >削除</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Settings Modal */}
       {settingsOpen && (
@@ -1176,6 +1208,7 @@ export default function Home() {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               <button
                 type="button"
+                aria-label={catCollapsed ? "展開する" : "折りたたむ"}
                 onClick={() => setCatCollapsed(v => !v)}
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >
@@ -1201,16 +1234,16 @@ export default function Home() {
                         <span className="text-xl">{cat.icon}</span>
                         <span className="flex-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{cat.label}</span>
                         <div className="flex items-center gap-0.5">
-                          <button type="button" onClick={() => moveCat(idx, -1)} disabled={idx === 0} className="rounded p-1 text-slate-400 hover:bg-slate-200 disabled:opacity-30 dark:hover:bg-slate-600">
+                          <button type="button" aria-label="上へ移動" onClick={() => moveCat(idx, -1)} disabled={idx === 0} className="rounded p-1 text-slate-400 hover:bg-slate-200 disabled:opacity-30 dark:hover:bg-slate-600">
                             <ChevronUpIcon className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => moveCat(idx, 1)} disabled={idx === placeCategories.length - 1} className="rounded p-1 text-slate-400 hover:bg-slate-200 disabled:opacity-30 dark:hover:bg-slate-600">
+                          <button type="button" aria-label="下へ移動" onClick={() => moveCat(idx, 1)} disabled={idx === placeCategories.length - 1} className="rounded p-1 text-slate-400 hover:bg-slate-200 disabled:opacity-30 dark:hover:bg-slate-600">
                             <ChevronDownIcon className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => openCatDialog(idx)} className="rounded p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600">
+                          <button type="button" aria-label="編集" onClick={() => openCatDialog(idx)} className="rounded p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600">
                             <PencilSquareIcon className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => setCatDeleteConfirm(() => () => deleteCat(idx))} className="rounded p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                          <button type="button" aria-label="削除" onClick={() => setCatDeleteConfirm(() => () => deleteCat(idx))} className="rounded p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
                             <TrashIcon className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -1232,6 +1265,7 @@ export default function Home() {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
               <button
                 type="button"
+                aria-label={changelogCollapsed ? "展開する" : "折りたたむ"}
                 onClick={() => setChangelogCollapsed(v => !v)}
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >

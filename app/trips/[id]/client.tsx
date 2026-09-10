@@ -312,6 +312,7 @@ function SubItemRow({
               {onMapsClick && (
                 <button
                   type="button"
+                  aria-label="地図で見る"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onMapsClick(`https://www.google.com/maps/search/${encodeURIComponent(sub.label)}`); }}
                   className="rounded-full p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
@@ -322,6 +323,7 @@ function SubItemRow({
               {onEditSub && (
                 <button
                   type="button"
+                  aria-label="編集"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); onEditSub(sub); }}
                   className="rounded-full p-1 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-500"
@@ -425,9 +427,6 @@ function ActivityCard({
   onAddSub,
   onEditSub,
   onReorderSub,
-  groupMates,
-  onSwitchPlan,
-  onAddAlt,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
@@ -438,15 +437,14 @@ function ActivityCard({
   onAddSub?: () => void;
   onEditSub?: (sub: SubActivity) => void;
   onReorderSub?: (subItems: SubActivity[]) => void;
-  groupMates?: TripActivity[];
-  onSwitchPlan?: (targetId: string) => void;
-  onAddAlt?: () => void;
 }) {
   const isTransport = activity.type === "transport";
   const hasSubItems = !!activity.subItems?.length;
   const isEditMode = !overlay && !!dragHandle;
-  const isGrouped = !overlay && !!groupMates && groupMates.length > 1;
-  const isCollapsedAlt = isGrouped && activity.planActive === false;
+  const showActions = !overlay && !dragHandle && !!(onEdit || onAddSub);
+  const mapsQuery = activity.type === "transport" ? activity.to : activity.destination;
+  const actionIconCount = (onAddSub ? 1 : 0) + (mapsQuery ? 1 : 0) + (onEdit ? 1 : 0);
+  const titlePrClass = !showActions ? "" : actionIconCount >= 3 ? "pr-24" : actionIconCount === 2 ? "pr-16" : "pr-9";
 
   const subSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -468,30 +466,6 @@ function ActivityCard({
     onReorderSub(arrayMove(subItems, oldIndex, newIndex));
   }
 
-  // 不採用の代替プラン：詳細を畳んで「この案に切替」だけを出す
-  if (isCollapsedAlt) {
-    return (
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          disabled={!onSwitchPlan}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onSwitchPlan?.(activityId(activity)); }}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-slate-700 dark:bg-slate-800/40"
-        >
-          <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
-            {activity.planLabel ?? "代替"}
-          </span>
-          <span className="truncate text-xs text-slate-400 dark:text-slate-500">
-            {isTransport && activity.from && activity.to ? `${activity.from} → ${activity.to}` : activity.destination || "（未入力）"}
-          </span>
-          <span className="ml-auto shrink-0 text-[10px] font-semibold text-indigo-400">この案に切替 →</span>
-        </button>
-        {dragHandle}
-      </div>
-    );
-  }
-
   return (
     <div
       className={`relative rounded-xl border bg-white p-3 dark:bg-slate-800 ${
@@ -500,23 +474,13 @@ function ActivityCard({
           : "border-slate-200/80 shadow-sm dark:border-slate-700"
       }`}
     >
-      {/* Action buttons - absolute top-right */}
-      {!overlay && !dragHandle && (onEdit || onAddSub || onAddAlt) && (
+      {/* Action buttons - absolute top-right, reserved space sized to how many are actually shown */}
+      {showActions && (
         <div className="absolute right-2 top-2 flex items-center gap-1">
-          {onAddAlt && (
-            <button
-              type="button"
-              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-purple-50 hover:text-purple-500"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onAddAlt(); }}
-              title="代替プランを追加"
-            >
-              <DocumentDuplicateIcon className="h-3.5 w-3.5" />
-            </button>
-          )}
           {onAddSub && (
             <button
               type="button"
+              aria-label="サブ予定を追加"
               className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-indigo-50 hover:text-indigo-500"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onAddSub(); }}
@@ -524,24 +488,21 @@ function ActivityCard({
               <PlusIcon className="h-3.5 w-3.5" />
             </button>
           )}
-          {(() => {
-            const mapsQuery = activity.type === "transport"
-              ? activity.to
-              : activity.destination;
-            return mapsQuery ? (
-              <button
-                type="button"
-                className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onMapsClick?.(`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`); }}
-              >
-                <MapPinIcon className="h-3.5 w-3.5" />
-              </button>
-            ) : null;
-          })()}
+          {mapsQuery && (
+            <button
+              type="button"
+              aria-label="地図で見る"
+              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-500"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onMapsClick?.(`https://www.google.com/maps/search/${encodeURIComponent(mapsQuery)}`); }}
+            >
+              <MapPinIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
           {onEdit && (
             <button
               type="button"
+              aria-label="編集"
               className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-blue-50 hover:text-blue-500"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
@@ -562,36 +523,12 @@ function ActivityCard({
 
         {/* Content */}
         <div className="min-w-0 flex-1">
-          {isGrouped && (
-            <div className="mb-1.5 flex flex-wrap items-center gap-1">
-              {groupMates!.map((mate) => {
-                const mateId = activityId(mate);
-                const isCurrent = mateId === activityId(activity);
-                return (
-                  <button
-                    key={mateId}
-                    type="button"
-                    disabled={isCurrent || !onSwitchPlan}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => { e.stopPropagation(); onSwitchPlan?.(mateId); }}
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
-                      isCurrent
-                        ? "bg-indigo-500 text-white"
-                        : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-500 dark:bg-slate-700 dark:text-slate-400"
-                    }`}
-                  >
-                    {mate.planLabel ?? "?"}
-                  </button>
-                );
-              })}
-            </div>
-          )}
           {isTransport && activity.from && activity.to ? (
-            <p className={`truncate font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onAddAlt) ? "pr-28" : ""}`}>
+            <p className={`truncate font-semibold text-slate-900 dark:text-white ${titlePrClass}`}>
               {activity.from} <span className="text-slate-300 dark:text-slate-600">→</span> {activity.to}
             </p>
           ) : (
-            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onAddAlt) ? "pr-28" : ""}`}>{activity.destination}</p>
+            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${titlePrClass}`}>{activity.destination}</p>
           )}
           {activity.time && (
             <p className="mt-0.5 text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
@@ -689,9 +626,6 @@ function SortableItem({
   onAddSub,
   onEditSub,
   onReorderSub,
-  groupMates,
-  onSwitchPlan,
-  onAddAlt,
 }: {
   activity: TripActivity;
   onEdit: () => void;
@@ -701,9 +635,6 @@ function SortableItem({
   onAddSub: () => void;
   onEditSub: (sub: SubActivity) => void;
   onReorderSub: (subItems: SubActivity[]) => void;
-  groupMates?: TripActivity[];
-  onSwitchPlan?: (targetId: string) => void;
-  onAddAlt?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
@@ -772,9 +703,6 @@ function SortableItem({
         onAddSub={isEditMode ? undefined : onAddSub}
         onEditSub={isEditMode ? undefined : onEditSub}
         onReorderSub={onReorderSub}
-        groupMates={groupMates}
-        onSwitchPlan={isEditMode ? undefined : onSwitchPlan}
-        onAddAlt={isEditMode ? undefined : onAddAlt}
       />
     </li>
   );
@@ -810,6 +738,7 @@ function Modal({
             {headerExtra}
             <button
               type="button"
+              aria-label="閉じる"
               onClick={onClose}
               className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
             >
@@ -1316,6 +1245,7 @@ function ActivityForm({
             {startTime && (
               <button
                 type="button"
+                aria-label="開始時間をクリア"
                 onClick={() => setStartTime("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               >
@@ -1338,6 +1268,7 @@ function ActivityForm({
             {endTime && (
               <button
                 type="button"
+                aria-label="終了時間をクリア"
                 onClick={() => setEndTime("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               >
@@ -1725,7 +1656,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   // 費用タブ・合計金額に使う、メイン予定＋サブ予定の費用をフラットにした一覧
   const costItems: { key: string; day: number; icon: string; label: string; parentLabel?: string; data: CostFields }[] = tripData.days.flatMap((a) => {
     const items: { key: string; day: number; icon: string; label: string; parentLabel?: string; data: CostFields }[] = [];
-    if (a.planGroupId && a.planActive === false) return items; // 不採用の代替プランは費用集計から除外
     if (a.cost && a.cost > 0) {
       items.push({
         key: activityId(a),
@@ -2036,49 +1966,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     }));
   }
 
-  // 同じグループ内で採用する代替プランを切り替える
-  function switchPlan(groupId: string, targetId: string) {
-    updateTrip(tripData.id, (current) => ({
-      ...current,
-      days: current.days.map((d) =>
-        d.planGroupId === groupId ? { ...d, planActive: activityId(d) === targetId } : d
-      ),
-    }));
-  }
-
-  // 予定を複製して「代替プラン」として追加する。初回は元の予定を「プランA」として確定させる
-  function addPlanAlternative(activity: TripActivity) {
-    const groupId = activity.planGroupId ?? genId();
-    const isNewGroup = !activity.planGroupId;
-    let newActivity: TripActivity | null = null;
-    updateTrip(tripData.id, (current) => {
-      const siblings = current.days.filter((d) => d.planGroupId === groupId);
-      const usedLabels = new Set(siblings.map((d) => d.planLabel));
-      let code = isNewGroup ? 66 : 65; // 'B' : 'A'
-      while (usedLabels.has(`プラン${String.fromCharCode(code)}`)) code++;
-      newActivity = {
-        ...activity,
-        id: genId(),
-        planGroupId: groupId,
-        planLabel: `プラン${String.fromCharCode(code)}`,
-        planActive: false,
-        subItems: activity.subItems?.map((s) => ({ ...s, id: genId() })),
-      };
-      const days = [...current.days];
-      const idx = days.indexOf(activity);
-      days.splice(idx + 1, 0, newActivity);
-      return {
-        ...current,
-        days: days.map((d) =>
-          d === activity && isNewGroup
-            ? { ...d, planGroupId: groupId, planLabel: "プランA", planActive: true }
-            : d
-        ),
-      };
-    });
-    if (newActivity) openEdit(newActivity);
-  }
-
   function moveActivityToSub(activity: TripActivity, target: TripActivity) {
     updateTrip(tripData.id, (current) => {
       const activeAct = current.days.find((d) => d === activity);
@@ -2307,7 +2194,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="space-y-4">
               {allDayNumbers.map((dayNum) => {
                 const dayActivities = tripData.days.filter((d) => d.day === dayNum);
-                const dayCost = dayActivities.reduce((s, a) => (a.planGroupId && a.planActive === false ? s : s + activityTotalCost(a) + subItemsTotalCost(a)), 0);
+                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a) + subItemsTotalCost(a), 0);
                 const containerId = `day-${dayNum}`;
 
                 const isCollapsed = collapsedDays.has(dayNum);
@@ -2343,6 +2230,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                         )}
                         <button
                           type="button"
+                          aria-label={isCollapsed ? "展開する" : "折りたたむ"}
                           onClick={() => toggleDay(dayNum)}
                           className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
                         >
@@ -2373,9 +2261,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 onAddSub={() => openAddSub(activity)}
                                 onEditSub={(sub) => openEditSub(activity, sub)}
                                 onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
-                                groupMates={activity.planGroupId ? dayActivities.filter((d) => d.planGroupId === activity.planGroupId) : undefined}
-                                onSwitchPlan={activity.planGroupId ? (targetId) => switchPlan(activity.planGroupId!, targetId) : undefined}
-                                onAddAlt={() => addPlanAlternative(activity)}
                               />
                             ))}
                           </ul>
@@ -2414,9 +2299,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             onAddSub={() => openAddSub(activity)}
                             onEditSub={(sub) => openEditSub(activity, sub)}
                             onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
-                            groupMates={activity.planGroupId ? unassigned.filter((d) => d.planGroupId === activity.planGroupId) : undefined}
-                            onSwitchPlan={activity.planGroupId ? (targetId) => switchPlan(activity.planGroupId!, targetId) : undefined}
-                            onAddAlt={() => addPlanAlternative(activity)}
                           />
                         ))}
                       </ul>
@@ -2438,6 +2320,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">✅ やることリスト</span>
                 <button
                   type="button"
+                  aria-label={todoCollapsed ? "展開する" : "折りたたむ"}
                   onClick={() => setTodoCollapsed((v) => !v)}
                   className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
                 >
@@ -2513,6 +2396,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                           </span>
                           <button
                             type="button"
+                            aria-label="削除"
                             onClick={() => setDeleteConfirm(() => () =>
                               updateTrip(tripData.id, (c) => ({
                                 ...c,
@@ -2568,6 +2452,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   )}
                   <button
                     type="button"
+                    aria-label={packingCollapsed ? "展開する" : "折りたたむ"}
                     onClick={() => setPackingCollapsed((v) => !v)}
                     className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
                   >
@@ -2642,6 +2527,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                           </span>
                           <button
                             type="button"
+                            aria-label="削除"
                             onClick={() => setDeleteConfirm(() => () =>
                               updateTrip(tripData.id, (c) => ({
                                 ...c,
@@ -2696,6 +2582,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   )}
                   <button
                     type="button"
+                    aria-label={candidatesCollapsed ? "展開する" : "折りたたむ"}
                     onClick={() => setCandidatesCollapsed((v) => !v)}
                     className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
                   >
@@ -2724,6 +2611,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
+                            aria-label="編集"
                             onClick={() => { setCandidateIcon(candidate.icon); setCandidateName(candidate.name); setCandidateEditId(candidate.id); setCandidateModalOpen(true); }}
                             className="rounded-full p-1.5 text-slate-300 transition hover:bg-blue-50 hover:text-blue-500"
                           >
@@ -2731,6 +2619,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                           </button>
                           <button
                             type="button"
+                            aria-label="削除"
                             onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).filter((ca) => ca.id !== candidate.id) })))}
                             className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
                           >
@@ -2766,12 +2655,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                     href={candidateSiteUrl(site.site, candidate.name)}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    aria-label={`${site.site}を開く`}
                                     className="rounded-full p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-500"
                                   >
                                     <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
                                   </a>
                                   <button
                                     type="button"
+                                    aria-label="削除"
                                     onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: ca.sites.filter((s) => s.id !== site.id) } : ca) })))}
                                     className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
                                   >
@@ -2954,6 +2845,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                       <p className="text-sm font-bold text-slate-700 dark:text-slate-200">💸 精算</p>
                       <button
                         type="button"
+                        aria-label={copiedSettlement ? "コピーしました" : "精算結果をコピー"}
                         onClick={() => {
                           const text = settlements.map((s) => `${s.from} → ${s.to}：¥${s.amount.toLocaleString()}`).join("\n");
                           navigator.clipboard.writeText(text);
@@ -3078,6 +2970,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   </div>
                   <button
                     type="button"
+                    aria-label="削除"
                     onClick={() => setDeleteConfirmNoteId(entry.id)}
                     className="mt-1 shrink-0 rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-400"
                   >
@@ -3126,6 +3019,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         {activeTab === "itinerary" && (
           <button
             type="button"
+            aria-label="予定を追加"
             className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#22C55E] text-white shadow-xl transition-all hover:scale-110 hover:bg-green-400 active:scale-95"
             onClick={() => { resetForm(); setIsAddOpen(true); }}
           >
@@ -3159,6 +3053,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   <button
                     type="button"
                     disabled={disabled}
+                    aria-label="サブ予定にする"
                     title={hasOwnSub ? "サブ予定を持つ予定は移動できません" : !hasCandidates ? "同じ日に他の予定がありません" : "サブ予定にする"}
                     className={`rounded-full p-1.5 transition ${disabled ? "text-slate-200 dark:text-slate-600" : "text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 dark:hover:bg-indigo-900/20"}`}
                     onClick={() => {
@@ -3175,6 +3070,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               })()}
               <button
                 type="button"
+                aria-label="複製"
                 className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
                 onClick={() => {
                   const activity = editingActivity;
@@ -3187,6 +3083,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               </button>
               <button
                 type="button"
+                aria-label="削除"
                 className="rounded-full p-1.5 text-red-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
                 onClick={() => {
                   const activity = editingActivity;
@@ -3436,6 +3333,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <>
               <button
                 type="button"
+                aria-label="メイン予定にする"
                 title="メイン予定にする"
                 className="rounded-full p-1.5 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-500 dark:hover:bg-indigo-900/20"
                 onClick={() => {
@@ -3448,6 +3346,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               </button>
               <button
                 type="button"
+                aria-label="削除"
                 className="rounded-full p-1.5 text-red-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
                 onClick={() => {
                   const parent = subParentActivity;
@@ -3597,19 +3496,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
                 onClick={() => {
                   const activity = deleteConfirmActivity;
-                  updateTrip(tripData.id, (c) => {
-                    const remaining = c.days.filter((d) => d !== activity);
-                    const needsPromotion = !!activity.planGroupId && activity.planActive !== false;
-                    let promoted = false;
-                    const days = remaining.map((d) => {
-                      if (needsPromotion && !promoted && d.planGroupId === activity.planGroupId) {
-                        promoted = true;
-                        return { ...d, planActive: true };
-                      }
-                      return d;
-                    });
-                    return { ...c, days };
-                  });
+                  updateTrip(tripData.id, (c) => ({
+                    ...c,
+                    days: c.days.filter((d) => d !== activity),
+                  }));
                   setDeleteConfirmActivity(null);
                 }}
               >削除</button>

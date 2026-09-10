@@ -29,9 +29,6 @@ export type TripActivity = CostFields & {
   memo?: string;
   url?: string; // 公式サイト・予約ページなどへのリンク
   subItems?: SubActivity[];   // このカードの中に入れ子にした小さな予定（例: 明洞の中のお昼ご飯・ショッピング）
-  planGroupId?: string;       // 同じ時間帯の代替プラン（プランA/プランBなど）をまとめるID
-  planLabel?: string;         // グループ内での表示名（例: "プランA"）
-  planActive?: boolean;       // グループ内で現在採用されている案かどうか
 };
 
 export type PackingItem = {
