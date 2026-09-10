@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTrips } from "@/components/trip-context";
 import { PlusIcon, CalendarIcon, Cog6ToothIcon, TrashIcon, DocumentDuplicateIcon, UserCircleIcon, XMarkIcon, SunIcon, MoonIcon, ArrowUpOnSquareIcon, PencilSquareIcon, ChevronUpIcon, ChevronDownIcon, LinkIcon } from "@heroicons/react/24/outline";
@@ -10,6 +11,7 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { useAuth } from "@/components/auth-context";
 import type { Trip } from "@/lib/trips";
+import { COUNTRIES, CONTINENTS } from "@/lib/keiken";
 
 const TRIP_COLORS = [
   "#3B82F6", "#0EA5E9", "#06B6D4", "#10B981",
@@ -73,6 +75,25 @@ function ColorSwatch({ colors, value, onChange }: { colors: string[]; value: str
   );
 }
 
+function CountrySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select
+      className={inputCls}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">国内（日本）</option>
+      {CONTINENTS.map((cont) => (
+        <optgroup key={cont.id} label={cont.name}>
+          {COUNTRIES.filter((c) => c.continent === cont.id).map((c) => (
+            <option key={c.id} value={c.id}>{c.flag} {c.name}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 function Modal({
   title,
   subtitle,
@@ -114,8 +135,22 @@ function Modal({
 }
 
 export default function Home() {
-  const { trips, addTrip, removeTrip, updateTrip } = useTrips();
+  const { trips, addTrip, removeTrip, updateTrip, hydrated } = useTrips();
   const { user } = useAuth();
+  const router = useRouter();
+
+  // 旅行中の旅が1件あれば、アプリを開いた直後の1回だけ自動でその旅程ページに遷移する
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      if (sessionStorage.getItem("auto_redirected_ongoing")) return;
+    } catch { /* ignore */ }
+    const ongoing = trips.filter((t) => getTripStatus(t.startDate, t.endDate) === "ongoing");
+    if (ongoing.length === 0) return;
+    const target = ongoing.reduce((a, b) => ((a.startDate ?? "") <= (b.startDate ?? "") ? a : b));
+    try { sessionStorage.setItem("auto_redirected_ongoing", "1"); } catch { /* ignore */ }
+    router.push(`/trips/${target.id}`);
+  }, [hydrated, trips, router]);
 
   const [isDark, setIsDark] = useState(false);
   useEffect(() => {
@@ -226,6 +261,7 @@ export default function Home() {
   const [description, setDescription] = useState("");
   const [addColor, setAddColor] = useState(TRIP_COLORS[0]);
   const [addIcon, setAddIcon] = useState("✈️");
+  const [addCountry, setAddCountry] = useState("");
   const [addMembers, setAddMembers] = useState<string[]>([]);
   const [addMemberInput, setAddMemberInput] = useState("");
   const [addParticipants, setAddParticipants] = useState(2);
@@ -240,6 +276,7 @@ export default function Home() {
   const [editDesc, setEditDesc] = useState("");
   const [editColor, setEditColor] = useState(TRIP_COLORS[0]);
   const [editIcon, setEditIcon] = useState("✈️");
+  const [editCountry, setEditCountry] = useState("");
   const [editMembers, setEditMembers] = useState<string[]>([]);
   const [editMemberInput, setEditMemberInput] = useState("");
   const [editParticipants, setEditParticipants] = useState(2);
@@ -257,6 +294,7 @@ export default function Home() {
     setDescription("");
     setAddColor(TRIP_COLORS[0]);
     setAddIcon("✈️");
+    setAddCountry("");
     setAddMembers([]);
     setAddMemberInput("");
     setAddParticipants(2);
@@ -277,7 +315,7 @@ export default function Home() {
       setAddError("終了日を設定した場合は開始日も入力してください。");
       return;
     }
-    addTrip({ title, startDate: startDate || undefined, endDate: endDate || undefined, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, members: addMembers, participants: addMembers.length > 0 ? addMembers.length : addParticipants });
+    addTrip({ title, startDate: startDate || undefined, endDate: endDate || undefined, description: description.trim(), days: [], color: addColor, tripIcon: addIcon, destinationCountry: addCountry || undefined, members: addMembers, participants: addMembers.length > 0 ? addMembers.length : addParticipants });
     resetAdd();
     setAddOpen(false);
     setAddMode("new");
@@ -293,6 +331,7 @@ export default function Home() {
     setEditDesc(t.description ?? "");
     setEditColor(t.color ?? TRIP_COLORS[0]);
     setEditIcon(t.tripIcon ?? "✈️");
+    setEditCountry(t.destinationCountry ?? "");
     setEditMembers(t.members ?? []);
     setEditMemberInput("");
     setEditParticipants(t.members?.length || t.participants || 2);
@@ -313,6 +352,7 @@ export default function Home() {
       todoList: t.todoList,
       notes: t.notes,
       tripIcon: t.tripIcon,
+      destinationCountry: t.destinationCountry,
       members: t.members,
     });
     setEditOpen(false);
@@ -340,6 +380,7 @@ export default function Home() {
       description: editDesc.trim(),
       color: editColor,
       tripIcon: editIcon,
+      destinationCountry: editCountry || undefined,
       members: editMembers,
       participants: editMembers.length > 0 ? editMembers.length : editParticipants,
       status: undefined,
@@ -711,6 +752,13 @@ export default function Home() {
               </div>
             </div>
             <div>
+              <div className="mb-1 flex items-baseline gap-2">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">旅行先</label>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">海外を選ぶと時差・為替レートが表示されます</p>
+              </div>
+              <CountrySelect value={addCountry} onChange={setAddCountry} />
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>
               <input
                 className={inputCls}
@@ -895,6 +943,13 @@ export default function Home() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div>
+              <div className="mb-1 flex items-baseline gap-2">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">旅行先</label>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500">海外を選ぶと時差・為替レートが表示されます</p>
+              </div>
+              <CountrySelect value={editCountry} onChange={setEditCountry} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">タイトル *</label>

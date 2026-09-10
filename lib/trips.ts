@@ -29,6 +29,9 @@ export type TripActivity = CostFields & {
   memo?: string;
   url?: string; // 公式サイト・予約ページなどへのリンク
   subItems?: SubActivity[];   // このカードの中に入れ子にした小さな予定（例: 明洞の中のお昼ご飯・ショッピング）
+  planGroupId?: string;       // 同じ時間帯の代替プラン（プランA/プランBなど）をまとめるID
+  planLabel?: string;         // グループ内での表示名（例: "プランA"）
+  planActive?: boolean;       // グループ内で現在採用されている案かどうか
 };
 
 export type PackingItem = {
@@ -77,6 +80,7 @@ export type Trip = {
   noteEntries?: NoteEntry[];
   color?: string;
   tripIcon?: string;
+  destinationCountry?: string; // 海外旅行先の国ID（lib/keiken.ts の COUNTRIES 参照）。国内旅行は未設定
   members?: string[];   // named member list
   participants?: number; // legacy fallback
   candidates?: Candidate[];

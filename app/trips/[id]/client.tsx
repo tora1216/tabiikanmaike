@@ -11,6 +11,9 @@ import { useAuth } from "@/components/auth-context";
 import { TripActivity, SubActivity, CostFields, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
 import { PlaceCategory, DEFAULT_PLACE_CATEGORIES, loadPlaceCategories } from "@/lib/categories";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
+import { COUNTRY_INFO, getCountryDef, getTimeDiffMinutes, formatTimeDiff, formatCurrencyRate } from "@/lib/country-info";
+import { getJpyRates, type JpyRatesResult } from "@/lib/exchange-rate";
+import { getWeatherForecast, weatherEmoji, type DailyForecast } from "@/lib/weather";
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
@@ -99,6 +102,25 @@ function fmtDayDate(tripStart: string | undefined, dayNum: number) {
   const d = new Date(tripStart);
   d.setDate(d.getDate() + dayNum - 1);
   return d.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }).replace("（", "(").replace("）", ")");
+}
+
+function isoDateForDay(tripStart: string | undefined, dayNum: number): string | null {
+  if (!tripStart) return null;
+  const d = new Date(tripStart);
+  d.setDate(d.getDate() + dayNum - 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// 今日から何日後かを返す（過去ならマイナス）
+function daysFromToday(dateStr: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
 }
 
 function activityId(a: TripActivity) {
@@ -403,6 +425,9 @@ function ActivityCard({
   onAddSub,
   onEditSub,
   onReorderSub,
+  groupMates,
+  onSwitchPlan,
+  onAddAlt,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
@@ -413,10 +438,15 @@ function ActivityCard({
   onAddSub?: () => void;
   onEditSub?: (sub: SubActivity) => void;
   onReorderSub?: (subItems: SubActivity[]) => void;
+  groupMates?: TripActivity[];
+  onSwitchPlan?: (targetId: string) => void;
+  onAddAlt?: () => void;
 }) {
   const isTransport = activity.type === "transport";
   const hasSubItems = !!activity.subItems?.length;
   const isEditMode = !overlay && !!dragHandle;
+  const isGrouped = !overlay && !!groupMates && groupMates.length > 1;
+  const isCollapsedAlt = isGrouped && activity.planActive === false;
 
   const subSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -438,6 +468,30 @@ function ActivityCard({
     onReorderSub(arrayMove(subItems, oldIndex, newIndex));
   }
 
+  // 不採用の代替プラン：詳細を畳んで「この案に切替」だけを出す
+  if (isCollapsedAlt) {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={!onSwitchPlan}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onSwitchPlan?.(activityId(activity)); }}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2.5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-slate-700 dark:bg-slate-800/40"
+        >
+          <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+            {activity.planLabel ?? "代替"}
+          </span>
+          <span className="truncate text-xs text-slate-400 dark:text-slate-500">
+            {isTransport && activity.from && activity.to ? `${activity.from} → ${activity.to}` : activity.destination || "（未入力）"}
+          </span>
+          <span className="ml-auto shrink-0 text-[10px] font-semibold text-indigo-400">この案に切替 →</span>
+        </button>
+        {dragHandle}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`relative rounded-xl border bg-white p-3 dark:bg-slate-800 ${
@@ -447,8 +501,19 @@ function ActivityCard({
       }`}
     >
       {/* Action buttons - absolute top-right */}
-      {!overlay && !dragHandle && (onEdit || onAddSub) && (
+      {!overlay && !dragHandle && (onEdit || onAddSub || onAddAlt) && (
         <div className="absolute right-2 top-2 flex items-center gap-1">
+          {onAddAlt && (
+            <button
+              type="button"
+              className="rounded-full p-1.5 text-slate-300 transition-colors hover:bg-purple-50 hover:text-purple-500"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAddAlt(); }}
+              title="代替プランを追加"
+            >
+              <DocumentDuplicateIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
           {onAddSub && (
             <button
               type="button"
@@ -497,12 +562,36 @@ function ActivityCard({
 
         {/* Content */}
         <div className="min-w-0 flex-1">
+          {isGrouped && (
+            <div className="mb-1.5 flex flex-wrap items-center gap-1">
+              {groupMates!.map((mate) => {
+                const mateId = activityId(mate);
+                const isCurrent = mateId === activityId(activity);
+                return (
+                  <button
+                    key={mateId}
+                    type="button"
+                    disabled={isCurrent || !onSwitchPlan}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); onSwitchPlan?.(mateId); }}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
+                      isCurrent
+                        ? "bg-indigo-500 text-white"
+                        : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-500 dark:bg-slate-700 dark:text-slate-400"
+                    }`}
+                  >
+                    {mate.planLabel ?? "?"}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {isTransport && activity.from && activity.to ? (
-            <p className={`truncate font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>
+            <p className={`truncate font-semibold text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onAddAlt) ? "pr-28" : ""}`}>
               {activity.from} <span className="text-slate-300 dark:text-slate-600">→</span> {activity.to}
             </p>
           ) : (
-            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && onEdit ? "pr-24" : ""}`}>{activity.destination}</p>
+            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${!overlay && !dragHandle && (onEdit || onAddAlt) ? "pr-28" : ""}`}>{activity.destination}</p>
           )}
           {activity.time && (
             <p className="mt-0.5 text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
@@ -600,6 +689,9 @@ function SortableItem({
   onAddSub,
   onEditSub,
   onReorderSub,
+  groupMates,
+  onSwitchPlan,
+  onAddAlt,
 }: {
   activity: TripActivity;
   onEdit: () => void;
@@ -609,6 +701,9 @@ function SortableItem({
   onAddSub: () => void;
   onEditSub: (sub: SubActivity) => void;
   onReorderSub: (subItems: SubActivity[]) => void;
+  groupMates?: TripActivity[];
+  onSwitchPlan?: (targetId: string) => void;
+  onAddAlt?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
@@ -677,6 +772,9 @@ function SortableItem({
         onAddSub={isEditMode ? undefined : onAddSub}
         onEditSub={isEditMode ? undefined : onEditSub}
         onReorderSub={onReorderSub}
+        groupMates={groupMates}
+        onSwitchPlan={isEditMode ? undefined : onSwitchPlan}
+        onAddAlt={isEditMode ? undefined : onAddAlt}
       />
     </li>
   );
@@ -1360,6 +1458,27 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [expandedSplitIds, setExpandedSplitIds] = useState<Set<string>>(new Set());
   const toggleSplitDetail = (id: string) => setExpandedSplitIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
 
+  // 海外旅行先の時差・為替レート
+  const destinationCountryId = trip?.destinationCountry;
+  const [jpyRates, setJpyRates] = useState<JpyRatesResult | null>(null);
+  useEffect(() => {
+    if (!destinationCountryId) return;
+    let cancelled = false;
+    getJpyRates().then((rates) => { if (!cancelled) setJpyRates(rates); });
+    return () => { cancelled = true; };
+  }, [destinationCountryId]);
+
+  // 海外旅行先の天気予報（1週間先までの分を日付ごとに保持）
+  const [weatherByDate, setWeatherByDate] = useState<Record<string, DailyForecast> | null>(null);
+  useEffect(() => {
+    if (!destinationCountryId) return;
+    const info = COUNTRY_INFO[destinationCountryId];
+    if (!info) return;
+    let cancelled = false;
+    getWeatherForecast(info.lat, info.lon).then((days) => { if (!cancelled) setWeatherByDate(days); });
+    return () => { cancelled = true; };
+  }, [destinationCountryId]);
+
   // Share modal
   const [shareModal, setShareModal] = useState(false);
   const [shareNeedsLogin, setShareNeedsLogin] = useState(false);
@@ -1592,6 +1711,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   // 費用タブ・合計金額に使う、メイン予定＋サブ予定の費用をフラットにした一覧
   const costItems: { key: string; day: number; icon: string; label: string; parentLabel?: string; data: CostFields }[] = tripData.days.flatMap((a) => {
     const items: { key: string; day: number; icon: string; label: string; parentLabel?: string; data: CostFields }[] = [];
+    if (a.planGroupId && a.planActive === false) return items; // 不採用の代替プランは費用集計から除外
     if (a.cost && a.cost > 0) {
       items.push({
         key: activityId(a),
@@ -1902,6 +2022,49 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     }));
   }
 
+  // 同じグループ内で採用する代替プランを切り替える
+  function switchPlan(groupId: string, targetId: string) {
+    updateTrip(tripData.id, (current) => ({
+      ...current,
+      days: current.days.map((d) =>
+        d.planGroupId === groupId ? { ...d, planActive: activityId(d) === targetId } : d
+      ),
+    }));
+  }
+
+  // 予定を複製して「代替プラン」として追加する。初回は元の予定を「プランA」として確定させる
+  function addPlanAlternative(activity: TripActivity) {
+    const groupId = activity.planGroupId ?? genId();
+    const isNewGroup = !activity.planGroupId;
+    let newActivity: TripActivity | null = null;
+    updateTrip(tripData.id, (current) => {
+      const siblings = current.days.filter((d) => d.planGroupId === groupId);
+      const usedLabels = new Set(siblings.map((d) => d.planLabel));
+      let code = isNewGroup ? 66 : 65; // 'B' : 'A'
+      while (usedLabels.has(`プラン${String.fromCharCode(code)}`)) code++;
+      newActivity = {
+        ...activity,
+        id: genId(),
+        planGroupId: groupId,
+        planLabel: `プラン${String.fromCharCode(code)}`,
+        planActive: false,
+        subItems: activity.subItems?.map((s) => ({ ...s, id: genId() })),
+      };
+      const days = [...current.days];
+      const idx = days.indexOf(activity);
+      days.splice(idx + 1, 0, newActivity);
+      return {
+        ...current,
+        days: days.map((d) =>
+          d === activity && isNewGroup
+            ? { ...d, planGroupId: groupId, planLabel: "プランA", planActive: true }
+            : d
+        ),
+      };
+    });
+    if (newActivity) openEdit(newActivity);
+  }
+
   function moveActivityToSub(activity: TripActivity, target: TripActivity) {
     updateTrip(tripData.id, (current) => {
       const activeAct = current.days.find((d) => d === activity);
@@ -2009,37 +2172,52 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         </header>
 
         {/* Banner */}
-        <div className="px-4 py-10 text-white sm:px-6 sm:py-12" style={{ backgroundColor: bannerColor }}>
+        <div className="px-4 py-5 text-white sm:px-6 sm:py-12" style={{ backgroundColor: bannerColor }}>
           <div className="mx-auto max-w-3xl">
             {(tripData.startDate || tripData.endDate) && (
               <p className="text-xs font-medium text-white/70">
                 {fmtDateLong(tripData.startDate)} 〜 {fmtDateLong(tripData.endDate)}
               </p>
             )}
-            <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{tripData.title}</h1>
+            <h1 className="mt-1 text-xl font-black tracking-tight sm:text-3xl">{tripData.title}</h1>
             {tripData.description && (
-              <p className="mt-2 max-w-lg text-sm leading-relaxed text-white/80">{tripData.description}</p>
+              <p className="mt-1.5 max-w-lg text-sm leading-relaxed text-white/80 sm:mt-2">{tripData.description}</p>
             )}
             {countdownLabel && (
-              <div className="mt-3">
+              <div className="mt-2 sm:mt-3">
                 <span className="text-sm font-bold text-white/90">{countdownLabel}</span>
               </div>
             )}
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-2 sm:mt-3">
+              {tripData.destinationCountry && COUNTRY_INFO[tripData.destinationCountry] && (() => {
+                const country = getCountryDef(tripData.destinationCountry!);
+                const info = COUNTRY_INFO[tripData.destinationCountry!];
+                const rate = jpyRates?.rates[info.currency];
+                const staleSuffix = jpyRates?.stale
+                  ? `（${Number(jpyRates.date.slice(5, 7))}/${Number(jpyRates.date.slice(8, 10))}時点）`
+                  : "";
+                return (
+                  <>
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                      {country?.flag} {country?.name}
+                    </span>
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                      時差：{formatTimeDiff(getTimeDiffMinutes(info.timezone))}
+                    </span>
+                    {rate != null && (
+                      <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
+                        {formatCurrencyRate(info.currency, rate)}{staleSuffix}
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                 {tripDayCount}日間
               </span>
               <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                 {participants}人
               </span>
-              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-                {tripData.days.length}スポット
-              </span>
-              {totalCost > 0 && (
-                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-                  合計 ¥{totalCost.toLocaleString()}
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -2117,7 +2295,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             <div className="space-y-4">
               {allDayNumbers.map((dayNum) => {
                 const dayActivities = tripData.days.filter((d) => d.day === dayNum);
-                const dayCost = dayActivities.reduce((s, a) => s + activityTotalCost(a) + subItemsTotalCost(a), 0);
+                const dayCost = dayActivities.reduce((s, a) => (a.planGroupId && a.planActive === false ? s : s + activityTotalCost(a) + subItemsTotalCost(a)), 0);
                 const containerId = `day-${dayNum}`;
 
                 const isCollapsed = collapsedDays.has(dayNum);
@@ -2131,6 +2309,19 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                           {fmtDayDate(tripData.startDate, dayNum)}
                         </span>
+                        {tripData.destinationCountry && COUNTRY_INFO[tripData.destinationCountry] && (() => {
+                          const dateStr = isoDateForDay(tripData.startDate, dayNum);
+                          if (!dateStr) return null;
+                          const diff = daysFromToday(dateStr);
+                          if (diff < 0 || diff > 7) return null;
+                          const forecast = weatherByDate?.[dateStr];
+                          if (!forecast) return null;
+                          return (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                              {weatherEmoji(forecast.code)} {Math.round(forecast.tempMin)}〜{Math.round(forecast.tempMax)}℃
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-2">
                         {dayCost > 0 && (
@@ -2170,6 +2361,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 onAddSub={() => openAddSub(activity)}
                                 onEditSub={(sub) => openEditSub(activity, sub)}
                                 onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
+                                groupMates={activity.planGroupId ? dayActivities.filter((d) => d.planGroupId === activity.planGroupId) : undefined}
+                                onSwitchPlan={activity.planGroupId ? (targetId) => switchPlan(activity.planGroupId!, targetId) : undefined}
+                                onAddAlt={() => addPlanAlternative(activity)}
                               />
                             ))}
                           </ul>
@@ -2208,6 +2402,9 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             onAddSub={() => openAddSub(activity)}
                             onEditSub={(sub) => openEditSub(activity, sub)}
                             onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
+                            groupMates={activity.planGroupId ? unassigned.filter((d) => d.planGroupId === activity.planGroupId) : undefined}
+                            onSwitchPlan={activity.planGroupId ? (targetId) => switchPlan(activity.planGroupId!, targetId) : undefined}
+                            onAddAlt={() => addPlanAlternative(activity)}
                           />
                         ))}
                       </ul>
@@ -3388,10 +3585,19 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white transition hover:bg-red-400"
                 onClick={() => {
                   const activity = deleteConfirmActivity;
-                  updateTrip(tripData.id, (c) => ({
-                    ...c,
-                    days: c.days.filter((d) => d !== activity),
-                  }));
+                  updateTrip(tripData.id, (c) => {
+                    const remaining = c.days.filter((d) => d !== activity);
+                    const needsPromotion = !!activity.planGroupId && activity.planActive !== false;
+                    let promoted = false;
+                    const days = remaining.map((d) => {
+                      if (needsPromotion && !promoted && d.planGroupId === activity.planGroupId) {
+                        promoted = true;
+                        return { ...d, planActive: true };
+                      }
+                      return d;
+                    });
+                    return { ...c, days };
+                  });
                   setDeleteConfirmActivity(null);
                 }}
               >削除</button>
