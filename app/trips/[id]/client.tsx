@@ -1576,6 +1576,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
   // Notes chat state
   const [noteInput, setNoteInput] = useState("");
+  const [notesSubTab, setNotesSubTab] = useState<"memo" | "candidates">("memo");
 
   // Form validation
   const [formError, setFormError] = useState("");
@@ -1855,6 +1856,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   }
 
   function saveEdit() {
+    (document.activeElement as HTMLElement | null)?.blur();
     if (activityType === "transport") {
       if (!fromPlace || !toPlace) { setFormError("出発地と目的地は必須項目です。"); return; }
     } else {
@@ -1901,6 +1903,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   }
 
   function saveAdd() {
+    (document.activeElement as HTMLElement | null)?.blur();
     if (activityType === "transport") {
       if (!fromPlace || !toPlace) { setFormError("出発地と目的地は必須項目です。"); return; }
     } else {
@@ -2004,6 +2007,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   }
 
   function saveSub() {
+    (document.activeElement as HTMLElement | null)?.blur();
     if (!subLabel.trim()) { setSubFormError("名前を入力してください。"); return; }
     if (!subParentActivity) return;
     const effectiveMembers = subActivityMembers.length ? subActivityMembers : (tripData.members ?? []);
@@ -2873,7 +2877,30 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
 
         {/* ── Notes tab ── */}
         {activeTab === "notes" && (
-          <main className="mx-auto max-w-3xl px-4 pb-32 pt-6 sm:px-6">
+          <main className={`mx-auto max-w-3xl px-4 pt-6 sm:px-6 ${notesSubTab === "memo" ? "pb-32" : "pb-24"}`}>
+            {/* サブタブ: メモ / 旅程メモ */}
+            <div className="mb-4 flex justify-center gap-1.5 rounded-full bg-slate-100 p-1 dark:bg-slate-800">
+              {([
+                { key: "memo", label: "📝 メモ" },
+                { key: "candidates", label: "🔍 旅程メモ" },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setNotesSubTab(key)}
+                  className={`flex-1 rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+                    notesSubTab === key
+                      ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {notesSubTab === "memo" && (
+            <>
             {/* Message list */}
             <div className="space-y-3">
               {(tripData.noteEntries ?? []).length === 0 && (
@@ -2904,10 +2931,46 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               ))}
             </div>
 
-            {/* 検討リスト */}
-            <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+            {/* Input bar */}
+            <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200/80 bg-white/95 px-4 pb-8 pt-3 backdrop-blur-md sm:px-6 dark:bg-slate-800/95 dark:border-slate-700">
+              <div className="mx-auto flex max-w-3xl gap-2">
+                <textarea
+                  className={`${inputCls} resize-none`}
+                  rows={1}
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  placeholder="メモを追加…"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && noteInput.trim()) {
+                      e.preventDefault();
+                      const entry: NoteEntry = { id: `note-${Date.now()}`, text: noteInput.trim(), createdAt: new Date().toISOString() };
+                      updateTrip(tripData.id, (c) => ({ ...c, noteEntries: [...(c.noteEntries ?? []), entry] }));
+                      setNoteInput("");
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
+                  onClick={() => {
+                    if (!noteInput.trim()) return;
+                    const entry: NoteEntry = { id: `note-${Date.now()}`, text: noteInput.trim(), createdAt: new Date().toISOString() };
+                    updateTrip(tripData.id, (c) => ({ ...c, noteEntries: [...(c.noteEntries ?? []), entry] }));
+                    setNoteInput("");
+                  }}
+                >
+                  送信
+                </button>
+              </div>
+            </div>
+            </>
+            )}
+
+            {/* 旅程メモ（候補比較リスト） */}
+            {notesSubTab === "candidates" && (
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
               <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 検討リスト</span>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 旅程メモ</span>
                 <div className="flex items-center gap-2">
                   {!candidatesCollapsed && (
                     <button
@@ -3076,39 +3139,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 </div>
               ))}
             </div>
-
-            {/* Input bar */}
-            <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200/80 bg-white/95 px-4 pb-8 pt-3 backdrop-blur-md sm:px-6 dark:bg-slate-800/95 dark:border-slate-700">
-              <div className="mx-auto flex max-w-3xl gap-2">
-                <textarea
-                  className={`${inputCls} resize-none`}
-                  rows={1}
-                  value={noteInput}
-                  onChange={(e) => setNoteInput(e.target.value)}
-                  placeholder="メモを追加…"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey && noteInput.trim()) {
-                      e.preventDefault();
-                      const entry: NoteEntry = { id: `note-${Date.now()}`, text: noteInput.trim(), createdAt: new Date().toISOString() };
-                      updateTrip(tripData.id, (c) => ({ ...c, noteEntries: [...(c.noteEntries ?? []), entry] }));
-                      setNoteInput("");
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[#22C55E] px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-400 active:scale-95"
-                  onClick={() => {
-                    if (!noteInput.trim()) return;
-                    const entry: NoteEntry = { id: `note-${Date.now()}`, text: noteInput.trim(), createdAt: new Date().toISOString() };
-                    updateTrip(tripData.id, (c) => ({ ...c, noteEntries: [...(c.noteEntries ?? []), entry] }));
-                    setNoteInput("");
-                  }}
-                >
-                  送信
-                </button>
-              </div>
-            </div>
+            )}
           </main>
         )}
 
