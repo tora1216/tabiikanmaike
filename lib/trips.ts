@@ -14,6 +14,7 @@ export type SubActivity = CostFields & {
   icon?: string;
   label: string;
   memo?: string;
+  businessHours?: string; // 例）10:00〜20:00
   url?: string; // 公式サイト・予約ページなどへのリンク
 };
 
@@ -27,6 +28,7 @@ export type TripActivity = CostFields & {
   from?: string; // transport: departure
   to?: string;   // transport: arrival
   memo?: string;
+  businessHours?: string; // 例）10:00〜20:00
   url?: string; // 公式サイト・予約ページなどへのリンク
   subItems?: SubActivity[];   // このカードの中に入れ子にした小さな予定（例: 明洞の中のお昼ご飯・ショッピング）
 };

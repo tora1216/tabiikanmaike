@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { HomeIcon, PlusIcon, PencilSquareIcon, TrashIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
+import { AppHeader } from "@/components/app-header";
 import {
   TravelPlan, PlanItem, PlanItemType,
   loadTravelPlans, saveTravelPlans, genPlanId, planTotal,
@@ -24,6 +25,7 @@ function hotelSiteUrl(site: string, name: string): string {
 }
 
 export default function PlanningPage() {
+  const router = useRouter();
   const [travelPlans, setTravelPlans] = useState<TravelPlan[]>([]);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
@@ -144,16 +146,17 @@ export default function PlanningPage() {
 
   return (
     <div className="min-h-screen bg-[#F0F5FA] dark:bg-slate-900">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md dark:bg-slate-800/90 dark:border-slate-700">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link href="/" className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
-            <HomeIcon className="h-3.5 w-3.5" />一覧に戻る
-          </Link>
-          <span className="absolute left-1/2 -translate-x-1/2 text-sm font-bold text-slate-900 dark:text-white">旅の検討</span>
-          <div className="w-20" />
-        </div>
-      </header>
+      <AppHeader
+        leftContent={
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            <HomeIcon className="h-3.5 w-3.5" />戻る
+          </button>
+        }
+      />
 
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         {travelPlans.length === 0 ? (

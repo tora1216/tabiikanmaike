@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
@@ -8,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, onSnapshot, setDoc } from "firebase/firestore";
 import { useTrips } from "@/components/trip-context";
 import { useAuth } from "@/components/auth-context";
+import { AppHeader } from "@/components/app-header";
 import { TripActivity, SubActivity, CostFields, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
 import { PlaceCategory, DEFAULT_PLACE_CATEGORIES, loadPlaceCategories } from "@/lib/categories";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
@@ -17,8 +19,8 @@ import { getWeatherForecast, weatherEmoji, type DailyForecast } from "@/lib/weat
 import {
   PencilIcon, TrashIcon, PlusIcon, ArrowLeftIcon,
   CalendarDaysIcon, ShoppingBagIcon, CreditCardIcon,
-  DocumentTextIcon, ShareIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
-  ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon, DocumentDuplicateIcon,
+  DocumentTextIcon, PaperAirplaneIcon, XMarkIcon, MapPinIcon, ChevronDownIcon, HomeIcon,
+  ClipboardDocumentIcon, CheckIcon, ArrowTopRightOnSquareIcon, DocumentDuplicateIcon, LinkIcon,
   ArrowDownOnSquareStackIcon, ArrowUpOnSquareStackIcon,
 } from "@heroicons/react/24/outline";
 import {
@@ -154,6 +156,7 @@ function activityToSubActivity(a: TripActivity): SubActivity {
     icon: a.icon,
     label: a.destination,
     memo: a.memo,
+    businessHours: a.businessHours,
     url: a.url,
     cost: a.cost,
     costType: a.costType,
@@ -341,7 +344,10 @@ function SubItemRow({
         <div className="min-w-0 flex-1">
           <p className={`truncate text-[13px] font-medium text-slate-700 dark:text-slate-200 ${hasActions ? "pr-11" : ""}`}>{sub.label}</p>
           {sub.memo && (
-            <p className="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-500">{sub.memo}</p>
+            <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">{sub.memo}</p>
+          )}
+          {sub.businessHours && (
+            <p className={`text-[11px] text-slate-400 dark:text-slate-500 ${sub.memo ? "" : "mt-0.5"}`}>営業時間 {sub.businessHours}</p>
           )}
           {sub.url && (
             <a
@@ -440,11 +446,30 @@ function ActivityCard({
 }) {
   const isTransport = activity.type === "transport";
   const hasSubItems = !!activity.subItems?.length;
+  const subItemCount = activity.subItems?.length ?? 0;
+  const canCollapseSubItems = subItemCount >= 1;
+  const [subItemsCollapsed, setSubItemsCollapsed] = useState(false);
   const isEditMode = !overlay && !!dragHandle;
   const showActions = !overlay && !dragHandle && !!(onEdit || onAddSub);
   const mapsQuery = activity.type === "transport" ? activity.to : activity.destination;
   const actionIconCount = (onAddSub ? 1 : 0) + (mapsQuery ? 1 : 0) + (onEdit ? 1 : 0);
   const titlePrClass = !showActions ? "" : actionIconCount >= 3 ? "pr-24" : actionIconCount === 2 ? "pr-16" : "pr-9";
+
+  const hasCost = activity.cost !== undefined && activity.cost > 0;
+  const partialMembers = allMembers && allMembers.length > 0 && activity.activityMembers && activity.activityMembers.length > 0 && activity.activityMembers.length !== allMembers.length
+    ? activity.activityMembers
+    : null;
+  // 金額が無い予定は時間の行にメンバーバッジを相乗りさせ、余分な行を作らない
+  const showMembersWithTime = !!activity.time && !hasCost && !!partialMembers;
+  const showMembersWithCost = hasCost && !!partialMembers;
+  const showMembersOwnRow = !activity.time && !hasCost && !!partialMembers;
+  const memberBadges = partialMembers && (
+    <div className="flex flex-wrap justify-end gap-1">
+      {partialMembers.map((m) => (
+        <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">{m}</span>
+      ))}
+    </div>
+  );
 
   const subSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -531,10 +556,16 @@ function ActivityCard({
             <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${titlePrClass}`}>{activity.destination}</p>
           )}
           {activity.time && (
-            <p className="mt-0.5 text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
+            <div className="mt-0.5 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-indigo-500">⏰ {activity.time}</p>
+              {showMembersWithTime && memberBadges}
+            </div>
           )}
           {activity.memo && (
             <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-500 dark:text-slate-400">{activity.memo}</p>
+          )}
+          {!isTransport && activity.businessHours && (
+            <p className={`text-xs text-slate-400 dark:text-slate-500 ${activity.memo ? "" : "mt-1"}`}>営業時間 {activity.businessHours}</p>
           )}
           {activity.url && (
             <a
@@ -549,60 +580,59 @@ function ActivityCard({
               <span className="truncate">{activity.url}</span>
             </a>
           )}
-          {(() => {
-            const hasCost = activity.cost !== undefined && activity.cost > 0;
-            const partialMembers = (() => {
-              if (!allMembers || allMembers.length === 0) return null;
-              const members = activity.activityMembers;
-              if (!members || members.length === 0 || members.length === allMembers.length) return null;
-              return members;
-            })();
-            if (!hasCost && !partialMembers) return null;
-            return (
-              <div className="mt-1 flex items-center justify-between gap-2">
-                {hasCost ? (
-                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                    ¥{activity.cost!.toLocaleString()}
-                    {activity.costType === "per_person" && (
-                      <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
-                    )}
-                  </p>
-                ) : <span />}
-                {partialMembers && (
-                  <div className="flex flex-wrap justify-end gap-1">
-                    {partialMembers.map((m) => (
-                      <span key={m} className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-500 dark:bg-indigo-900/30 dark:text-indigo-400">{m}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {(hasCost || showMembersOwnRow) && (
+            <div className="mt-1 flex items-center justify-between gap-2">
+              {hasCost ? (
+                <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                  ¥{activity.cost!.toLocaleString()}
+                  {activity.costType === "per_person" && (
+                    <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
+                  )}
+                </p>
+              ) : <span />}
+              {(showMembersWithCost || showMembersOwnRow) && memberBadges}
+            </div>
+          )}
 
           {/* Sub items (nested plans, e.g. lunch / shopping within a bigger stop) */}
           {hasSubItems && (
-            <div className="mt-2 space-y-1.5 border-t border-slate-100 pt-2 dark:border-slate-700">
-              {isEditMode && onReorderSub ? (
-                <DndContext
-                  sensors={subSensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={(event) => setSubDragActiveId(event.active.id as string)}
-                  onDragEnd={handleSubDragEnd}
-                  onDragCancel={() => setSubDragActiveId(null)}
+            <div className="mt-1 border-t border-slate-100 pt-1 dark:border-slate-700">
+              {canCollapseSubItems && (
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); setSubItemsCollapsed((v) => !v); }}
+                  className="mb-1.5 flex w-full items-center justify-end gap-1 text-[11px] font-semibold text-slate-400 transition hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                 >
-                  <SortableContext items={activity.subItems!.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-                    {activity.subItems!.map((sub) => (
-                      <SortableSubItemRow key={sub.id} sub={sub} allMembers={allMembers} />
-                    ))}
-                  </SortableContext>
-                  <DragOverlay dropAnimation={null}>
-                    {draggedSub ? <SubItemRow sub={draggedSub} allMembers={allMembers} /> : null}
-                  </DragOverlay>
-                </DndContext>
-              ) : (
-                activity.subItems!.map((sub) => (
-                  <SubItemRow key={sub.id} sub={sub} onMapsClick={onMapsClick} onEditSub={onEditSub} allMembers={allMembers} />
-                ))
+                  <span>サブ予定 {subItemCount}件</span>
+                  <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${subItemsCollapsed ? "" : "rotate-180"}`} />
+                </button>
+              )}
+              {(!canCollapseSubItems || !subItemsCollapsed || isEditMode) && (
+                <div className="space-y-1.5">
+                  {isEditMode && onReorderSub ? (
+                    <DndContext
+                      sensors={subSensors}
+                      collisionDetection={closestCenter}
+                      onDragStart={(event) => setSubDragActiveId(event.active.id as string)}
+                      onDragEnd={handleSubDragEnd}
+                      onDragCancel={() => setSubDragActiveId(null)}
+                    >
+                      <SortableContext items={activity.subItems!.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+                        {activity.subItems!.map((sub) => (
+                          <SortableSubItemRow key={sub.id} sub={sub} allMembers={allMembers} />
+                        ))}
+                      </SortableContext>
+                      <DragOverlay dropAnimation={null}>
+                        {draggedSub ? <SubItemRow sub={draggedSub} allMembers={allMembers} /> : null}
+                      </DragOverlay>
+                    </DndContext>
+                  ) : (
+                    activity.subItems!.map((sub) => (
+                      <SubItemRow key={sub.id} sub={sub} onMapsClick={onMapsClick} onEditSub={onEditSub} allMembers={allMembers} />
+                    ))
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -765,6 +795,8 @@ type ActivityFormProps = {
   startTime: string; setStartTime: (v: string) => void;
   endTime: string; setEndTime: (v: string) => void;
   memo: string; setMemo: (v: string) => void;
+  businessHoursStart: string; setBusinessHoursStart: (v: string) => void;
+  businessHoursEnd: string; setBusinessHoursEnd: (v: string) => void;
   url: string; setUrl: (v: string) => void;
   cost: number; setCost: (v: number) => void;
   costType: "per_person" | "total"; setCostType: (v: "per_person" | "total") => void;
@@ -1072,6 +1104,8 @@ function ActivityForm({
   startTime, setStartTime,
   endTime, setEndTime,
   memo, setMemo,
+  businessHoursStart, setBusinessHoursStart,
+  businessHoursEnd, setBusinessHoursEnd,
   url, setUrl,
   cost, setCost,
   costType, setCostType,
@@ -1093,7 +1127,7 @@ function ActivityForm({
   const fromPh = transport?.fromPh ?? "出発地";
   const toPh = transport?.toPh ?? "目的地";
   const hasCostValues = !!(cost || activityMembers.length || paidBy);
-  const hasMemoValues = !!(memo || url);
+  const hasMemoValues = !!(memo || url || businessHoursStart || businessHoursEnd);
   const [showCostOptional, setShowCostOptional] = useState(hasCostValues);
   const [showMemoOptional, setShowMemoOptional] = useState(hasMemoValues);
 
@@ -1303,6 +1337,55 @@ function ActivityForm({
               />
             </div>
 
+            {/* 営業時間（移動の予定には出さない） */}
+            {activityType !== "transport" && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">営業時間<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <input
+                      type="time"
+                      className={`${inputCls} appearance-none ${businessHoursStart ? "pr-8" : ""}`}
+                      value={businessHoursStart}
+                      onMouseDown={() => { if (!businessHoursStart) flushSync(() => setBusinessHoursStart("00:00")); }}
+                      onFocus={() => { if (!businessHoursStart) flushSync(() => setBusinessHoursStart("00:00")); }}
+                      onChange={(e) => setBusinessHoursStart(e.target.value)}
+                    />
+                    {businessHoursStart && (
+                      <button
+                        type="button"
+                        aria-label="営業開始時間をクリア"
+                        onClick={() => setBusinessHoursStart("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      className={`${inputCls} appearance-none ${businessHoursEnd ? "pr-8" : ""}`}
+                      value={businessHoursEnd}
+                      onMouseDown={() => { if (!businessHoursEnd) flushSync(() => setBusinessHoursEnd("00:00")); }}
+                      onFocus={() => { if (!businessHoursEnd) flushSync(() => setBusinessHoursEnd("00:00")); }}
+                      onChange={(e) => setBusinessHoursEnd(e.target.value)}
+                    />
+                    {businessHoursEnd && (
+                      <button
+                        type="button"
+                        aria-label="営業終了時間をクリア"
+                        onClick={() => setBusinessHoursEnd("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* URL */}
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">URL<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
@@ -1352,6 +1435,7 @@ function ActivityForm({
 // ─── TripDetailClient ─────────────────────────────────────────────────────────
 
 export function TripDetailClient({ tripId }: { tripId: string }) {
+  const router = useRouter();
   const { trips, hydrated, updateTrip, syncTripFromRemote } = useTrips();
   const { user } = useAuth();
   const trip = trips.find((t) => t.id === tripId);
@@ -1423,6 +1507,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [sharePasswordConfirmPending, setSharePasswordConfirmPending] = useState(false);
   const [activeShareId, setActiveShareId] = useState("");
   const [copiedText, setCopiedText] = useState(false);
+  const [copiedAppUrl, setCopiedAppUrl] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedSettlement, setCopiedSettlement] = useState(false);
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
@@ -1505,6 +1590,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [fromPlace, setFromPlace] = useState("");
   const [toPlace, setToPlace] = useState("");
   const [memo, setMemo] = useState("");
+  const [businessHoursStart, setBusinessHoursStart] = useState("");
+  const [businessHoursEnd, setBusinessHoursEnd] = useState("");
   const [url, setUrl] = useState("");
   const [cost, setCost] = useState(0);
   const [costType, setCostType] = useState<"per_person" | "total">("total");
@@ -1540,6 +1627,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [subIcon, setSubIcon] = useState(DEFAULT_PLACE_CATEGORIES[0].icon);
   const [subLabel, setSubLabel] = useState("");
   const [subMemo, setSubMemo] = useState("");
+  const [subBusinessHoursStart, setSubBusinessHoursStart] = useState("");
+  const [subBusinessHoursEnd, setSubBusinessHoursEnd] = useState("");
   const [subUrl, setSubUrl] = useState("");
   const [subCost, setSubCost] = useState(0);
   const [subCostType, setSubCostType] = useState<"per_person" | "total">("total");
@@ -1563,11 +1652,12 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   );
 
   const resetForm = () => {
+    setPlaceCategories(loadPlaceCategories());
     setActivityType("place");
     setStartTime(""); setEndTime("");
     setDayIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setUrl(""); setCost(0); setCostType("total"); setActivityMembers([]); setSplitMode("equal"); setSplitRatios({}); setSplitAmounts({}); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
+    setMemo(""); setBusinessHoursStart(""); setBusinessHoursEnd(""); setUrl(""); setCost(0); setCostType("total"); setActivityMembers([]); setSplitMode("equal"); setSplitRatios({}); setSplitAmounts({}); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -1734,6 +1824,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   }
 
   function openEdit(activity: TripActivity) {
+    setPlaceCategories(loadPlaceCategories());
     setEditingActivity(activity);
     const type: ActivityType = activity.type === "transport" ? "transport" : "place";
     setActivityType(type);
@@ -1745,6 +1836,11 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setFromPlace(activity.from || "");
     setToPlace(activity.to || "");
     setMemo(activity.memo || "");
+    {
+      const [bs, be] = parseTimeStr(activity.businessHours || "");
+      setBusinessHoursStart(bs);
+      setBusinessHoursEnd(be);
+    }
     setUrl(activity.url || "");
     setCost(activity.cost || 0);
     setCostType(activity.costType ?? "total");
@@ -1785,6 +1881,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               from: activityType === "transport" ? fromPlace : undefined,
               to: activityType === "transport" ? toPlace : undefined,
               memo: memo || undefined,
+              businessHours: activityType === "transport" ? undefined : (fmtTime(businessHoursStart, businessHoursEnd) || undefined),
               url: url.trim() || undefined,
               cost: cost > 0 ? cost : undefined,
               costType: cost > 0 ? costType : undefined,
@@ -1830,6 +1927,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           from: activityType === "transport" ? fromPlace : undefined,
           to: activityType === "transport" ? toPlace : undefined,
           memo: memo || undefined,
+          businessHours: activityType === "transport" ? undefined : (fmtTime(businessHoursStart, businessHoursEnd) || undefined),
           url: url.trim() || undefined,
           cost: cost > 0 ? cost : undefined,
           costType: cost > 0 ? costType : undefined,
@@ -1857,11 +1955,14 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   }
 
   function openAddSub(activity: TripActivity) {
+    setPlaceCategories(loadPlaceCategories());
     setSubParentActivity(activity);
     setEditingSub(null);
     setSubIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
     setSubLabel("");
     setSubMemo("");
+    setSubBusinessHoursStart("");
+    setSubBusinessHoursEnd("");
     setSubUrl("");
     setSubCost(0);
     setSubCostType("total");
@@ -1877,11 +1978,17 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   }
 
   function openEditSub(activity: TripActivity, sub: SubActivity) {
+    setPlaceCategories(loadPlaceCategories());
     setSubParentActivity(activity);
     setEditingSub(sub);
     setSubIcon(sub.icon || placeCategories[0]?.icon || DEFAULT_PLACE_CATEGORIES[0].icon);
     setSubLabel(sub.label);
     setSubMemo(sub.memo || "");
+    {
+      const [bs, be] = parseTimeStr(sub.businessHours || "");
+      setSubBusinessHoursStart(bs);
+      setSubBusinessHoursEnd(be);
+    }
     setSubUrl(sub.url || "");
     setSubCost(sub.cost || 0);
     setSubCostType(sub.costType ?? "total");
@@ -1893,7 +2000,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSubSettled(sub.settled ?? false);
     setSubFormError("");
     setSubShowCostOptional(!!(sub.cost || sub.activityMembers?.length || sub.paidBy));
-    setSubShowMemoOptional(!!(sub.memo || sub.url));
+    setSubShowMemoOptional(!!(sub.memo || sub.url || sub.businessHours));
   }
 
   function saveSub() {
@@ -1911,6 +2018,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       icon: subIcon,
       label: subLabel.trim(),
       memo: subMemo.trim() || undefined,
+      businessHours: fmtTime(subBusinessHoursStart, subBusinessHoursEnd) || undefined,
       url: subUrl.trim() || undefined,
       cost: subCost > 0 ? subCost : undefined,
       costType: subCost > 0 ? subCostType : undefined,
@@ -1980,6 +2088,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
         type: "place",
         destination: sub.label,
         memo: sub.memo,
+        businessHours: sub.businessHours,
         url: sub.url,
         cost: sub.cost,
         costType: sub.costType,
@@ -2027,17 +2136,20 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       onDragCancel={() => setDragActiveId(null)}
     >
       <div className="min-h-screen bg-[#F0F5FA] dark:bg-slate-900">
-        {/* Header */}
-        <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md relative dark:bg-slate-800/90 dark:border-slate-700">
-          <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-            <Link
-              href="/"
-              className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              <HomeIcon className="h-3.5 w-3.5" />一覧に戻る
-            </Link>
+        <AppHeader
+          leftContent={
             <button
               type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <HomeIcon className="h-3.5 w-3.5" />戻る
+            </button>
+          }
+          extra={
+            <button
+              type="button"
+              aria-label="共有"
               onClick={() => {
                 if (!user) {
                   setShareNeedsLogin(true);
@@ -2051,12 +2163,12 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   setShareConfirmOpen(true);
                 }
               }}
-              className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              className="rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
             >
-              <ShareIcon className="h-3.5 w-3.5" />共有
+              <PaperAirplaneIcon className="h-5 w-5" />
             </button>
-          </div>
-        </header>
+          }
+        />
 
         {/* Banner */}
         <div className="px-4 py-5 text-white sm:px-6 sm:py-12" style={{ backgroundColor: bannerColor }}>
@@ -2551,179 +2663,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               )}
             </div>
 
-            {/* 検討リスト — 戻すときは false を true に */}
-            {false && <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
-              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 検討リスト</span>
-                <div className="flex items-center gap-2">
-                  {!candidatesCollapsed && (
-                    <button
-                      type="button"
-                      onClick={() => { setCandidateIcon("🏨"); setCandidateName(""); setCandidateEditId(null); setCandidateModalOpen(true); }}
-                      className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
-                    >
-                      <PlusIcon className="h-3 w-3" />追加
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    aria-label={candidatesCollapsed ? "展開する" : "折りたたむ"}
-                    onClick={() => setCandidatesCollapsed((v) => !v)}
-                    className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
-                  >
-                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${candidatesCollapsed ? "" : "rotate-180"}`} />
-                  </button>
-                </div>
-              </div>
-              {!candidatesCollapsed && (
-                (tripData.candidates ?? []).length === 0 ? (
-                <p className="px-4 py-8 text-center text-xs text-slate-400">ホテル・航空券など検討中の候補を追加しましょう</p>
-              ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {(tripData.candidates ?? []).map((candidate) => (
-                    <div key={candidate.id} className="p-4">
-                      {/* Header */}
-                      <div className="mb-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{candidate.icon}</span>
-                          <span className={`text-sm font-semibold ${candidate.decidedSiteId ? "text-green-600 dark:text-green-400" : "text-slate-800 dark:text-slate-200"}`}>
-                            {candidate.name}
-                          </span>
-                          {candidate.decidedSiteId && (
-                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">決定</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            aria-label="編集"
-                            onClick={() => { setCandidateIcon(candidate.icon); setCandidateName(candidate.name); setCandidateEditId(candidate.id); setCandidateModalOpen(true); }}
-                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-blue-50 hover:text-blue-500"
-                          >
-                            <PencilIcon className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="削除"
-                            onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).filter((ca) => ca.id !== candidate.id) })))}
-                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                      {/* Site rows */}
-                      {candidate.sites.length > 0 && (
-                        <div className="mb-3 space-y-2">
-                          {candidate.sites.map((site) => {
-                            const isDecided = candidate.decidedSiteId === site.id;
-                            return (
-                              <div key={site.id} className={`flex items-start gap-2 rounded-xl px-3 py-2 ${isDecided ? "bg-green-50 dark:bg-green-900/20" : "bg-slate-50 dark:bg-slate-700/50"}`}>
-                                <button
-                                  type="button"
-                                  onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, decidedSiteId: isDecided ? undefined : site.id } : ca) }))}
-                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDecided ? "border-green-500 bg-green-500 text-white" : "border-slate-300 hover:border-green-500 dark:border-slate-600"}`}
-                                >
-                                  {isDecided && <svg viewBox="0 0 12 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1,5 4,8 11,1" /></svg>}
-                                </button>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{site.site}</span>
-                                    {site.price !== undefined && site.price > 0 && (
-                                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">¥{site.price.toLocaleString()}</span>
-                                    )}
-                                  </div>
-                                  {site.memo && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{site.memo}</p>}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <a
-                                    href={candidateSiteUrl(site.site, candidate.name)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    aria-label={`${site.site}を開く`}
-                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-500"
-                                  >
-                                    <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
-                                  </a>
-                                  <button
-                                    type="button"
-                                    aria-label="削除"
-                                    onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: ca.sites.filter((s) => s.id !== site.id) } : ca) })))}
-                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
-                                  >
-                                    <TrashIcon className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {/* Add site */}
-                      {addSiteFor === candidate.id ? (
-                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-800 dark:bg-indigo-900/20">
-                          <div className="mb-2 flex flex-wrap gap-1.5">
-                            {SITE_PRESETS.map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                onClick={() => setSiteInput((prev) => ({ ...prev, site: s }))}
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${siteInput.site === s ? "bg-indigo-500 text-white" : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"}`}
-                              >
-                                {s}
-                              </button>
-                            ))}
-                          </div>
-                          <input
-                            className={`${inputCls} mb-2`}
-                            type="number"
-                            placeholder="金額（任意）"
-                            value={siteInput.price || ""}
-                            onChange={(e) => setSiteInput((prev) => ({ ...prev, price: Number(e.target.value) }))}
-                          />
-                          <input
-                            className={`${inputCls} mb-2`}
-                            placeholder="メモ（クーポン情報など）"
-                            value={siteInput.memo}
-                            onChange={(e) => setSiteInput((prev) => ({ ...prev, memo: e.target.value }))}
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newSite: CandidateSite = { id: genId(), site: siteInput.site, price: siteInput.price || undefined, memo: siteInput.memo || undefined };
-                                updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: [...ca.sites, newSite] } : ca) }));
-                                setAddSiteFor(null);
-                                setSiteInput({ site: "じゃらん", price: 0, memo: "" });
-                              }}
-                              className="flex-1 rounded-full bg-indigo-500 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400"
-                            >
-                              追加
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setAddSiteFor(null); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
-                              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-                            >
-                              キャンセル
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => { setAddSiteFor(candidate.id); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
-                          className="flex items-center gap-1 text-xs text-indigo-400 transition hover:text-indigo-600"
-                        >
-                          <PlusIcon className="h-3.5 w-3.5" />サイトを追加
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>}
-
             </div>
           </main>
         )}
@@ -2965,6 +2904,179 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               ))}
             </div>
 
+            {/* 検討リスト */}
+            <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-700/50">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">🔍 検討リスト</span>
+                <div className="flex items-center gap-2">
+                  {!candidatesCollapsed && (
+                    <button
+                      type="button"
+                      onClick={() => { setCandidateIcon("🏨"); setCandidateName(""); setCandidateEditId(null); setCandidateModalOpen(true); }}
+                      className="flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700"
+                    >
+                      <PlusIcon className="h-3 w-3" />追加
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={candidatesCollapsed ? "展開する" : "折りたたむ"}
+                    onClick={() => setCandidatesCollapsed((v) => !v)}
+                    className="rounded-full p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
+                  >
+                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-200 ${candidatesCollapsed ? "" : "rotate-180"}`} />
+                  </button>
+                </div>
+              </div>
+              {!candidatesCollapsed && (
+                (tripData.candidates ?? []).length === 0 ? (
+                <p className="px-4 py-8 text-center text-xs text-slate-400">ホテル・航空券など検討中の候補を追加しましょう</p>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {(tripData.candidates ?? []).map((candidate) => (
+                    <div key={candidate.id} className="p-4">
+                      {/* Header */}
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{candidate.icon}</span>
+                          <span className={`text-sm font-semibold ${candidate.decidedSiteId ? "text-green-600 dark:text-green-400" : "text-slate-800 dark:text-slate-200"}`}>
+                            {candidate.name}
+                          </span>
+                          {candidate.decidedSiteId && (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:bg-green-900/30 dark:text-green-400">決定</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="編集"
+                            onClick={() => { setCandidateIcon(candidate.icon); setCandidateName(candidate.name); setCandidateEditId(candidate.id); setCandidateModalOpen(true); }}
+                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-blue-50 hover:text-blue-500"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="削除"
+                            onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).filter((ca) => ca.id !== candidate.id) })))}
+                            className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      {/* Site rows */}
+                      {candidate.sites.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                          {candidate.sites.map((site) => {
+                            const isDecided = candidate.decidedSiteId === site.id;
+                            return (
+                              <div key={site.id} className={`flex items-start gap-2 rounded-xl px-3 py-2 ${isDecided ? "bg-green-50 dark:bg-green-900/20" : "bg-slate-50 dark:bg-slate-700/50"}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, decidedSiteId: isDecided ? undefined : site.id } : ca) }))}
+                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDecided ? "border-green-500 bg-green-500 text-white" : "border-slate-300 hover:border-green-500 dark:border-slate-600"}`}
+                                >
+                                  {isDecided && <svg viewBox="0 0 12 10" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1,5 4,8 11,1" /></svg>}
+                                </button>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{site.site}</span>
+                                    {site.price !== undefined && site.price > 0 && (
+                                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">¥{site.price.toLocaleString()}</span>
+                                    )}
+                                  </div>
+                                  {site.memo && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{site.memo}</p>}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <a
+                                    href={candidateSiteUrl(site.site, candidate.name)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={`${site.site}を開く`}
+                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-indigo-50 hover:text-indigo-500"
+                                  >
+                                    <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    aria-label="削除"
+                                    onClick={() => setDeleteConfirm(() => () => updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: ca.sites.filter((s) => s.id !== site.id) } : ca) })))}
+                                    className="rounded-full p-1.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500"
+                                  >
+                                    <TrashIcon className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Add site */}
+                      {addSiteFor === candidate.id ? (
+                        <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-800 dark:bg-indigo-900/20">
+                          <div className="mb-2 flex flex-wrap gap-1.5">
+                            {SITE_PRESETS.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setSiteInput((prev) => ({ ...prev, site: s }))}
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${siteInput.site === s ? "bg-indigo-500 text-white" : "border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"}`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            className={`${inputCls} mb-2`}
+                            type="number"
+                            placeholder="金額（任意）"
+                            value={siteInput.price || ""}
+                            onChange={(e) => setSiteInput((prev) => ({ ...prev, price: Number(e.target.value) }))}
+                          />
+                          <input
+                            className={`${inputCls} mb-2`}
+                            placeholder="メモ（クーポン情報など）"
+                            value={siteInput.memo}
+                            onChange={(e) => setSiteInput((prev) => ({ ...prev, memo: e.target.value }))}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSite: CandidateSite = { id: genId(), site: siteInput.site, price: siteInput.price || undefined, memo: siteInput.memo || undefined };
+                                updateTrip(tripData.id, (c) => ({ ...c, candidates: (c.candidates ?? []).map((ca) => ca.id === candidate.id ? { ...ca, sites: [...ca.sites, newSite] } : ca) }));
+                                setAddSiteFor(null);
+                                setSiteInput({ site: "じゃらん", price: 0, memo: "" });
+                              }}
+                              className="flex-1 rounded-full bg-indigo-500 py-2 text-xs font-semibold text-white transition hover:bg-indigo-400"
+                            >
+                              追加
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setAddSiteFor(null); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
+                              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => { setAddSiteFor(candidate.id); setSiteInput({ site: "じゃらん", price: 0, memo: "" }); }}
+                          className="flex items-center gap-1 text-xs text-indigo-400 transition hover:text-indigo-600"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />サイトを追加
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
             {/* Input bar */}
             <div className="fixed bottom-0 left-0 right-0 border-t border-slate-200/80 bg-white/95 px-4 pb-8 pt-3 backdrop-blur-md sm:px-6 dark:bg-slate-800/95 dark:border-slate-700">
               <div className="mx-auto flex max-w-3xl gap-2">
@@ -3092,6 +3204,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             startTime={startTime} setStartTime={setStartTime}
             endTime={endTime} setEndTime={setEndTime}
             memo={memo} setMemo={setMemo}
+            businessHoursStart={businessHoursStart} setBusinessHoursStart={setBusinessHoursStart}
+            businessHoursEnd={businessHoursEnd} setBusinessHoursEnd={setBusinessHoursEnd}
             url={url} setUrl={setUrl}
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
@@ -3258,6 +3372,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             startTime={startTime} setStartTime={setStartTime}
             endTime={endTime} setEndTime={setEndTime}
             memo={memo} setMemo={setMemo}
+            businessHoursStart={businessHoursStart} setBusinessHoursStart={setBusinessHoursStart}
+            businessHoursEnd={businessHoursEnd} setBusinessHoursEnd={setBusinessHoursEnd}
             url={url} setUrl={setUrl}
             cost={cost} setCost={setCost}
             costType={costType} setCostType={setCostType}
@@ -3392,8 +3508,55 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                       className={`${inputCls} resize-none overflow-hidden`}
                       value={subMemo}
                       onChange={setSubMemo}
-                      placeholder="営業時間やおすすめメニューなど"
+                      placeholder="おすすめメニューなど"
                     />
+                  </div>
+
+                  {/* 営業時間 */}
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">営業時間<span className="ml-1 font-normal text-slate-400">（任意）</span></label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <input
+                          type="time"
+                          className={`${inputCls} appearance-none ${subBusinessHoursStart ? "pr-8" : ""}`}
+                          value={subBusinessHoursStart}
+                          onMouseDown={() => { if (!subBusinessHoursStart) flushSync(() => setSubBusinessHoursStart("00:00")); }}
+                          onFocus={() => { if (!subBusinessHoursStart) flushSync(() => setSubBusinessHoursStart("00:00")); }}
+                          onChange={(e) => setSubBusinessHoursStart(e.target.value)}
+                        />
+                        {subBusinessHoursStart && (
+                          <button
+                            type="button"
+                            aria-label="営業開始時間をクリア"
+                            onClick={() => setSubBusinessHoursStart("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type="time"
+                          className={`${inputCls} appearance-none ${subBusinessHoursEnd ? "pr-8" : ""}`}
+                          value={subBusinessHoursEnd}
+                          onMouseDown={() => { if (!subBusinessHoursEnd) flushSync(() => setSubBusinessHoursEnd("00:00")); }}
+                          onFocus={() => { if (!subBusinessHoursEnd) flushSync(() => setSubBusinessHoursEnd("00:00")); }}
+                          onChange={(e) => setSubBusinessHoursEnd(e.target.value)}
+                        />
+                        {subBusinessHoursEnd && (
+                          <button
+                            type="button"
+                            aria-label="営業終了時間をクリア"
+                            onClick={() => setSubBusinessHoursEnd("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* URL */}
@@ -3818,6 +3981,21 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                 {copiedText ? "コピー済み ✓" : "テキストをコピー"}
               </button>
             </div>
+
+            {/* アプリのURLをコピー */}
+            <button
+              type="button"
+              onClick={() => {
+                const url = typeof window !== "undefined" ? window.location.origin : "";
+                navigator.clipboard.writeText(url);
+                setCopiedAppUrl(true);
+                setTimeout(() => setCopiedAppUrl(false), 2000);
+              }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 py-2.5 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
+            >
+              <LinkIcon className="h-4 w-4" />
+              {copiedAppUrl ? "URLをコピーしました" : "アプリのURLをコピー"}
+            </button>
           </div>
         </Modal>
       )}

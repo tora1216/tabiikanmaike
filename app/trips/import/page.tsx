@@ -5,7 +5,6 @@ import LZString from "lz-string";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTrips } from "@/components/trip-context";
 import type { Trip } from "@/lib/trips";
-import Link from "next/link";
 import { ArrowLeftIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 
 function ImportContent() {
@@ -31,9 +30,13 @@ function ImportContent() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F0F5FA] px-4">
         <p className="text-sm text-slate-500">無効な共有リンクです。</p>
-        <Link href="/" className="text-sm font-semibold text-blue-500 hover:underline">
-          一覧に戻る
-        </Link>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="text-sm font-semibold text-blue-500 hover:underline"
+        >
+          戻る
+        </button>
       </div>
     );
   }
@@ -73,12 +76,13 @@ function ImportContent() {
     <div className="min-h-screen bg-[#F0F5FA] px-4 py-10">
       <div className="mx-auto max-w-md">
         {/* Back */}
-        <Link
-          href="/"
+        <button
+          type="button"
+          onClick={() => router.back()}
           className="mb-6 flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
         >
-          <ArrowLeftIcon className="h-3.5 w-3.5" />一覧に戻る
-        </Link>
+          <ArrowLeftIcon className="h-3.5 w-3.5" />戻る
+        </button>
 
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           {/* Icon */}
