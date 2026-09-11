@@ -1349,20 +1349,6 @@ function ActivityForm({
   );
 }
 
-// 1分ごとに自分だけ再レンダリングする現地時間バッジ（親の旅程ページ全体は再レンダリングしない）
-function LocalTimeBadge({ timezone }: { timezone: string }) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
-      現地時間 {new Intl.DateTimeFormat("ja-JP", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: false }).format(now)}
-    </span>
-  );
-}
-
 // ─── TripDetailClient ─────────────────────────────────────────────────────────
 
 export function TripDetailClient({ tripId }: { tripId: string }) {
@@ -2107,7 +2093,6 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                       時差：{formatTimeDiff(getTimeDiffMinutes(info.timezone))}
                     </span>
-                    <LocalTimeBadge timezone={info.timezone} />
                     {rate != null && (
                       <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-sm">
                         {formatCurrencyRate(info.currency, rate)}{staleSuffix}
