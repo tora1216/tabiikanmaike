@@ -107,10 +107,30 @@ export const CURRENCY_NAME: Record<string, string> = {
   KES: "ケニアシリング", TZS: "タンザニアシリング", ETB: "ブル",
 };
 
+// 通貨コード → 記号（見つからない場合はコードのまま表示）
+export const CURRENCY_SYMBOL: Record<string, string> = {
+  KRW: "₩", THB: "฿", VND: "₫", PHP: "₱", INR: "₹",
+  EUR: "€", GBP: "£", USD: "$", CAD: "$", AUD: "$",
+  NZD: "$", SGD: "$", HKD: "$", TWD: "NT$", MYR: "RM",
+  TRY: "₺", ILS: "₪", RUB: "₽", BRL: "R$", ZAR: "R",
+  CNY: "¥", IDR: "Rp", MXN: "$", ARS: "$", CLP: "$",
+  COP: "$", CUP: "$", MOP: "MOP$",
+};
+
+// 通貨コードを記号があれば記号、無ければコードのまま返す（例: "₩" / "KRW"）
+export function currencySymbol(code: string): string {
+  return CURRENCY_SYMBOL[code] ?? code;
+}
+
+// 通貨コード一覧（日本語名の五十音順）。外貨入力欄のプルダウンなどに使う
+export const CURRENCY_CODES: string[] = Object.keys(CURRENCY_NAME).sort((a, b) =>
+  CURRENCY_NAME[a].localeCompare(CURRENCY_NAME[b], "ja")
+);
+
 // rateFromJpy = APIが返す「1円あたりの現地通貨額」。読みやすい単位（1,10,100...）に自動調整して
 // 「1ドル＝150円」「100ウォン＝11円」のような文字列を作る
 export function formatCurrencyRate(currency: string, rateFromJpy: number): string {
-  const name = CURRENCY_NAME[currency] ?? currency;
+  const symbol = currencySymbol(currency);
   const jpyPerUnit = 1 / rateFromJpy;
   let unit = 1;
   let yen = jpyPerUnit;
@@ -121,7 +141,7 @@ export function formatCurrencyRate(currency: string, rateFromJpy: number): strin
   const yenStr = yen.toLocaleString(undefined, {
     maximumFractionDigits: yen >= 100 ? 0 : yen >= 10 ? 1 : 2,
   });
-  return `${unit === 1 ? "" : unit.toLocaleString()}${name}＝${yenStr}円`;
+  return `${unit === 1 ? "" : unit.toLocaleString()}${symbol}＝${yenStr}円`;
 }
 
 export function getCountryDef(id: string) {

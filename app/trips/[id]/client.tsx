@@ -13,7 +13,7 @@ import { AppHeader } from "@/components/app-header";
 import { TripActivity, SubActivity, CostFields, PackingItem, NoteEntry, TodoTask, Candidate, CandidateSite } from "@/lib/trips";
 import { PlaceCategory, DEFAULT_PLACE_CATEGORIES, loadPlaceCategories } from "@/lib/categories";
 import { PACKING_TEMPLATES } from "@/lib/packing-templates";
-import { COUNTRY_INFO, getCountryDef, getTimeDiffMinutes, formatTimeDiff, formatCurrencyRate } from "@/lib/country-info";
+import { COUNTRY_INFO, getCountryDef, getTimeDiffMinutes, formatTimeDiff, formatCurrencyRate, CURRENCY_NAME, CURRENCY_CODES, currencySymbol } from "@/lib/country-info";
 import { getJpyRates, type JpyRatesResult } from "@/lib/exchange-rate";
 import { getWeatherForecast, weatherEmoji, type DailyForecast } from "@/lib/weather";
 import {
@@ -287,6 +287,27 @@ function ExpenseItemRow({
 }
 
 // ─── SubItemRow ───────────────────────────────────────────────────────────────
+function OptionalPill({ optional, setOptional }: { optional: boolean; setOptional: (v: boolean) => void }) {
+  return (
+    <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-slate-700">
+      {([false, true] as const).map((v) => (
+        <button
+          key={String(v)}
+          type="button"
+          onClick={() => setOptional(v)}
+          className={`rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition-all ${
+            optional === v
+              ? "bg-white text-slate-800 shadow-sm dark:bg-slate-600 dark:text-white"
+              : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+          }`}
+        >
+          {v ? "任意" : "必須"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Pure visual — used directly (view mode) or wrapped by SortableSubItemRow (edit mode)
 
 function SubItemRow({
@@ -296,6 +317,7 @@ function SubItemRow({
   dragHandle,
   isDragging = false,
   allMembers,
+  onToggleVisited,
 }: {
   sub: SubActivity;
   onMapsClick?: (url: string) => void;
@@ -303,10 +325,11 @@ function SubItemRow({
   dragHandle?: React.ReactNode;
   isDragging?: boolean;
   allMembers?: string[];
+  onToggleVisited?: () => void;
 }) {
   const hasActions = !!(dragHandle || onMapsClick || onEditSub);
   return (
-    <div className={`relative rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-700/50 ${isDragging ? "opacity-0" : ""}`}>
+    <div className={`relative rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-700/50 ${sub.optional ? "border border-dashed border-slate-300 dark:border-slate-600" : ""} ${isDragging ? "opacity-0" : ""}`}>
       {/* Action buttons - absolute top-right */}
       {hasActions && (
         <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
@@ -340,9 +363,25 @@ function SubItemRow({
       )}
 
       <div className="flex items-start gap-2">
-        <span className="text-sm">{sub.icon || "📍"}</span>
+        <button
+          type="button"
+          disabled={!onToggleVisited}
+          aria-label={sub.visited ? "行った（タップで解除）" : "行った印をつける"}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onToggleVisited?.(); }}
+          className={`relative flex h-5 w-5 flex-shrink-0 items-center justify-center text-sm select-none transition-opacity ${sub.visited ? "opacity-50" : ""} ${onToggleVisited ? "cursor-pointer" : "cursor-default"}`}
+        >
+          {sub.icon || "📍"}
+          {sub.visited && (
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-green-500 text-white ring-1 ring-white dark:ring-slate-800">
+              <CheckIcon className="h-1.5 w-1.5" />
+            </span>
+          )}
+        </button>
         <div className="min-w-0 flex-1">
-          <p className={`truncate text-[13px] font-medium text-slate-700 dark:text-slate-200 ${hasActions ? "pr-11" : ""}`}>{sub.label}</p>
+          <p className={`truncate text-[13px] font-medium text-slate-700 dark:text-slate-200 ${hasActions ? "pr-11" : ""}`}>
+            {sub.label}
+          </p>
           {sub.memo && (
             <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">{sub.memo}</p>
           )}
@@ -364,13 +403,14 @@ function SubItemRow({
           )}
           {(() => {
             const hasCost = sub.cost !== undefined && sub.cost > 0;
+            const pendingForeign = !hasCost && !!sub.foreignAmount && sub.foreignAmount > 0;
             const partialMembers = (() => {
               if (!allMembers || allMembers.length === 0) return null;
               const members = sub.activityMembers;
               if (!members || members.length === 0 || members.length === allMembers.length) return null;
               return members;
             })();
-            if (!hasCost && !partialMembers) return null;
+            if (!hasCost && !pendingForeign && !partialMembers) return null;
             return (
               <div className="mt-0.5 flex items-center justify-between gap-2">
                 {hasCost ? (
@@ -379,6 +419,11 @@ function SubItemRow({
                     {sub.costType === "per_person" && (
                       <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
                     )}
+                  </p>
+                ) : pendingForeign ? (
+                  <p className="text-[11px] font-semibold text-amber-500 dark:text-amber-400">
+                    🌐 {sub.foreignAmount!.toLocaleString()}{currencySymbol(sub.foreignCurrency!)}
+                    <span className="ml-1 font-normal text-amber-400 dark:text-amber-500">未確定</span>
                   </p>
                 ) : <span />}
                 {partialMembers && (
@@ -433,6 +478,8 @@ function ActivityCard({
   onAddSub,
   onEditSub,
   onReorderSub,
+  onToggleVisited,
+  onToggleSubVisited,
 }: {
   activity: TripActivity;
   onEdit?: () => void;
@@ -443,8 +490,11 @@ function ActivityCard({
   onAddSub?: () => void;
   onEditSub?: (sub: SubActivity) => void;
   onReorderSub?: (subItems: SubActivity[]) => void;
+  onToggleVisited?: () => void;
+  onToggleSubVisited?: (sub: SubActivity) => void;
 }) {
   const isTransport = activity.type === "transport";
+  const isOptional = !!activity.optional;
   const hasSubItems = !!activity.subItems?.length;
   const subItemCount = activity.subItems?.length ?? 0;
   const canCollapseSubItems = subItemCount >= 1;
@@ -456,6 +506,7 @@ function ActivityCard({
   const titlePrClass = !showActions ? "" : actionIconCount >= 3 ? "pr-24" : actionIconCount === 2 ? "pr-16" : "pr-9";
 
   const hasCost = activity.cost !== undefined && activity.cost > 0;
+  const pendingForeign = !hasCost && !!activity.foreignAmount && activity.foreignAmount > 0;
   const partialMembers = allMembers && allMembers.length > 0 && activity.activityMembers && activity.activityMembers.length > 0 && activity.activityMembers.length !== allMembers.length
     ? activity.activityMembers
     : null;
@@ -496,6 +547,8 @@ function ActivityCard({
       className={`relative rounded-xl border bg-white p-3 dark:bg-slate-800 ${
         overlay
           ? "border-indigo-500 shadow-2xl rotate-1"
+          : isOptional
+          ? "border-dashed border-slate-300 shadow-sm dark:border-slate-600"
           : "border-slate-200/80 shadow-sm dark:border-slate-700"
       }`}
     >
@@ -539,12 +592,24 @@ function ActivityCard({
       )}
 
       <div className="flex items-start gap-3">
-        {/* Icon */}
-        <div className={`mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-xl select-none ${
-          isTransport ? "bg-blue-50 border border-blue-100 dark:bg-blue-900/30 dark:border-blue-800" : "bg-slate-50 border border-slate-100 dark:bg-slate-700 dark:border-slate-600"
-        }`}>
+        {/* Icon — 行った/行ってないの切替を兼ねる */}
+        <button
+          type="button"
+          disabled={!onToggleVisited}
+          aria-label={activity.visited ? "行った（タップで解除）" : "行った印をつける"}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onToggleVisited?.(); }}
+          className={`relative mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-xl select-none transition-opacity ${
+            isTransport ? "bg-blue-50 border border-blue-100 dark:bg-blue-900/30 dark:border-blue-800" : "bg-slate-50 border border-slate-100 dark:bg-slate-700 dark:border-slate-600"
+          } ${activity.visited ? "opacity-50" : ""} ${onToggleVisited ? "cursor-pointer" : "cursor-default"}`}
+        >
           {activity.icon || "📍"}
-        </div>
+          {activity.visited && (
+            <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-white ring-2 ring-white dark:ring-slate-800">
+              <CheckIcon className="h-2.5 w-2.5" />
+            </span>
+          )}
+        </button>
 
         {/* Content */}
         <div className="min-w-0 flex-1">
@@ -553,7 +618,9 @@ function ActivityCard({
               {activity.from} <span className="text-slate-300 dark:text-slate-600">→</span> {activity.to}
             </p>
           ) : (
-            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${titlePrClass}`}>{activity.destination}</p>
+            <p className={`font-semibold leading-snug text-slate-900 dark:text-white ${titlePrClass}`}>
+              {activity.destination}
+            </p>
           )}
           {activity.time && (
             <div className="mt-0.5 flex items-center justify-between gap-2">
@@ -580,7 +647,7 @@ function ActivityCard({
               <span className="truncate">{activity.url}</span>
             </a>
           )}
-          {(hasCost || showMembersOwnRow) && (
+          {(hasCost || pendingForeign || showMembersOwnRow) && (
             <div className="mt-1 flex items-center justify-between gap-2">
               {hasCost ? (
                 <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
@@ -588,6 +655,11 @@ function ActivityCard({
                   {activity.costType === "per_person" && (
                     <span className="ml-0.5 font-normal text-indigo-400 dark:text-indigo-500">/人</span>
                   )}
+                </p>
+              ) : pendingForeign ? (
+                <p className="text-xs font-semibold text-amber-500 dark:text-amber-400">
+                  🌐 {activity.foreignAmount!.toLocaleString()}{currencySymbol(activity.foreignCurrency!)}
+                  <span className="ml-1 font-normal text-amber-400 dark:text-amber-500">未確定</span>
                 </p>
               ) : <span />}
               {(showMembersWithCost || showMembersOwnRow) && memberBadges}
@@ -629,7 +701,7 @@ function ActivityCard({
                     </DndContext>
                   ) : (
                     activity.subItems!.map((sub) => (
-                      <SubItemRow key={sub.id} sub={sub} onMapsClick={onMapsClick} onEditSub={onEditSub} allMembers={allMembers} />
+                      <SubItemRow key={sub.id} sub={sub} onMapsClick={onMapsClick} onEditSub={onEditSub} allMembers={allMembers} onToggleVisited={onToggleSubVisited ? () => onToggleSubVisited(sub) : undefined} />
                     ))
                   )}
                 </div>
@@ -656,6 +728,8 @@ function SortableItem({
   onAddSub,
   onEditSub,
   onReorderSub,
+  onToggleVisited,
+  onToggleSubVisited,
 }: {
   activity: TripActivity;
   onEdit: () => void;
@@ -665,6 +739,8 @@ function SortableItem({
   onAddSub: () => void;
   onEditSub: (sub: SubActivity) => void;
   onReorderSub: (subItems: SubActivity[]) => void;
+  onToggleVisited?: () => void;
+  onToggleSubVisited?: (sub: SubActivity) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activityId(activity),
@@ -733,6 +809,8 @@ function SortableItem({
         onAddSub={isEditMode ? undefined : onAddSub}
         onEditSub={isEditMode ? undefined : onEditSub}
         onReorderSub={onReorderSub}
+        onToggleVisited={isEditMode ? undefined : onToggleVisited}
+        onToggleSubVisited={isEditMode ? undefined : onToggleSubVisited}
       />
     </li>
   );
@@ -806,6 +884,11 @@ type ActivityFormProps = {
   splitAmounts: Record<string, number>; setSplitAmounts: (v: Record<string, number>) => void;
   paidBy: string; setPaidBy: (v: string) => void;
   settled: boolean; setSettled: (v: boolean) => void;
+  optional: boolean; setOptional: (v: boolean) => void;
+  foreignAmount: number; setForeignAmount: (v: number) => void;
+  foreignCurrency: string; setForeignCurrency: (v: string) => void;
+  foreignRate: number; setForeignRate: (v: number) => void;
+  defaultCurrency?: string;
   allMembers: string[];
   placeCategories: PlaceCategory[];
   daySelector?: React.ReactNode;
@@ -853,7 +936,11 @@ type CostSectionProps = {
   splitAmounts: Record<string, number>; setSplitAmounts: (v: Record<string, number>) => void;
   paidBy: string; setPaidBy: (v: string) => void;
   settled: boolean; setSettled: (v: boolean) => void;
+  foreignAmount: number; setForeignAmount: (v: number) => void;
+  foreignCurrency: string; setForeignCurrency: (v: string) => void;
+  foreignRate: number; setForeignRate: (v: number) => void;
   allMembers: string[];
+  defaultCurrency?: string;
 };
 
 // 参加メンバー・費用・支払った人・割り勘方法 ── メイン予定・サブ予定の両方のフォームで使う共通ブロック
@@ -866,8 +953,13 @@ function CostSection({
   splitAmounts, setSplitAmounts,
   paidBy, setPaidBy,
   settled, setSettled,
+  foreignAmount, setForeignAmount,
+  foreignCurrency, setForeignCurrency,
+  foreignRate, setForeignRate,
   allMembers,
+  defaultCurrency,
 }: CostSectionProps) {
+  const [showForeign, setShowForeign] = useState(!!foreignAmount);
   return (
     <>
       {/* 参加メンバー */}
@@ -948,6 +1040,69 @@ function CostSection({
           placeholder={costType === "per_person" ? "例）1000（1人あたり）" : "例）4000（全員分）"}
           min={0}
         />
+        <button
+          type="button"
+          onClick={() => {
+            if (!showForeign && !foreignCurrency) setForeignCurrency(defaultCurrency ?? "USD");
+            setShowForeign((v) => !v);
+          }}
+          className="mt-1 block w-full text-right text-[11px] font-semibold text-indigo-500 hover:text-indigo-600"
+        >
+          {showForeign ? "外貨入力を閉じる" : "🌐 外貨で入力する（レートは後で確定）"}
+        </button>
+        {showForeign && (
+          <div className="mt-2 space-y-2 rounded-xl border border-dashed border-slate-300 p-3 dark:border-slate-600">
+            <div className="flex gap-2">
+              <input
+                type="number"
+                className={`${inputCls} flex-1`}
+                value={foreignAmount || ""}
+                onChange={(e) => {
+                  const amount = parseFloat(e.target.value) || 0;
+                  setForeignAmount(amount);
+                  setCost(foreignRate ? Math.round(amount * foreignRate) : 0);
+                }}
+                placeholder="例）20000"
+                min={0}
+              />
+              <select
+                value={foreignCurrency}
+                onChange={(e) => setForeignCurrency(e.target.value)}
+                className="w-32 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-[15px] text-slate-900 outline-none ring-indigo-500 focus:bg-white focus:ring-2 transition-all dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:focus:bg-slate-600"
+              >
+                {CURRENCY_CODES.map((code) => (
+                  <option key={code} value={code}>{CURRENCY_NAME[code]}（{currencySymbol(code)}）</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                レート（1{CURRENCY_NAME[foreignCurrency] ?? foreignCurrency}＝何円）
+              </label>
+              <input
+                type="number"
+                className={inputCls}
+                value={foreignRate || ""}
+                onChange={(e) => {
+                  const rate = parseFloat(e.target.value) || 0;
+                  setForeignRate(rate);
+                  setCost(rate && foreignAmount ? Math.round(foreignAmount * rate) : 0);
+                }}
+                placeholder="例）9.2（あとで確定でOK）"
+                min={0}
+                step="0.01"
+              />
+            </div>
+            {foreignAmount > 0 && !foreignRate && (
+              <p className="text-[11px] text-amber-500">レート未確定のため、合計・割り勘には含まれません</p>
+            )}
+            {foreignAmount > 0 && foreignRate > 0 && (
+              <p className="text-[11px] text-green-600 dark:text-green-400">
+                確定：{foreignAmount.toLocaleString()}{currencySymbol(foreignCurrency)} × {foreignRate} ＝ ¥{Math.round(foreignAmount * foreignRate).toLocaleString()}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 支払った人 */}
@@ -1115,6 +1270,11 @@ function ActivityForm({
   splitAmounts, setSplitAmounts,
   paidBy, setPaidBy,
   settled, setSettled,
+  optional, setOptional,
+  foreignAmount, setForeignAmount,
+  foreignCurrency, setForeignCurrency,
+  foreignRate, setForeignRate,
+  defaultCurrency,
   daySelector,
   allMembers,
   placeCategories,
@@ -1198,7 +1358,10 @@ function ActivityForm({
       {/* Place: destination name */}
       {activityType === "place" && (
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">場所名 *</label>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">場所名 *</label>
+            <OptionalPill optional={optional} setOptional={setOptional} />
+          </div>
           <input
             className={inputCls}
             value={dayDestination}
@@ -1213,17 +1376,20 @@ function ActivityForm({
         <div>
           <div className="mb-1 flex items-center justify-between">
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">出発地 → 目的地 *</label>
-            {setAddReturnTrip && (
-              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-                <input
-                  type="checkbox"
-                  checked={addReturnTrip ?? false}
-                  onChange={(e) => setAddReturnTrip(e.target.checked)}
-                  className="h-3.5 w-3.5 rounded accent-indigo-500"
-                />
-                帰りの移動を追加
-              </label>
-            )}
+            <div className="flex items-center gap-2">
+              {setAddReturnTrip && (
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+                  <input
+                    type="checkbox"
+                    checked={addReturnTrip ?? false}
+                    onChange={(e) => setAddReturnTrip(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded accent-indigo-500"
+                  />
+                  帰りの移動を追加
+                </label>
+              )}
+              <OptionalPill optional={optional} setOptional={setOptional} />
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
@@ -1423,7 +1589,11 @@ function ActivityForm({
               splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
               paidBy={paidBy} setPaidBy={setPaidBy}
               settled={settled} setSettled={setSettled}
+              foreignAmount={foreignAmount} setForeignAmount={setForeignAmount}
+              foreignCurrency={foreignCurrency} setForeignCurrency={setForeignCurrency}
+              foreignRate={foreignRate} setForeignRate={setForeignRate}
               allMembers={allMembers}
+              defaultCurrency={defaultCurrency}
             />
           </div>
         )}
@@ -1510,6 +1680,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [copiedAppUrl, setCopiedAppUrl] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedSettlement, setCopiedSettlement] = useState(false);
+  const [pendingRateInputs, setPendingRateInputs] = useState<Record<string, string>>({});
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
 
   const handleShare = async () => {
@@ -1602,6 +1773,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [splitAmounts, setSplitAmounts] = useState<Record<string, number>>({});
   const [paidBy, setPaidBy] = useState("");
   const [settled, setSettled] = useState(false);
+  const [optional, setOptional] = useState(false);
+  const [foreignAmount, setForeignAmount] = useState(0);
+  const [foreignCurrency, setForeignCurrency] = useState("");
+  const [foreignRate, setForeignRate] = useState(0);
   const [editingActivity, setEditingActivity] = useState<TripActivity | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -1639,6 +1814,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   const [subSplitAmounts, setSubSplitAmounts] = useState<Record<string, number>>({});
   const [subPaidBy, setSubPaidBy] = useState("");
   const [subSettled, setSubSettled] = useState(false);
+  const [subOptional, setSubOptional] = useState(false);
+  const [subForeignAmount, setSubForeignAmount] = useState(0);
+  const [subForeignCurrency, setSubForeignCurrency] = useState("");
+  const [subForeignRate, setSubForeignRate] = useState(0);
   const [subFormError, setSubFormError] = useState("");
   const [subShowCostOptional, setSubShowCostOptional] = useState(false);
   const [subShowMemoOptional, setSubShowMemoOptional] = useState(false);
@@ -1658,7 +1837,7 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setStartTime(""); setEndTime("");
     setDayIcon(placeCategories[0]?.icon ?? DEFAULT_PLACE_CATEGORIES[0].icon);
     setDayDestination(""); setFromPlace(""); setToPlace("");
-    setMemo(""); setBusinessHoursStart(""); setBusinessHoursEnd(""); setUrl(""); setCost(0); setCostType("total"); setActivityMembers([]); setSplitMode("equal"); setSplitRatios({}); setSplitAmounts({}); setPaidBy(""); setSettled(false); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
+    setMemo(""); setBusinessHoursStart(""); setBusinessHoursEnd(""); setUrl(""); setCost(0); setCostType("total"); setActivityMembers([]); setSplitMode("equal"); setSplitRatios({}); setSplitAmounts({}); setPaidBy(""); setSettled(false); setOptional(false); setForeignAmount(0); setForeignCurrency(""); setForeignRate(0); setAddDay(0); setEditDay(0); setFormError(""); setAddReturnTrip(false);
   };
 
   const fmtTime = (s: string, e: string) => {
@@ -1758,6 +1937,66 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
   });
   const totalCost = costItems.reduce((s, c) => s + activityTotalCost(c.data), 0);
 
+  // レート未確定の外貨費用（カードごとにレートが違うので、まとめて一括確定はせず1件ずつ確定する）
+  const pendingForeignItems: { key: string; day: number; icon: string; label: string; parentLabel?: string; foreignAmount: number; foreignCurrency: string }[] = tripData.days.flatMap((a) => {
+    const items: { key: string; day: number; icon: string; label: string; parentLabel?: string; foreignAmount: number; foreignCurrency: string }[] = [];
+    if (!a.cost && a.foreignAmount && a.foreignAmount > 0) {
+      items.push({
+        key: activityId(a),
+        day: a.day,
+        icon: a.icon,
+        label: a.type === "transport" && a.from && a.to ? `${a.from} → ${a.to}` : a.destination,
+        foreignAmount: a.foreignAmount,
+        foreignCurrency: a.foreignCurrency ?? "",
+      });
+    }
+    (a.subItems ?? []).forEach((sub) => {
+      if (!sub.cost && sub.foreignAmount && sub.foreignAmount > 0) {
+        items.push({
+          key: `${activityId(a)}::${sub.id}`,
+          day: a.day,
+          icon: sub.icon || "📍",
+          label: sub.label,
+          parentLabel: a.destination,
+          foreignAmount: sub.foreignAmount,
+          foreignCurrency: sub.foreignCurrency ?? "",
+        });
+      }
+    });
+    return items;
+  });
+
+  function confirmForeignRate(key: string, rate: number) {
+    if (!rate || rate <= 0) return;
+    updateTrip(tripData.id, (current) => ({
+      ...current,
+      days: current.days.map((d) => {
+        const id = activityId(d);
+        if (key === id) {
+          if (!d.foreignAmount) return d;
+          return { ...d, foreignRate: rate, cost: Math.round(d.foreignAmount * rate) };
+        }
+        if (key.startsWith(`${id}::`) && d.subItems) {
+          const subId = key.slice(id.length + 2);
+          return {
+            ...d,
+            subItems: d.subItems.map((s) =>
+              s.id === subId && s.foreignAmount
+                ? { ...s, foreignRate: rate, cost: Math.round(s.foreignAmount * rate) }
+                : s
+            ),
+          };
+        }
+        return d;
+      }),
+    }));
+    setPendingRateInputs((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   // Countdown
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tripStart = tripData.startDate ? new Date(tripData.startDate) : null;
@@ -1851,6 +2090,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSplitAmounts(activity.splitAmounts ?? {});
     setPaidBy(activity.paidBy ?? "");
     setSettled(activity.settled ?? false);
+    setOptional(activity.optional ?? false);
+    setForeignAmount(activity.foreignAmount ?? 0);
+    setForeignCurrency(activity.foreignCurrency ?? "");
+    setForeignRate(activity.foreignRate ?? 0);
     setEditDay(activity.day ?? 0);
     setIsEditOpen(true);
   }
@@ -1893,6 +2136,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               splitAmounts: useSplit && splitMode === "amount" && Object.keys(cleanSplit).length > 0 ? cleanSplit : undefined,
               paidBy: cost > 0 && paidBy ? paidBy : undefined,
               settled: cost > 0 && settled ? true : undefined,
+              optional: optional ? true : undefined,
+              foreignAmount: foreignAmount > 0 ? foreignAmount : undefined,
+              foreignCurrency: foreignAmount > 0 ? foreignCurrency : undefined,
+              foreignRate: foreignAmount > 0 && foreignRate > 0 ? foreignRate : undefined,
             }
           : d
       ),
@@ -1940,6 +2187,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
           splitAmounts: useSplit && splitMode === "amount" && Object.keys(cleanSplit).length > 0 ? cleanSplit : undefined,
           paidBy: cost > 0 && paidBy ? paidBy : undefined,
           settled: cost > 0 && settled ? true : undefined,
+          optional: optional ? true : undefined,
+          foreignAmount: foreignAmount > 0 ? foreignAmount : undefined,
+          foreignCurrency: foreignAmount > 0 ? foreignCurrency : undefined,
+          foreignRate: foreignAmount > 0 && foreignRate > 0 ? foreignRate : undefined,
         },
         ...(activityType === "transport" && addReturnTrip && fromPlace && toPlace ? [{
           id: genId(),
@@ -1975,6 +2226,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSubSplitAmounts({});
     setSubPaidBy("");
     setSubSettled(false);
+    setSubOptional(false);
+    setSubForeignAmount(0);
+    setSubForeignCurrency("");
+    setSubForeignRate(0);
     setSubFormError("");
     setSubShowCostOptional(false);
     setSubShowMemoOptional(false);
@@ -2001,6 +2256,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     setSubSplitAmounts(sub.splitAmounts ?? {});
     setSubPaidBy(sub.paidBy ?? "");
     setSubSettled(sub.settled ?? false);
+    setSubOptional(sub.optional ?? false);
+    setSubForeignAmount(sub.foreignAmount ?? 0);
+    setSubForeignCurrency(sub.foreignCurrency ?? "");
+    setSubForeignRate(sub.foreignRate ?? 0);
     setSubFormError("");
     setSubShowCostOptional(!!(sub.cost || sub.activityMembers?.length || sub.paidBy));
     setSubShowMemoOptional(!!(sub.memo || sub.url || sub.businessHours));
@@ -2032,6 +2291,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
       splitAmounts: useSplit && subSplitMode === "amount" && Object.keys(cleanAmounts).length > 0 ? cleanAmounts : undefined,
       paidBy: subCost > 0 && subPaidBy ? subPaidBy : undefined,
       settled: subCost > 0 && subSettled ? true : undefined,
+      optional: subOptional ? true : undefined,
+      foreignAmount: subForeignAmount > 0 ? subForeignAmount : undefined,
+      foreignCurrency: subForeignAmount > 0 ? subForeignCurrency : undefined,
+      foreignRate: subForeignAmount > 0 && subForeignRate > 0 ? subForeignRate : undefined,
     };
     updateTrip(tripData.id, (current) => ({
       ...current,
@@ -2061,6 +2324,22 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
     updateTrip(tripData.id, (current) => ({
       ...current,
       days: current.days.map((d) => (d !== activity ? d : { ...d, subItems })),
+    }));
+  }
+
+  function toggleVisited(activity: TripActivity) {
+    updateTrip(tripData.id, (current) => ({
+      ...current,
+      days: current.days.map((d) => (d !== activity ? d : { ...d, visited: !d.visited })),
+    }));
+  }
+
+  function toggleSubVisited(activity: TripActivity, sub: SubActivity) {
+    updateTrip(tripData.id, (current) => ({
+      ...current,
+      days: current.days.map((d) =>
+        d !== activity ? d : { ...d, subItems: (d.subItems ?? []).map((s) => (s.id === sub.id ? { ...s, visited: !s.visited } : s)) }
+      ),
     }));
   }
 
@@ -2362,6 +2641,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                                 onAddSub={() => openAddSub(activity)}
                                 onEditSub={(sub) => openEditSub(activity, sub)}
                                 onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
+                                onToggleVisited={() => toggleVisited(activity)}
+                                onToggleSubVisited={(sub) => toggleSubVisited(activity, sub)}
                               />
                             ))}
                           </ul>
@@ -2400,6 +2681,8 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                             onAddSub={() => openAddSub(activity)}
                             onEditSub={(sub) => openEditSub(activity, sub)}
                             onReorderSub={(subItems) => reorderSubItems(activity, subItems)}
+                            onToggleVisited={() => toggleVisited(activity)}
+                            onToggleSubVisited={(sub) => toggleSubVisited(activity, sub)}
                           />
                         ))}
                       </ul>
@@ -2689,6 +2972,47 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                   <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">旅程タブで各アクティビティに費用を入力してください。</p>
                 )}
               </div>
+
+              {/* Pending foreign-currency costs */}
+              {pendingForeignItems.length > 0 && (
+                <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200/60 dark:bg-slate-800 dark:ring-slate-700">
+                  <div className="border-b border-slate-100 bg-amber-50/80 px-4 py-2.5 dark:border-slate-700 dark:bg-amber-900/10">
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-400">🌐 未確定の費用（{pendingForeignItems.length}件）</p>
+                  </div>
+                  <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {pendingForeignItems.map((item) => (
+                      <li key={item.key} className="flex items-center gap-2 px-4 py-3">
+                        <span className="text-lg">{item.icon}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                            Day{item.day} {item.parentLabel && <span className="text-slate-400">{item.parentLabel} ・</span>} {item.label}
+                          </p>
+                          <p className="text-xs font-semibold text-amber-500 dark:text-amber-400">
+                            {item.foreignAmount.toLocaleString()}{currencySymbol(item.foreignCurrency)}
+                          </p>
+                        </div>
+                        <input
+                          type="number"
+                          value={pendingRateInputs[item.key] ?? ""}
+                          onChange={(e) => setPendingRateInputs((prev) => ({ ...prev, [item.key]: e.target.value }))}
+                          placeholder="レート"
+                          min={0}
+                          step="0.01"
+                          className="w-20 shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-right text-sm outline-none ring-indigo-400 focus:ring-2 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => confirmForeignRate(item.key, parseFloat(pendingRateInputs[item.key] ?? "") || 0)}
+                          disabled={!(parseFloat(pendingRateInputs[item.key] ?? "") > 0)}
+                          className="shrink-0 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-30"
+                        >
+                          確定
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Per member spending */}
               {(tripData.members?.length ?? 0) >= 2 && totalCost > 0 && (() => {
@@ -3246,6 +3570,11 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
             paidBy={paidBy} setPaidBy={setPaidBy}
             settled={settled} setSettled={setSettled}
+            optional={optional} setOptional={setOptional}
+            foreignAmount={foreignAmount} setForeignAmount={setForeignAmount}
+            foreignCurrency={foreignCurrency} setForeignCurrency={setForeignCurrency}
+            foreignRate={foreignRate} setForeignRate={setForeignRate}
+            defaultCurrency={tripData.destinationCountry ? COUNTRY_INFO[tripData.destinationCountry]?.currency : undefined}
             allMembers={tripData.members ?? []}
             placeCategories={placeCategories}
             daySelector={
@@ -3414,6 +3743,11 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
             splitAmounts={splitAmounts} setSplitAmounts={setSplitAmounts}
             paidBy={paidBy} setPaidBy={setPaidBy}
             settled={settled} setSettled={setSettled}
+            optional={optional} setOptional={setOptional}
+            foreignAmount={foreignAmount} setForeignAmount={setForeignAmount}
+            foreignCurrency={foreignCurrency} setForeignCurrency={setForeignCurrency}
+            foreignRate={foreignRate} setForeignRate={setForeignRate}
+            defaultCurrency={tripData.destinationCountry ? COUNTRY_INFO[tripData.destinationCountry]?.currency : undefined}
             allMembers={tripData.members ?? []}
             placeCategories={placeCategories}
             daySelector={
@@ -3512,7 +3846,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
               ))}
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">名前</label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">名前</label>
+                <OptionalPill optional={subOptional} setOptional={setSubOptional} />
+              </div>
               <input
                 className={inputCls}
                 value={subLabel}
@@ -3626,6 +3963,10 @@ export function TripDetailClient({ tripId }: { tripId: string }) {
                     splitAmounts={subSplitAmounts} setSplitAmounts={setSubSplitAmounts}
                     paidBy={subPaidBy} setPaidBy={setSubPaidBy}
                     settled={subSettled} setSettled={setSubSettled}
+                    foreignAmount={subForeignAmount} setForeignAmount={setSubForeignAmount}
+                    foreignCurrency={subForeignCurrency} setForeignCurrency={setSubForeignCurrency}
+                    foreignRate={subForeignRate} setForeignRate={setSubForeignRate}
+                    defaultCurrency={tripData.destinationCountry ? COUNTRY_INFO[tripData.destinationCountry]?.currency : undefined}
                     allMembers={tripData.members ?? []}
                   />
                 </div>

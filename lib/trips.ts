@@ -7,6 +7,9 @@ export type CostFields = {
   splitRatios?: Record<string, number>;     // splitMode: "ratio" 用（メンバー→比率）
   splitAmounts?: Record<string, number>;    // splitMode: "amount" 用（メンバー→金額）
   settled?: boolean;          // true = this expense is already settled, exclude from settlement calc
+  foreignAmount?: number;     // 外貨での仮入力金額（旅行中はレート未確定のことが多い）
+  foreignCurrency?: string;   // ISO 4217コード（例: "KRW"）
+  foreignRate?: number;       // 確定レート（1外貨＝何円）。未設定の間はcostに反映されず合計・割り勘から除外
 };
 
 export type SubActivity = CostFields & {
@@ -16,6 +19,8 @@ export type SubActivity = CostFields & {
   memo?: string;
   businessHours?: string; // 例）10:00〜20:00
   url?: string; // 公式サイト・予約ページなどへのリンク
+  optional?: boolean; // true = 「行けたらいいな」枠。未設定/false = 必ず行く
+  visited?: boolean; // true = 実際に行った
 };
 
 export type TripActivity = CostFields & {
@@ -31,6 +36,8 @@ export type TripActivity = CostFields & {
   businessHours?: string; // 例）10:00〜20:00
   url?: string; // 公式サイト・予約ページなどへのリンク
   subItems?: SubActivity[];   // このカードの中に入れ子にした小さな予定（例: 明洞の中のお昼ご飯・ショッピング）
+  optional?: boolean; // true = 「行けたらいいな」枠。未設定/false = 必ず行く
+  visited?: boolean; // true = 実際に行った
 };
 
 export type PackingItem = {

@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.16.0";
+export const APP_VERSION = "1.18.0";
 
 export type ChangelogEntry = {
   version: string;
@@ -8,6 +8,23 @@ export type ChangelogEntry = {
 };
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: "1.17.0",
+    date: "2026-09-15",
+    title: "必須/任意のステータスを追加・外貨での費用入力",
+    changes: [
+      "予定・サブ予定に「必須／任意」を設定可能に",
+      "費用を外貨で仮入力し、レート確定前は合計・割り勘に含めないように",
+    ],
+  },
+  {
+    version: "1.16.0",
+    date: "2026-09-12",
+    title: "メモタブの整理・保存時の不具合修正",
+    changes: [
+      "メモタブを「メモ」「旅程メモ」のサブタブに分割",
+    ],
+  },
   {
     version: "1.15.0",
     date: "2026-09-12",
